@@ -1,0 +1,188 @@
+name: Android CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - '**' # Semua branch akan menjalankan CI/CD
+
+  pull_request:
+    branches:
+      - development
+      - master
+
+jobs:
+  setup-env:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Decode LaundryHub.jks
+        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/laundry_hub_key.jks
+
+      - name: Decode LaundryHub.jks
+        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/auth_token.json
+
+      - name: Decode google-services.json
+        run: echo "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > ./app/google-services.json
+
+      - name: Decode google-sheet-key.json
+        run: echo "${{ secrets.GSHEET_KEY }}" | base64 --decode > ./app/src/main/res/raw/gsheetkey.json
+
+      - name: Decode service-account.json
+        run: echo "${{ secrets.SERVICE_ACC }}" | base64 --decode > ./app/src/main/res/raw/serviceacc.json
+
+      # Step 3: Create config.properties
+      - name: Create config.properties
+        run: |
+          echo "WEB_CLIENT_ID=${{ secrets.WEB_CLIENT_ID }}" >> config.properties
+          echo "SPREAD_SHEET_ID=${{ secrets.SPREAD_SHEET_ID }}" >> config.properties
+          echo "MYAPP_RELEASE_KEYSTORE_FILE=${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}" >> config.properties
+          echo "MYAPP_RELEASE_KEYSTORE_PASSWORD=${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}" >> config.properties
+          echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}" >> config.properties
+          echo "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}" >> config.properties
+
+      # Step 4: Upload environment files as artifact
+      - name: Upload environment files
+        uses: actions/upload-artifact@v4
+        with:
+          name: env-files
+          path: |
+            ./app/google-services.json
+            ./config.properties
+            ./app/laundry_hub_key.jks
+            ./app/src/main/res/raw/gsheetkey.json
+            ./app/src/main/res/raw/serviceacc.json
+            ./app/auth_token.json
+
+  firebase-distribution:
+    if: github.event.pull_request.base.ref == 'master'
+    runs-on: ubuntu-latest
+    needs: setup-env
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: env-files
+
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x ./gradlew
+
+      - name: Build APK
+        run: ./gradlew assembleRelease
+
+      - name: Distribute APK to Firebase App Distribution
+        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        with:
+          appId: ${{ secrets.FIREBASE_APP_ID }}
+          serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
+          groups: internal-tester
+          file: app/build/outputs/apk/release/app-release.apk
+
+  github-release:
+    if: github.event.pull_request.base.ref == 'development' # Berjalan hanya ketika PR ke development
+    runs-on: ubuntu-latest
+    needs: setup-env # Pastikan setup-env selesai sebelum job ini berjalan
+
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: Download environment files
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: env-files
+
+      # Step 3: Setup JDK
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      # Step 4: Grant execute permission for Gradlew
+      - name: Grant execute permission for Gradlew
+        run: chmod +x ./gradlew
+
+      # Step 5: Build APK (Release)
+      - name: Build APK (Release)
+        run: ./gradlew assembleRelease
+
+      # Step 6: Install GitHub CLI
+      - name: Install GitHub CLI
+        run: sudo apt-get install gh
+
+      # Step 7: Authenticate GitHub CLI
+      - name: Authenticate GitHub CLI
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+
+      # Step 8: Create GitHub Release
+      - name: Create GitHub Release with CLI
+        run: |
+          gh release create ${{ github.ref_name }} \
+          "app/build/outputs/apk/release/app-release.apk" \
+          --title "Release for ${{ github.ref_name }}" \
+          --notes "Automated release from GitHub Actions" \
+          --prerelease
+
+  code-coverage:
+    runs-on: ubuntu-latest
+    needs: setup-env
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Download environment files
+        uses: actions/download-artifact@v4
+        with:
+          name: env-files
+
+      - name: Setup JDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+
+      - name: Grant execute permission for Gradlew
+        run: chmod +x ./gradlew
+
+      - name: Cache Gradle dependencies
+        uses: actions/cache@v3
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-gradle
+
+      - name: Run tests and generate Jacoco report
+        run: ./gradlew clean test jacocoTestReport
+
+      - name: Check if coverage report exists
+        run: ls -lh app/build/reports/jacoco/jacocoTestReport/
+
+      - name: Upload Coverage to Coveralls
+        env:
+          COVERALLS_REPO_TOKEN: ${{ secrets.COVERALLS_REPO_TOKEN }}
+        run: ./gradlew coveralls

@@ -1,0 +1,181 @@
+plugins {
+    id 'com.android.application'
+    id 'com.google.dagger.hilt.android' version '2.50'
+    id 'com.google.devtools.ksp' version '1.9.23-1.0.20'
+    id 'org.jetbrains.kotlin.android'
+    id 'com.google.gms.google-services'
+    id 'com.google.firebase.crashlytics'
+    id 'jacoco'
+    id 'com.github.kt3k.coveralls' version '2.12.0'
+}
+
+def apikeyPropertiesFile = rootProject.file("config.properties")
+def apikeyProperties = new Properties()
+
+if (apikeyPropertiesFile.exists()) {
+    apikeyProperties.load(new FileInputStream(apikeyPropertiesFile))
+}
+
+android {
+    namespace 'com.raylabs.laundryhub'
+    compileSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
+    defaultConfig {
+        applicationId "com.raylabs.laundryhub"
+        minSdkVersion 23
+        targetSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
+        versionCode 1
+        versionName "1.0"
+        testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
+        vectorDrawables {
+            useSupportLibrary = true
+        }
+
+        buildConfigField("String", "SPREAD_SHEET_ID", "\"${apikeyProperties["SPREAD_SHEET_ID"] as String}\"")
+        buildConfigField("String", "WEB_CLIENT_ID", "\"${apikeyProperties["WEB_CLIENT_ID"] as String}\"")
+    }
+
+    signingConfigs {
+        release {
+            storeFile file(apikeyProperties["MYAPP_RELEASE_KEYSTORE_FILE"])
+            storePassword apikeyProperties["MYAPP_RELEASE_KEYSTORE_PASSWORD"]
+            keyAlias apikeyProperties["MYAPP_RELEASE_KEY_ALIAS"]
+            keyPassword apikeyProperties["MYAPP_RELEASE_KEY_PASSWORD"]
+        }
+    }
+
+    buildTypes {
+        release {
+            signingConfig signingConfigs.release
+            minifyEnabled true
+            proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            debuggable false
+            shrinkResources true
+        }
+        debug {
+            minifyEnabled false
+            debuggable true
+        }
+    }
+
+    buildFeatures {
+        compose true
+        buildConfig true
+    }
+
+    composeOptions {
+        kotlinCompilerExtensionVersion compose_version
+        kotlinCompilerExtensionVersion = "1.5.13"
+    }
+
+    kotlinOptions {
+        jvmTarget = "1.8"
+    }
+
+    packagingOptions {
+        resources {
+            excludes += '/META-INF/{AL2.0,LGPL2.1}'
+            excludes += 'META-INF/INDEX.LIST'
+            excludes += 'META-INF/DEPENDENCIES'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+
+    hilt {
+        enableAggregatingTask = false
+    }
+}
+
+jacoco {
+    toolVersion = "0.8.8"
+}
+
+tasks.withType(Test).configureEach {
+    finalizedBy jacocoTestReport
+}
+
+tasks.register("jacocoTestReport", JacocoReport) {
+    dependsOn("testDebugUnitTest")
+
+    reports {
+        xml.required = true  // Coveralls membutuhkan format XML
+        html.required = true
+        csv.required = false
+        xml.outputLocation.set(file("$buildDir/reports/jacoco/test/jacocoTestReport.xml"))
+    }
+
+    def fileFilter = [
+            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*'
+    ]
+
+    def javaClasses = fileTree(dir: "$buildDir/intermediates/javac/debug", excludes: fileFilter)
+    def kotlinClasses = fileTree(dir: "$buildDir/tmp/kotlin-classes/debug", excludes: fileFilter)
+
+    sourceDirectories.setFrom files("src/main/java", "src/main/kotlin")
+    classDirectories.setFrom files([javaClasses, kotlinClasses])
+    executionData.setFrom fileTree(dir: buildDir, includes: ["jacoco/testDebugUnitTest.exec"])
+}
+
+dependencies {
+    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    //Need To Upgrade Gradle Plugin if we need to update the library
+    implementation 'androidx.core:core-ktx:1.12.0'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.5'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
+    implementation 'com.google.android.material:material:1.9.0'
+
+    //SplashScreen
+    implementation "androidx.core:core-splashscreen:1.0.1"
+
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2"
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.2"
+
+    //Coil
+    implementation "io.coil-kt:coil-compose:2.5.0"
+
+
+
+    //Compose
+    implementation "androidx.compose.ui:ui:$compose_version"
+    implementation "androidx.navigation:navigation-compose:$nav_version"
+    implementation "androidx.compose.material:material:$materialui_version"
+    implementation "androidx.activity:activity-compose:$activitycompose_version"
+    debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+    implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:31.0.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.firebaseui:firebase-ui-auth:7.2.0")
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
+
+
+    // Google API Client & Sheets
+    implementation 'com.google.api-client:google-api-client-android:1.35.0'
+    implementation 'com.google.api-client:google-api-client-gson:1.35.0'
+    implementation 'com.google.http-client:google-http-client-android:1.41.5'
+    implementation "com.google.apis:google-api-services-sheets:v4-rev20250415-2.0.0"
+    implementation 'com.google.android.gms:play-services-auth:21.3.0'
+    implementation 'com.google.oauth-client:google-oauth-client-jetty:1.35.0'
+    implementation 'com.google.code.gson:gson:2.11.0'
+
+    // Hilt
+    implementation 'com.google.dagger:hilt-android:2.50'
+    ksp 'com.google.dagger:hilt-compiler:2.50'
+    implementation "androidx.hilt:hilt-navigation-compose:1.2.0"
+
+    // Coroutine
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
+    implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1"
+
+    //Data store
+    /* v1.5.0 not support booleanPreferencesKey (?) */
+    implementation "androidx.datastore:datastore-preferences:1.1.2"
+}
