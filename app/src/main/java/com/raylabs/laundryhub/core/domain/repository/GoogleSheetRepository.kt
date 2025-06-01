@@ -1,8 +1,8 @@
 package com.raylabs.laundryhub.core.domain.repository
 
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
 import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData

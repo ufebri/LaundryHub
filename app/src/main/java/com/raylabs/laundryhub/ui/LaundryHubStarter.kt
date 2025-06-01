@@ -20,7 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.history.HistoryScreen
+import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.navigation.AdminScreen
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
@@ -45,7 +45,7 @@ fun LaundryHubStarter(
                 HomeScreen()
             }
             composable(BottomNavItem.History.screen_route) {
-                HistoryScreen()
+                HistoryScreenView()
             }
             composable(BottomNavItem.Order.screen_route) {
                 OrderScreen()
