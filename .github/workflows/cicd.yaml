@@ -83,7 +83,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '18'
 
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
@@ -120,7 +120,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '18'
 
       # Step 4: Grant execute permission for Gradlew
       - name: Grant execute permission for Gradlew
@@ -166,7 +166,7 @@ jobs:
         uses: actions/setup-java@v3
         with:
           distribution: 'zulu'
-          java-version: '11'
+          java-version: '18'
 
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew

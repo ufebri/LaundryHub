@@ -9,5 +9,5 @@ sealed class BottomNavItem(var title: String, var icon: Int, var screenRoute: St
     object History : BottomNavItem("History", R.drawable.ic_history, "history")
     object Order : BottomNavItem("Order", R.drawable.ic_order, "order")
     object Inventory : BottomNavItem("Inventory", R.drawable.ic_assignment, "inventory")
-    object Admin : BottomNavItem("Admin", R.drawable.ic_admin, "admin")
+    object Profile : BottomNavItem("Profile", R.drawable.ic_admin, "profile")
 }

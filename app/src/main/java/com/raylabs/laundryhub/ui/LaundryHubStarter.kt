@@ -23,9 +23,9 @@ import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
-import com.raylabs.laundryhub.ui.navigation.AdminScreen
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.navigation.OrderScreen
+import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 
 @Composable
 fun LaundryHubStarter(
@@ -53,8 +53,8 @@ fun LaundryHubStarter(
             composable(BottomNavItem.Inventory.screenRoute) {
                 InventoryScreenView()
             }
-            composable(BottomNavItem.Admin.screenRoute) {
-                AdminScreen()
+            composable(BottomNavItem.Profile.screenRoute) {
+                ProfileScreenView()
             }
         }
     }
@@ -73,7 +73,7 @@ fun BottomBar(navController: NavHostController, modifier: Modifier = Modifier) {
             BottomNavItem.History,
             BottomNavItem.Order,
             BottomNavItem.Inventory,
-            BottomNavItem.Admin
+            BottomNavItem.Profile
         )
         BottomNavigation {
             val navBackStackEntry by navController.currentBackStackEntryAsState()
