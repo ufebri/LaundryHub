@@ -19,7 +19,7 @@ fun List<TransactionData>.toUI(): List<TodayActivityItem> {
     var mList = arrayListOf<TodayActivityItem>()
     this.map {
         val mData = TodayActivityItem(
-            id = it.id,
+            id = it.orderID,
             name = it.name,
             totalPrice = "Rp ${it.totalPrice.ifEmpty { "0" }},-",
             status = it.paidDescription(),

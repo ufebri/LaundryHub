@@ -14,6 +14,6 @@ class AuthRepositoryImpl(
 
     override fun getCurrentUser(): User? = firebaseDataSource.getCurrentUser()
 
-    override suspend fun signOut() = firebaseDataSource.signOut()
+    override suspend fun signOut(): Boolean = firebaseDataSource.signOut()
 
 }

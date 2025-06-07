@@ -37,6 +37,9 @@ class FirebaseDataSource(
         }
     }
 
-    fun signOut() = firebaseAuth.signOut()
+    fun signOut(): Boolean {
+        firebaseAuth.signOut()
+        return true
+    }
 
 }

@@ -5,16 +5,40 @@ import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
 
 data class TransactionData(
-    val id: String,
+    val orderID: String,
     val date: String,
     val name: String,
+    val weight: String,
     val pricePerKg: String,
     val totalPrice: String,
-    val paymentStatus: String,
+    val paymentStatus: String,  // "(lunas/belum)"
     val packageType: String,
     val remark: String,
-    val paymentMethod: String
+    val paymentMethod: String,
+    val phoneNumber: String,
+    val orderStatus: String,
+    val station: String,
+    val dueDate: String
 )
+
+fun Map<String, String>.toIncomeList(): TransactionData {
+    return TransactionData(
+        orderID        = (this["orderID"] ?: "").toString(),
+        date           = (this["Date"] ?: "").toString(),
+        name           = (this["Name"] ?: "").toString(),
+        weight         = (this["Weight"] ?: "").toString(),
+        pricePerKg     = (this["Price/kg"] ?: "").toString(),
+        totalPrice     = (this["Total Price"] ?: "").toString(),
+        paymentStatus  = (this["(lunas/belum)"] ?: "").toString(),
+        packageType    = (this["Package"] ?: "").toString(),
+        remark         = (this["remark"] ?: "").toString(),
+        paymentMethod  = (this["payment"] ?: "").toString(),
+        phoneNumber    = (this["phoneNumber"] ?: "").toString(),
+        orderStatus    = (this["orderStatus"] ?: "").toString(),
+        station        = (this["station"] ?: "").toString(),
+        dueDate        = (this["due date"] ?: "").toString()
+    )
+}
 
 enum class FILTER {
     SHOW_ALL_DATA,
