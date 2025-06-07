@@ -5,7 +5,11 @@ import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.CreateSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadInventoryUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import dagger.Module
 import dagger.Provides
@@ -47,6 +51,27 @@ object GSheetModule {
     fun provideReadIncomeDataUseCase(
         repository: GoogleSheetRepository
     ): ReadIncomeTransactionUseCase = ReadIncomeTransactionUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideReadOrderStatusUseCase(
+        repository: GoogleSheetRepository
+    ): ReadOrderStatusUseCase = ReadOrderStatusUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideReadInventoryUseCase(repository: GoogleSheetRepository): ReadInventoryUseCase =
+        ReadInventoryUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideReadPackageUseCase(repository: GoogleSheetRepository): ReadPackageUseCase =
+        ReadPackageUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideGetOtherPackageUseCase(repository: GoogleSheetRepository): GetOtherPackageUseCase =
+        GetOtherPackageUseCase(repository)
 
     @Provides
     @ViewModelScoped

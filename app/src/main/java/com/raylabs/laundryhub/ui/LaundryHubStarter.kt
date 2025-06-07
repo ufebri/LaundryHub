@@ -22,10 +22,10 @@ import androidx.navigation.compose.rememberNavController
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
+import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.AdminScreen
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.navigation.OrderScreen
-import com.raylabs.laundryhub.ui.navigation.TodoScreen
 
 @Composable
 fun LaundryHubStarter(
@@ -38,22 +38,22 @@ fun LaundryHubStarter(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = BottomNavItem.Home.screen_route,
+            startDestination = BottomNavItem.Home.screenRoute,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(BottomNavItem.Home.screen_route) {
+            composable(BottomNavItem.Home.screenRoute) {
                 HomeScreen()
             }
-            composable(BottomNavItem.History.screen_route) {
+            composable(BottomNavItem.History.screenRoute) {
                 HistoryScreenView()
             }
-            composable(BottomNavItem.Order.screen_route) {
+            composable(BottomNavItem.Order.screenRoute) {
                 OrderScreen()
             }
-            composable(BottomNavItem.ToDo.screen_route) {
-                TodoScreen()
+            composable(BottomNavItem.Inventory.screenRoute) {
+                InventoryScreenView()
             }
-            composable(BottomNavItem.Admin.screen_route) {
+            composable(BottomNavItem.Admin.screenRoute) {
                 AdminScreen()
             }
         }
@@ -72,7 +72,7 @@ fun BottomBar(navController: NavHostController, modifier: Modifier = Modifier) {
             BottomNavItem.Home,
             BottomNavItem.History,
             BottomNavItem.Order,
-            BottomNavItem.ToDo,
+            BottomNavItem.Inventory,
             BottomNavItem.Admin
         )
         BottomNavigation {
@@ -96,9 +96,9 @@ fun BottomBar(navController: NavHostController, modifier: Modifier = Modifier) {
                     selectedContentColor = Color.Black,
                     unselectedContentColor = Color.Black.copy(0.4f),
                     alwaysShowLabel = true,
-                    selected = currentRoute == item.screen_route,
+                    selected = currentRoute == item.screenRoute,
                     onClick = {
-                        navController.navigate(item.screen_route) {
+                        navController.navigate(item.screenRoute) {
 
                             navController.graph.startDestinationRoute?.let { screenRoute ->
                                 popUpTo(screenRoute) {
@@ -115,8 +115,7 @@ fun BottomBar(navController: NavHostController, modifier: Modifier = Modifier) {
     }
 }
 
-
-@Preview(showBackground = true)
+@Preview(apiLevel = 33)
 @Composable
 fun BottomNavigationPreview() {
     LaundryHubStarter()
