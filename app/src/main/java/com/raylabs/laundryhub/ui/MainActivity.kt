@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
         // Cek apakah user sudah login
         val isAlreadyLogin = checkUserLoggedInUseCase()
 
+        enableEdgeToEdge()
         setContent {
             LaundryHubTheme {
                 if (isAlreadyLogin)

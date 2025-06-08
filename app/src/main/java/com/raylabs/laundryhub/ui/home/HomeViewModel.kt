@@ -11,6 +11,9 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseC
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
+import com.raylabs.laundryhub.ui.common.util.error
+import com.raylabs.laundryhub.ui.common.util.loading
+import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.toUI
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,26 +46,26 @@ class HomeViewModel @Inject constructor(
     }
 
     private fun fetchTodayIncome() {
-        _uiState.value = _uiState.value.copy(todayIncome = SectionState(isLoading = true))
+        _uiState.value = _uiState.value.copy(todayIncome = _uiState.value.todayIncome.loading())
 
         viewModelScope.launch {
             when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
                 is Resource.Success -> {
                     val uiData = result.data.toUI()
                     _uiState.value = _uiState.value.copy(
-                        todayIncome = SectionState(data = uiData)
+                        todayIncome = _uiState.value.todayIncome.success(uiData)
                     )
                 }
 
                 is Resource.Error -> {
                     _uiState.value = _uiState.value.copy(
-                        todayIncome = SectionState(errorMessage = result.message)
+                        todayIncome = _uiState.value.todayIncome.error(result.message)
                     )
                 }
 
                 Resource.Empty -> {
                     _uiState.value = _uiState.value.copy(
-                        todayIncome = SectionState(errorMessage = "Tidak ada data hari ini")
+                        todayIncome = _uiState.value.todayIncome.error("Tidak ada data hari ini")
                     )
                 }
 

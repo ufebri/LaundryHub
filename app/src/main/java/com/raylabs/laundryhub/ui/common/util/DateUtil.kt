@@ -27,8 +27,8 @@ object DateUtil {
         return date == today
     }
 
-    fun parseDate(dateString: String): Date? {
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+    fun parseDate(dateString: String, formatedDate: String = "yyyy-MM-dd"): Date? {
+        val dateFormat = SimpleDateFormat(formatedDate, Locale.getDefault())
         return try {
             dateFormat.parse(dateString)
         } catch (e: Exception) {

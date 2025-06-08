@@ -5,8 +5,10 @@ import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
 import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
+import com.raylabs.laundryhub.core.domain.model.sheets.InventoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
@@ -18,6 +20,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.toHistoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
+import com.raylabs.laundryhub.core.domain.model.sheets.toInventoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
 import com.raylabs.laundryhub.ui.common.util.Resource
@@ -32,8 +37,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
     companion object {
         private const val SUMMARY_RANGE = "summary!A2:B14"
-        private const val INCOME_RANGE = "income!A1:I1000"
+        private const val INCOME_RANGE = "income!A1:N"
         private const val HISTORY_RANGE = "history!A1:V"
+        private const val INVENTORY_RANGE = "station!A1:E"
+        private const val PACKAGE_RANGE = "notes!A1:D"
+        private const val INCOME_REMARKS_RANGE = "income!I2:I"
     }
 
     override fun createData(spreadsheetId: String, range: String, data: SpreadsheetData) {
@@ -87,18 +95,10 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     val dataRows = response.getValues().drop(1) // Hilangkan header
 
                     val data = dataRows.map { row ->
-                        val mappedRow = headers.zip(row).toMap()
-                        TransactionData(
-                            id = (mappedRow["orderID"] ?: "").toString(),
-                            date = (mappedRow["Date"] ?: "").toString(),
-                            name = (mappedRow["Name"] ?: "").toString(),
-                            pricePerKg = (mappedRow["Price/kg"] ?: "").toString(),
-                            totalPrice = (mappedRow["Total Price"] ?: "").toString(),
-                            paymentStatus = (mappedRow["(lunas/belum)"] ?: "").toString(),
-                            packageType = (mappedRow["Package"] ?: "").toString(),
-                            remark = (mappedRow["remark"] ?: "").toString(),
-                            paymentMethod = (mappedRow["payment"] ?: "").toString()
-                        )
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toIncomeList()
                     }.filter { transaction ->
                         when (filter) {
                             FILTER.SHOW_ALL_DATA -> transaction.getAllIncomeData()
@@ -113,7 +113,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             FILTER.SHOW_PAID_BY_CASH -> transaction.isCashData()
                         }
                     }.sortedByDescending { transaction ->
-                        parseDate(transaction.date)
+                        parseDate(transaction.date, formatedDate = "dd-MM-yyyy")
                     }
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)
@@ -173,5 +173,96 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                 }
             }
         } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun readInventoryData(): Resource<List<InventoryData>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INVENTORY_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val dataRows = response.getValues().drop(1)
+
+                    val data = dataRows.map { row ->
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toInventoryData()
+                    }
+
+                    if (data.isEmpty()) Resource.Empty else Resource.Success(data)
+                } catch (e: GoogleJsonResponseException) {
+                    // Tangkap error detail dari Google API
+                    val statusCode = e.statusCode
+                    val statusMessage = e.statusMessage
+                    val details = e.details?.message ?: "Unknown Error"
+
+                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            }
+        } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun readPackageData(): Resource<List<PackageData>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, PACKAGE_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val dataRows = response.getValues().drop(1)
+
+                    val data = dataRows.map { row ->
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toPackageData()
+                    }
+
+                    if (data.isEmpty()) Resource.Empty else Resource.Success(data)
+                } catch (e: GoogleJsonResponseException) {
+                    // Tangkap error detail dari Google API
+                    val statusCode = e.statusCode
+                    val statusMessage = e.statusMessage
+                    val details = e.details?.message ?: "Unknown Error"
+
+                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            }
+        } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun readOtherPackage(): Resource<List<String>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_REMARKS_RANGE)
+                        .execute()
+
+                    val rawData = response.getValues() ?: emptyList()
+                    val cleanedData = rawData.mapNotNull { row ->
+                        row.firstOrNull()?.toString()?.trim()
+                    }
+
+                    if (cleanedData.isEmpty()) Resource.Empty
+                    else Resource.Success(cleanedData)
+                } catch (e: GoogleJsonResponseException) {
+                    val statusCode = e.statusCode
+                    val statusMessage = e.statusMessage
+                    val details = e.details?.message ?: "Unknown Error"
+                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            } ?: Resource.Error("Failed after 3 attempts.")
+        }
     }
 }

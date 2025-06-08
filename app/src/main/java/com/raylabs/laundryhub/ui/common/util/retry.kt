@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.ui.common.util
 
-import android.util.Log
 import kotlinx.coroutines.delay
 
 suspend fun <T> retry(
@@ -15,8 +14,7 @@ suspend fun <T> retry(
     repeat(times - 1) { attempt ->
         try {
             return block()
-        } catch (e: Exception) {
-            Log.e("retry", "retry: ${e.message}")
+        } catch (_: Exception) {
             println("⚠️ Error occurred, retrying in $currentDelay ms... (Attempt ${attempt + 1})")
             onRetry?.invoke(attempt + 1)
             delay(currentDelay)
@@ -25,8 +23,7 @@ suspend fun <T> retry(
     }
     return try {
         block()
-    } catch (e: Exception) {
-        Log.e("retry", "retry: ${e.message}")
+    } catch (_: Exception) {
         null
     }
 }

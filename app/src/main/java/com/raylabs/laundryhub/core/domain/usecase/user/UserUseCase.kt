@@ -9,6 +9,6 @@ class UserUseCase(private val authRepository: AuthRepository) {
     fun getCurrentUser(): User? = authRepository.getCurrentUser()
 
     // Function to sign out
-    suspend fun signOut() = authRepository.signOut()
+    suspend fun signOut(): Boolean = authRepository.signOut()
 
 }
