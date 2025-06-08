@@ -113,7 +113,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             FILTER.SHOW_PAID_BY_CASH -> transaction.isCashData()
                         }
                     }.sortedByDescending { transaction ->
-                        parseDate(transaction.date)
+                        parseDate(transaction.date, formatedDate = "dd-MM-yyyy")
                     }
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)

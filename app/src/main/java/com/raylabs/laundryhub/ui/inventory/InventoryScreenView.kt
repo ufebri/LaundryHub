@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
@@ -315,57 +316,9 @@ fun InventoryGrid(
 @Composable
 @Preview
 fun PreviewInventoryScreen() {
-    val dummyState = InventoryUiState(
-        inventory = SectionState(
-            data = listOf(
-                InventoryGroupItem(
-                    stationType = "Washing Machine",
-                    machines = listOf(
-                        MachineItem("1", "Washer #1", "W01", isAvailable = true),
-                        MachineItem("5", "Washer #2", "W02", isAvailable = false),
-                    )
-                ),
-                InventoryGroupItem(
-                    stationType = "Drying Machine",
-                    machines = listOf(
-                        MachineItem("4", "Dryer #1", "D01", isAvailable = false),
-                    )
-                ),
-                InventoryGroupItem(
-                    stationType = "Ironing Machine",
-                    machines = listOf(
-                        MachineItem("2", "Iron #A", "I01", isAvailable = true),
-                    )
-                ),
-                InventoryGroupItem(
-                    stationType = "Folding",
-                    machines = listOf(
-                        MachineItem("3", "Table #2", "F02", isAvailable = true),
-                    )
-                )
-            )
-        ),
-        packages = SectionState(
-            data = listOf(
-                PackageItem("Regular", "Rp 5.000 ,-"),
-                PackageItem("Express - 6H", "Rp 10.000 ,-"),
-                PackageItem("Express - 24H", "Rp 8.000 ,-"),
-                PackageItem("Regular Cuci", "Rp 3.000 ,-"),
-                PackageItem("Express - 6H Cuci", "Rp 5.000 ,-")
-            )
-        ),
-        otherPackages = SectionState(
-            data = listOf(
-                "Express Kilat",
-                "Special Package",
-                "Cuci Premium"
-            )
-        )
-    )
-
     Scaffold(
         topBar = { DefaultTopAppBar("Inventory") }
     ) { padding ->
-        InventoryContent(dummyState, modifier = Modifier.padding(padding))
+        InventoryContent(dummyInventoryUiState, modifier = Modifier.padding(padding))
     }
 }

@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryItem
 import com.raylabs.laundryhub.ui.history.state.HistoryItem
 
 @Composable
@@ -75,14 +76,6 @@ fun HistoryItemCard(item: HistoryItem, modifier: Modifier = Modifier) {
 @Composable
 fun PreviewHistoryItemCard() {
     HistoryItemCard(
-        item = HistoryItem(
-            orderId = "#INV-001",
-            name = "Ny Emy",
-            packageType = "Express - 6H",
-            paymentStatus = "Lunas",
-            totalPrice = "Rp 105.000,-",
-            formattedDate = "1 June 2025",
-            isPaid = true
-        )
+        item = dummyHistoryItem
     )
 }

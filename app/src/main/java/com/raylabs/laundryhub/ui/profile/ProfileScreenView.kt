@@ -32,6 +32,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
+import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
@@ -143,20 +144,9 @@ fun ProfileScreenContent(
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfileScreen() {
-    val dummyState = ProfileUiState(
-        user = SectionState(
-            data = UserItem(
-                displayName = "Ray Febri",
-                email = "rayfebri@example.com",
-                photoUrl = null
-            )
-        ),
-        logout = SectionState(data = false)
-    )
-
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
-        ProfileScreenContent(dummyState, modifier = Modifier.padding(padding))
+        ProfileScreenContent(dummyProfileUiState, modifier = Modifier.padding(padding))
     }
 }

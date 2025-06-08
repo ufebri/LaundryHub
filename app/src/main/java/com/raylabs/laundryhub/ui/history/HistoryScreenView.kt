@@ -18,6 +18,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.HistoryItemCard
@@ -98,39 +99,9 @@ fun HistoryDateHeader(date: String) {
 @Preview
 @Composable
 fun PreviewHistoryScreen() {
-    val dummyState = HistoryUiState(
-        history = SectionState(
-            data = listOf(
-                HistoryUiItem.Header(date = "1 Juni 2025"),
-                HistoryUiItem.Entry(
-                    item = HistoryItem(
-                        orderId = "ORD-001",
-                        name = "Ny Emy",
-                        paymentStatus = "Lunas",
-                        totalPrice = "Rp50.000",
-                        packageType = "Express - 24H",
-                        formattedDate = "2 Juni 2025",
-                        isPaid = true
-                    )
-                ),
-                HistoryUiItem.Entry(
-                    item = HistoryItem(
-                        orderId = "ORD-002",
-                        name = "Ny Emy",
-                        paymentStatus = "Lunas",
-                        totalPrice = "Rp50.000",
-                        packageType = "Express - 24H",
-                        formattedDate = "2 Juni 2025",
-                        isPaid = true
-                    )
-                )
-            )
-        )
-    )
-
     Scaffold(
         topBar = { DefaultTopAppBar(title = "History") }
     ) { padding ->
-        HistoryContent(dummyState, modifier = Modifier.padding(padding))
+        HistoryContent(dummyHistoryUiState, modifier = Modifier.padding(padding))
     }
 }
