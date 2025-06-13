@@ -9,15 +9,12 @@ import java.util.Locale
 
 object DateUtil {
 
-    // Format tanggal Google Sheets biasanya "yyyy-MM-dd"
-    private const val DATE_FORMAT = "yyyy-MM-dd"
-
     // Mendapatkan tanggal hari ini dalam format yang sesuai
-    fun getTodayDate(): String {
+    fun getTodayDate(dateFormat: String = "yyyy-MM-dd"): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            LocalDate.now().format(DateTimeFormatter.ofPattern(DATE_FORMAT))
+            LocalDate.now().format(DateTimeFormatter.ofPattern(dateFormat))
         } else {
-            val dateFormat = SimpleDateFormat(DATE_FORMAT, Locale.getDefault())
+            val dateFormat = SimpleDateFormat(dateFormat, Locale.getDefault())
             dateFormat.format(Date())
         }
     }

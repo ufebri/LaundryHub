@@ -91,6 +91,11 @@ jobs:
       - name: Build APK
         run: ./gradlew assembleRelease
 
+      - name: Generate Release Notes from PR commits
+        run: |
+          git fetch origin master
+          git log origin/master..HEAD --pretty=format:"- %s (%an)" > release-notes.txt
+
       - name: Distribute APK to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:
@@ -98,6 +103,7 @@ jobs:
           serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
           groups: internal-tester
           file: app/build/outputs/apk/release/app-release.apk
+          releaseNotesFile: release-notes.txt
 
   github-release:
     if: github.event.pull_request.base.ref == 'development' # Berjalan hanya ketika PR ke development

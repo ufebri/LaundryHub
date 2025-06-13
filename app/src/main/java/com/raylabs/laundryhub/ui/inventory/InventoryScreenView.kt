@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -21,7 +20,6 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
 import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHostState
@@ -40,13 +38,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
-import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.inventory.state.InventoryCardItemData
 import com.raylabs.laundryhub.ui.inventory.state.InventoryGroupItem
 import com.raylabs.laundryhub.ui.inventory.state.InventoryUiState
-import com.raylabs.laundryhub.ui.inventory.state.MachineItem
 import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 
 @Composable
@@ -230,7 +226,7 @@ fun SetupPackageSection(
                             modifier = Modifier.weight(1f)
                         )
                         Text(
-                            text = item.displayPrice,
+                            text = item.price,
                             color = Color.White,
                             textAlign = TextAlign.End
                         )

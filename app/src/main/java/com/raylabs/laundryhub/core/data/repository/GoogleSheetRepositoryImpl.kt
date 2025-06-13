@@ -8,6 +8,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
 import com.raylabs.laundryhub.core.domain.model.sheets.InventoryData
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
@@ -24,6 +25,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toInventoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.retry
@@ -42,6 +44,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val INVENTORY_RANGE = "station!A1:E"
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
+        private const val ORDER_ID_RANGE = "A2:A"
     }
 
     override fun createData(spreadsheetId: String, range: String, data: SpreadsheetData) {
@@ -263,6 +266,70 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     Resource.Error(e.message ?: "Unexpected Error")
                 }
             } ?: Resource.Error("Failed after 3 attempts.")
+        }
+    }
+
+    override suspend fun getLastOrderId(): Resource<String> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService()
+                        .spreadsheets()
+                        .values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, ORDER_ID_RANGE)
+                        .execute()
+
+                    val rows = response.getValues() ?: emptyList()
+
+                    // Ambil baris terakhir yang berisi ID di kolom paling kiri
+                    val lastRow = rows.drop(1).lastOrNull() // skip header
+                    val lastId = lastRow?.getOrNull(0)?.toString()
+
+                    if (lastId != null) {
+                        Resource.Success(lastId)
+                    } else {
+                        Resource.Success("0") // jika belum ada data, mulai dari 0
+                    }
+
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unknown Error")
+                }
+            } ?: Resource.Error("Failed after 3 attempts.")
+        }
+    }
+
+    override suspend fun addOrder(orderData: OrderData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val values = listOf(
+                        listOf(
+                            orderData.orderId,
+                            DateUtil.getTodayDate("dd-MM-yyyy"),
+                            orderData.name,
+                            orderData.priceKg,
+                            orderData.totalPrice, // total price, bisa hitung nanti
+                            orderData.paidStatus, // status lunas/belum
+                            orderData.packageName,
+                            orderData.remark,
+                            orderData.paymentMethod,
+                            orderData.phoneNumber,
+                            "Pending", // orderStatus awal
+                        )
+                    )
+
+                    val body = ValueRange().setValues(values)
+                    googleSheetService.getSheetsService().spreadsheets().values()
+                        .append(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE, body)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+
+                    Resource.Success(true)
+
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to append order.")
+                }
+            } ?: Resource.Error("Gagal menambahkan order setelah 3 kali coba.")
         }
     }
 }

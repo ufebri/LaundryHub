@@ -4,8 +4,11 @@ import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 
 data class PackageItem(
     val name: String,
+    val price: String
+) {
     val displayPrice: String
-)
+        get() = "Rp $price,-"
+}
 
 fun List<PackageData>.toUi(): List<PackageItem> {
     return map {
@@ -13,7 +16,7 @@ fun List<PackageData>.toUi(): List<PackageItem> {
         val finalPrice = if (price.endsWith(",-")) price else "$price ,-"
         PackageItem(
             name = it.name,
-            displayPrice = finalPrice
+            price = finalPrice
         )
     }
 }
