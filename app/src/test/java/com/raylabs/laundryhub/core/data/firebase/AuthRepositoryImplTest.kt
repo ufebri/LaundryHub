@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.core.data.firebase
 
-import com.raylabs.laundryhub.core.domain.model.auth.User
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -43,18 +42,4 @@ class AuthRepositoryImplTest {
         val result = repository.signOut()
         assertTrue(result)
     }
-}
-
-class FakeFirebaseAuthDataSource : FirebaseAuthDataSource {
-    override suspend fun signInWithGoogle(idToken: String): User? {
-        return User("123", "John", "john@example.com", "http://image.com")
-    }
-
-    override fun isUserLoggedIn(): Boolean = true
-
-    override fun getCurrentUser(): User? {
-        return User("123", "John", "john@example.com", "http://image.com")
-    }
-
-    override suspend fun signOut(): Boolean = true
 }

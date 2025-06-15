@@ -1,4 +1,4 @@
-package com.raylabs.laundryhub.ui.login
+package com.raylabs.laundryhub.ui.onboarding
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

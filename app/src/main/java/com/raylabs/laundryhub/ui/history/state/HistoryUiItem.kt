@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.history.state
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 
 data class HistoryItem(
     val orderId: String,
@@ -21,20 +22,15 @@ sealed interface HistoryUiItem {
 
 fun TransactionData.toUiItem(): HistoryItem {
     return HistoryItem(
-        orderId = this.orderID,
-        name = this.name,
-        formattedDate = this.date, // bisa diformat nanti
-        totalPrice = this.totalPrice,
-        packageType = this.packageType,
-        paymentStatus = this.paidDescription(),
-        isPaid = this.isPaidData()
+        orderId = orderID,
+        name = name,
+        formattedDate = date, // bisa diformat nanti
+        totalPrice = totalPrice,
+        packageType = packageType,
+        paymentStatus = paidDescription(),
+        isPaid = isPaidData()
     )
 }
-
-data class HistoryGroupedItem(
-    val date: String, // "1 June 2025"
-    val items: List<HistoryUiItem>
-)
 
 fun List<TransactionData>.toUiItems(): List<HistoryUiItem> {
     return this

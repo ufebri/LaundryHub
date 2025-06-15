@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.common.util
 
+import com.raylabs.laundryhub.ui.common.util.DateUtil.formatToLongDate
 import com.raylabs.laundryhub.ui.common.util.DateUtil.getDueDate
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -95,5 +96,33 @@ class DateUtilTest {
         val result = getDueDate("1d", malformedDate)
 
         assertEquals(malformedDate, result)
+    }
+
+    @Test
+    fun `format valid date to long format`() {
+        val result = formatToLongDate("2025-06-15", "yyyy-MM-dd", "dd MMMM yyyy")
+        val expected = if (Locale.getDefault().language == "id") {
+            "15 Juni 2025"
+        } else {
+            "15 June 2025"
+        }
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `return original string when invalid date format`() {
+        val result = formatToLongDate("invalid-date", "yyyy-MM-dd", "dd MMMM yyyy")
+        assertEquals("invalid-date", result)
+    }
+
+    @Test
+    fun `custom input and output format`() {
+        val result = formatToLongDate("15/06/2025", "dd/MM/yyyy", "MMMM dd, yyyy")
+        val expected = if (Locale.getDefault().language == "id") {
+            "Juni 15, 2025"
+        } else {
+            "June 15, 2025"
+        }
+        assertEquals(expected, result)
     }
 }
