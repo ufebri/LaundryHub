@@ -4,7 +4,7 @@ import com.raylabs.laundryhub.core.domain.model.auth.User
 import com.raylabs.laundryhub.core.domain.repository.AuthRepository
 
 class AuthRepositoryImpl(
-    private val firebaseDataSource: FirebaseDataSource
+    private val firebaseDataSource: FirebaseAuthDataSource
 ) : AuthRepository {
 
     override suspend fun signInWithGoogle(idToken: String): User? =

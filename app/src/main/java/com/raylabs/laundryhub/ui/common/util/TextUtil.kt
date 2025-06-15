@@ -1,5 +1,8 @@
 package com.raylabs.laundryhub.ui.common.util
 
+import java.text.NumberFormat
+import java.util.Locale
+
 object TextUtil {
 
     fun String.capitalizeFirstLetter(): String {
@@ -8,4 +11,10 @@ object TextUtil {
         }
     }
 
+    fun String.toRupiahFormat(): String {
+        if (this.isEmpty()) return ""
+        val number = this.toLongOrNull() ?: return ""
+        val formatter = NumberFormat.getInstance(Locale("id", "ID"))
+        return "${formatter.format(number)}"
+    }
 }

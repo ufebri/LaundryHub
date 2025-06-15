@@ -50,11 +50,6 @@ enum class FILTER {
     SHOW_PAID_BY_CASH
 }
 
-private const val PAID = "lunas"
-private const val UNPAID = "belum"
-private const val QR = "qris"
-private const val CASH = "cash"
-
 data class RangeDate(val startDate: String?, val endDate: String?)
 
 fun TransactionData.getAllIncomeData(): Boolean =
@@ -80,7 +75,7 @@ fun TransactionData.isUnpaidData(): Boolean =
 
 fun TransactionData.isPaidData(): Boolean = this.paymentStatus.equals(PAID, ignoreCase = true)
 
-fun TransactionData.isQRISData(): Boolean = this.paymentMethod.equals(QR, ignoreCase = true)
+fun TransactionData.isQRISData(): Boolean = this.paymentMethod.equals(QRIS, ignoreCase = true)
 
 fun TransactionData.isCashData(): Boolean = this.paymentMethod.equals(CASH, ignoreCase = true)
 
