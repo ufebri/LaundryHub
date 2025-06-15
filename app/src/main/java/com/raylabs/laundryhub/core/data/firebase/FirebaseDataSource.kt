@@ -7,9 +7,9 @@ import kotlinx.coroutines.tasks.await
 
 class FirebaseDataSource(
     private val firebaseAuth: FirebaseAuth
-) {
+) : FirebaseAuthDataSource {
 
-    suspend fun signInWithGoogle(idToken: String): User? {
+    override suspend fun signInWithGoogle(idToken: String): User? {
         val credential = GoogleAuthProvider.getCredential(idToken, null)
         val authResult = firebaseAuth.signInWithCredential(credential).await()
         val firebaseUser = authResult.user
@@ -23,9 +23,9 @@ class FirebaseDataSource(
         }
     }
 
-    fun isUserLoggedIn(): Boolean = (firebaseAuth.currentUser != null)
+    override fun isUserLoggedIn(): Boolean = (firebaseAuth.currentUser != null)
 
-    fun getCurrentUser(): User? {
+    override fun getCurrentUser(): User? {
         val currentUser = firebaseAuth.currentUser
         return currentUser?.let {
             User(
@@ -37,7 +37,7 @@ class FirebaseDataSource(
         }
     }
 
-    fun signOut(): Boolean {
+    override suspend fun signOut(): Boolean {
         firebaseAuth.signOut()
         return true
     }

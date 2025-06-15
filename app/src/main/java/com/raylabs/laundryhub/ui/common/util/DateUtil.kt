@@ -4,6 +4,7 @@ import android.os.Build
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -14,8 +15,8 @@ object DateUtil {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             LocalDate.now().format(DateTimeFormatter.ofPattern(dateFormat))
         } else {
-            val dateFormat = SimpleDateFormat(dateFormat, Locale.getDefault())
-            dateFormat.format(Date())
+            val mDateFormat = SimpleDateFormat(dateFormat, Locale.getDefault())
+            mDateFormat.format(Date())
         }
     }
 
@@ -30,6 +31,39 @@ object DateUtil {
             dateFormat.parse(dateString)
         } catch (e: Exception) {
             null
+        }
+    }
+
+    /**
+     * Hitung due date berdasarkan start date + durasi (contoh: "6h", "3d").
+     * Format input: "dd-MM-yyyy HH:mm"
+     */
+    fun getDueDate(
+        duration: String,
+        startDate: String = getTodayDate("dd-MM-yyyy") + " 08:00"
+    ): String {
+        val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
+        return try {
+            val start = dateFormat.parse(startDate) ?: return startDate
+            val cal = Calendar.getInstance().apply { time = start }
+
+            when {
+                duration.endsWith("h") -> {
+                    val hours = duration.dropLast(1).toIntOrNull() ?: return startDate
+                    cal.add(Calendar.HOUR_OF_DAY, hours)
+                }
+
+                duration.endsWith("d") -> {
+                    val days = duration.dropLast(1).toIntOrNull() ?: return startDate
+                    cal.add(Calendar.DAY_OF_MONTH, days)
+                }
+
+                else -> return startDate
+            }
+
+            dateFormat.format(cal.time)
+        } catch (e: Exception) {
+            startDate
         }
     }
 }

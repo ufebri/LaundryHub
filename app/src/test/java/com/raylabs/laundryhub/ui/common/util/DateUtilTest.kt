@@ -1,9 +1,15 @@
 package com.raylabs.laundryhub.ui.common.util
 
-import org.junit.Assert.*
+import com.raylabs.laundryhub.ui.common.util.DateUtil.getDueDate
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class DateUtilTest {
 
@@ -43,5 +49,51 @@ class DateUtilTest {
         val invalidInput = "invalid-date"
         val result = DateUtil.parseDate(invalidInput)
         assertNull(result)
+    }
+
+    @Test
+    fun `given 6 hours duration, should return date plus 6 hours`() {
+        val startDate = "01-06-2025 08:00"
+        val expected = "01-06-2025 14:00"
+
+        val result = getDueDate("6h", startDate)
+
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `given 1 day duration, should return date plus 1 day`() {
+        val startDate = "01-06-2025 08:00"
+        val expected = "02-06-2025 08:00"
+
+        val result = getDueDate("1d", startDate)
+
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `given 3 days duration, should return date plus 3 days`() {
+        val startDate = "01-06-2025 08:00"
+        val expected = "04-06-2025 08:00"
+
+        val result = getDueDate("3d", startDate)
+
+        assertEquals(expected, result)
+    }
+
+    @Test
+    fun `given invalid duration, should return start date unchanged`() {
+        val startDate = "01-06-2025 08:00"
+        val result = getDueDate("abc", startDate)
+
+        assertEquals(startDate, result)
+    }
+
+    @Test
+    fun `given malformed start date, should return original start date`() {
+        val malformedDate = "bad-date"
+        val result = getDueDate("1d", malformedDate)
+
+        assertEquals(malformedDate, result)
     }
 }

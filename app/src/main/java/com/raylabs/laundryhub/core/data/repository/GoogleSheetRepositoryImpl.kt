@@ -44,7 +44,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val INVENTORY_RANGE = "station!A1:E"
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
-        private const val ORDER_ID_RANGE = "A2:A"
+        private const val ORDER_ID_RANGE = "income!A2:A"
     }
 
     override fun createData(spreadsheetId: String, range: String, data: SpreadsheetData) {
@@ -286,7 +286,8 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     val lastId = lastRow?.getOrNull(0)?.toString()
 
                     if (lastId != null) {
-                        Resource.Success(lastId)
+                        val mLastGenerateID = "${lastId.toInt() + 1}"
+                        Resource.Success(mLastGenerateID)
                     } else {
                         Resource.Success("0") // jika belum ada data, mulai dari 0
                     }
@@ -298,23 +299,25 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addOrder(orderData: OrderData): Resource<Boolean> {
+    override suspend fun addOrder(incomeSheetData: OrderData): Resource<Boolean> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
                     val values = listOf(
                         listOf(
-                            orderData.orderId,
-                            DateUtil.getTodayDate("dd-MM-yyyy"),
-                            orderData.name,
-                            orderData.priceKg,
-                            orderData.totalPrice, // total price, bisa hitung nanti
-                            orderData.paidStatus, // status lunas/belum
-                            orderData.packageName,
-                            orderData.remark,
-                            orderData.paymentMethod,
-                            orderData.phoneNumber,
-                            "Pending", // orderStatus awal
+                            incomeSheetData.orderId,
+                            DateUtil.getTodayDate("dd/MM/yyyy"),
+                            incomeSheetData.name,
+                            incomeSheetData.weight,
+                            incomeSheetData.priceKg,
+                            incomeSheetData.totalPrice, // total price, bisa hitung nanti
+                            incomeSheetData.getSpreadSheetPaidStatus, // status lunas/belum
+                            incomeSheetData.packageName,
+                            incomeSheetData.remark,
+                            incomeSheetData.getSpreadSheetPaymentMethod,
+                            incomeSheetData.phoneNumber,
+                            "Pending", // orderStatus awal,
+                            incomeSheetData.getSpreadSheetDueDate
                         )
                     )
 

@@ -57,8 +57,12 @@ class OrderViewModel @Inject constructor(
             when (val result = packageListUseCase()) {
                 is Resource.Success -> {
                     val mData = result.data.toUi()
+                    val firstItem = mData.firstOrNull()
+                    val defaultPayment = _uiState.value.paymentOption.firstOrNull().orEmpty()
                     _uiState.value = _uiState.value.copy(
-                        packageNameList = _uiState.value.packageNameList.success(mData)
+                        packageNameList = _uiState.value.packageNameList.success(mData),
+                        selectedPackage = firstItem,
+                        paymentMethod = defaultPayment
                     )
                 }
 
@@ -73,7 +77,7 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun submitOrder(order: OrderData) {
+    fun submitOrder(order: OrderData, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 submit = _uiState.value.submit.loading()
@@ -84,6 +88,7 @@ class OrderViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         submit = _uiState.value.submit.success(result.data)
                     )
+                    onSuccess()
                 }
 
                 is Resource.Error -> {
@@ -100,19 +105,15 @@ class OrderViewModel @Inject constructor(
     fun updateField(field: String, value: String) {
         _uiState.value = when (field) {
             "name" -> _uiState.value.copy(name = value)
-            "phone" -> _uiState.value.copy(phone = value)
-            "price" -> _uiState.value.copy(price = value)
             "paymentMethod" -> _uiState.value.copy(paymentMethod = value)
             "note" -> _uiState.value.copy(note = value)
             else -> _uiState.value
         }
     }
 
-    fun updateSelectedPackage(item: PackageItem) {
-        _uiState.value = _uiState.value.copy(
-            selectedPackage = item,
-            price = item.displayPrice
-        )
+    fun onPhoneChanged(input: String) {
+        val cleaned = if (input.startsWith("0")) input.drop(1) else input
+        _uiState.value = _uiState.value.copy(phone = cleaned)
     }
 
     fun onPackageSelected(packageItem: PackageItem) {
@@ -122,19 +123,29 @@ class OrderViewModel @Inject constructor(
 
         _uiState.value = _uiState.value.copy(
             selectedPackage = packageItem,
-            price = if (currentPrice != 0) currentPrice.toString() else packageItem.price,
             weight = "$weight Kg"
         )
     }
 
-    fun onPriceChanged(price: String) {
-        val minPrice = _uiState.value.selectedPackage?.price?.toIntOrNull() ?: 1
-        val priceInt = price.toIntOrNull() ?: 0
-        val weight = if (minPrice != 0) priceInt / minPrice else 0
+    fun onPriceChanged(raw: String) {
+        val priceInt = raw.toIntOrNull() ?: 0
+        val minPrice =
+            _uiState.value.selectedPackage?.price?.replace(Regex("\\D"), "")?.toIntOrNull() ?: 1
+
+        val weight = if (minPrice > 0) priceInt / minPrice else 0
 
         _uiState.value = _uiState.value.copy(
-            price = price,
-            weight = "$weight Kg"
+            price = raw,
+            weight = "$weight"
+        )
+    }
+
+    fun resetForm() {
+        _uiState.value = _uiState.value.copy(
+            name = "",
+            phone = "",
+            price = "",
+            note = ""
         )
     }
 }

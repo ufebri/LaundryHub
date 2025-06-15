@@ -1,17 +1,21 @@
 package com.raylabs.laundryhub.ui
 
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.BottomNavigation
 import androidx.compose.material.BottomNavigationItem
+import androidx.compose.material.BottomSheetScaffold
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
-import androidx.compose.material.ModalBottomSheetLayout
-import androidx.compose.material.ModalBottomSheetValue
 import androidx.compose.material.Scaffold
+import androidx.compose.material.SnackbarHost
+import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
-import androidx.compose.material.rememberModalBottomSheetState
+import androidx.compose.material.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -46,21 +50,32 @@ fun LaundryHubStarter(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    val sheetState = rememberModalBottomSheetState(ModalBottomSheetValue.Hidden)
     val viewModel: OrderViewModel = hiltViewModel()
     val state = viewModel.uiState
     val scope = rememberCoroutineScope()
+    val scaffoldState = rememberBottomSheetScaffoldState()
     val showOrderSheet = remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val triggerOpenSheet = remember { mutableStateOf(false) }
 
-    ModalBottomSheetLayout(
-        sheetState = sheetState,
+    fun dismissSheet() {
+        scope.launch {
+            scaffoldState.bottomSheetState.collapse()
+            showOrderSheet.value = false
+        }
+    }
+
+    BottomSheetScaffold(
+        scaffoldState = scaffoldState,
+        sheetPeekHeight = 0.dp,
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContent = {
-            if (showOrderSheet.value)
+            if (showOrderSheet.value) {
                 OrderBottomSheet(
                     state = state,
                     onNameChanged = { viewModel.updateField("name", it) },
-                    onPhoneChanged = { viewModel.updateField("phone", it) },
+                    onPhoneChanged = { viewModel.onPhoneChanged(it) },
+                    onPriceChanged = { viewModel.onPriceChanged(it) },
                     onPackageSelected = { viewModel.onPackageSelected(it) },
                     onPaymentMethodSelected = { viewModel.updateField("paymentMethod", it) },
                     onNoteChanged = { viewModel.updateField("note", it) },
@@ -70,16 +85,43 @@ fun LaundryHubStarter(
                                 state.toOrderData(
                                     id
                                 )
-                            )
+                            ) {
+                                //Close after success submit
+                                dismissSheet()
+                                viewModel.resetForm()
+
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Order #$id successfully submitted!")
+                                }
+                            }
                         }
                     }
                 )
+            } else {
+                // Tetap render konten kosong agar sheet tidak null
+                Spacer(Modifier.height(1.dp))
+            }
         }) {
+
+        LaunchedEffect(triggerOpenSheet.value) {
+            if (triggerOpenSheet.value) {
+                scaffoldState.bottomSheetState.expand()
+                triggerOpenSheet.value = false
+            }
+        }
+
+
         Scaffold(
+            snackbarHost = {
+                SnackbarHost(
+                    hostState = snackbarHostState,
+                    modifier = Modifier.padding(top = 48.dp)
+                )
+            },
             bottomBar = {
                 BottomBar(navController, onOrderClick = {
                     showOrderSheet.value = true
-                    scope.launch { sheetState.show() }
+                    triggerOpenSheet.value = true
                 })
             },
             modifier = modifier
