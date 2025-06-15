@@ -13,8 +13,9 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.raylabs.laundryhub.core.domain.usecase.auth.CheckUserLoggedInUseCase
-import com.raylabs.laundryhub.ui.login.LoginScreen
-import com.raylabs.laundryhub.ui.login.LoginViewModel
+import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
+import com.raylabs.laundryhub.ui.onboarding.OnboardingScreen
+import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -43,7 +44,7 @@ class MainActivity : ComponentActivity() {
                 if (isAlreadyLogin)
                     LaundryHubStarter()
                 else
-                    LoginScreen(onLoginClicked = { signIn() })
+                    OnboardingScreen(onLoginClick = { signIn() }, pages = getListOnboardingPage)
             }
         }
     }

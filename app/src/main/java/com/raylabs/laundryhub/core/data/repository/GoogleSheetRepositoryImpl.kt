@@ -47,12 +47,6 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val ORDER_ID_RANGE = "income!A2:A"
     }
 
-    override fun createData(spreadsheetId: String, range: String, data: SpreadsheetData) {
-        val body = ValueRange().setValues(listOf(listOf(data.key, data.value)))
-        googleSheetService.getSheetsService().spreadsheets().values()
-            .append(spreadsheetId, range, body).setValueInputOption("RAW").execute()
-    }
-
     override suspend fun readSummaryTransaction(
     ): Resource<List<SpreadsheetData>> {
         return withContext(Dispatchers.IO) {
@@ -116,7 +110,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             FILTER.SHOW_PAID_BY_CASH -> transaction.isCashData()
                         }
                     }.sortedByDescending { transaction ->
-                        parseDate(transaction.date, formatedDate = "dd-MM-yyyy")
+                        parseDate(transaction.date, formatedDate = "dd/MM/yyyy")
                     }
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)

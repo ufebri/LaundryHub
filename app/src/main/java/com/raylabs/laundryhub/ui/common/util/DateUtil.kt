@@ -29,9 +29,19 @@ object DateUtil {
         val dateFormat = SimpleDateFormat(formatedDate, Locale.getDefault())
         return try {
             dateFormat.parse(dateString)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             null
         }
+    }
+
+    fun formatToLongDate(
+        dateString: String,
+        inputFormat: String = "yyyy-MM-dd",
+        outputFormat: String = "dd MMMM yyyy"
+    ): String {
+        val date = parseDate(dateString, inputFormat)
+        val outputFormat = SimpleDateFormat(outputFormat, Locale.getDefault())
+        return date?.let { outputFormat.format(it) } ?: dateString
     }
 
     /**
@@ -62,7 +72,7 @@ object DateUtil {
             }
 
             dateFormat.format(cal.time)
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             startDate
         }
     }

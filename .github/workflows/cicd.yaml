@@ -92,9 +92,16 @@ jobs:
         run: ./gradlew assembleRelease
 
       - name: Generate Release Notes from PR commits
-        run: |
-          git fetch origin master
-          git log origin/master..HEAD --pretty=format:"- %s (%an)" > release-notes.txt
+        uses: actions/github-script@v6
+        with:
+          script: |
+            const { data: commits } = await github.rest.pulls.listCommits({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number,
+            });
+            const notes = commits.map(c => `- ${c.commit.message.split('\n')[0]} (${c.commit.author.name})`).join('\n');
+            require('fs').writeFileSync('release-notes.txt', notes);
 
       - name: Distribute APK to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1

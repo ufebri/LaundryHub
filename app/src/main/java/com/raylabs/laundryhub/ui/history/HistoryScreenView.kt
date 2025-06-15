@@ -19,6 +19,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.HistoryItemCard
@@ -87,7 +88,7 @@ fun HistoryDateHeader(date: String) {
             .fillMaxWidth()
     ) {
         Text(
-            text = date,
+            text = DateUtil.formatToLongDate(dateString = date, inputFormat = "dd/MM/yyyy"),
             style = MaterialTheme.typography.body1,
             color = Color.White,
             modifier = Modifier

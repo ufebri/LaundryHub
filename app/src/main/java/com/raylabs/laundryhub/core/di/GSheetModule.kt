@@ -4,7 +4,6 @@ import android.content.Context
 import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
-import com.raylabs.laundryhub.core.domain.usecase.sheets.CreateSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
@@ -30,14 +29,6 @@ object GSheetModule {
         service: GoogleSheetService
     ): GoogleSheetRepository {
         return GoogleSheetRepositoryImpl(service)
-    }
-
-    @Provides
-    @ViewModelScoped
-    fun provideCreateSpreadsheetDataUseCase(
-        repository: GoogleSheetRepository
-    ): CreateSpreadsheetDataUseCase {
-        return CreateSpreadsheetDataUseCase(repository)
     }
 
     @Provides
