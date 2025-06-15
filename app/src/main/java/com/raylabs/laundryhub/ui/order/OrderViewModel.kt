@@ -3,9 +3,11 @@ package com.raylabs.laundryhub.ui.order
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.error
@@ -22,6 +24,7 @@ import javax.inject.Inject
 class OrderViewModel @Inject constructor(
     private val getLastOrderIdUseCase: GetLastOrderIdUseCase,
     private val submitOrderUseCase: SubmitOrderUseCase,
+    private val submitHistoryUseCase: SubmitHistoryUseCase,
     private val packageListUseCase: ReadPackageUseCase
 ) : ViewModel() {
 
@@ -80,20 +83,20 @@ class OrderViewModel @Inject constructor(
     fun submitOrder(order: OrderData, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                submit = _uiState.value.submit.loading()
+                submitNewOrder = _uiState.value.submitNewOrder.loading()
             )
 
             when (val result = submitOrderUseCase(order = order)) {
                 is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
-                        submit = _uiState.value.submit.success(result.data)
+                        submitNewOrder = _uiState.value.submitNewOrder.success(result.data)
                     )
                     onSuccess()
                 }
 
                 is Resource.Error -> {
                     _uiState.value = _uiState.value.copy(
-                        submit = _uiState.value.submit.error(result.message)
+                        submitNewOrder = _uiState.value.submitNewOrder.error(result.message)
                     )
                 }
 
@@ -147,5 +150,25 @@ class OrderViewModel @Inject constructor(
             price = "",
             note = ""
         )
+    }
+
+    fun submitHistory(history: HistoryData) {
+        viewModelScope.launch {
+            when (val result = submitHistoryUseCase(history = history)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        submitHistoryOrder = _uiState.value.submitNewOrder.success(result.data)
+                    )
+                }
+
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        submitHistoryOrder = _uiState.value.submitNewOrder.error(result.message)
+                    )
+                }
+
+                else -> Unit
+            }
+        }
     }
 }

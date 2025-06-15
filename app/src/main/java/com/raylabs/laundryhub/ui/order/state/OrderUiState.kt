@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.order.state
 
+import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodList
 import com.raylabs.laundryhub.ui.common.util.SectionState
@@ -7,7 +8,8 @@ import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 
 data class OrderUiState(
     val lastOrderId: String? = null,
-    val submit: SectionState<Boolean> = SectionState(),
+    val submitNewOrder: SectionState<Boolean> = SectionState(),
+    val submitHistoryOrder: SectionState<Boolean> = SectionState(),
     val packageNameList: SectionState<List<PackageItem>> = SectionState(),
     val paymentOption: List<String> = paymentMethodList,
 
@@ -34,6 +36,18 @@ fun OrderUiState.toOrderData(orderId: String): OrderData {
         paidStatus = paymentMethod,
         weight = weight,
         dueDate = selectedPackage?.work ?: ""
+    )
+}
+
+fun OrderUiState.toHistoryData(orderId: String): HistoryData {
+    return HistoryData(
+        orderId = orderId,
+        customerName = name,
+        packageType = selectedPackage?.name ?: "",
+        duration = selectedPackage?.work ?: "",
+        paymentMethod = paymentMethod,
+        paymentStatus = paymentMethod,
+        totalPrice = price
     )
 }
 

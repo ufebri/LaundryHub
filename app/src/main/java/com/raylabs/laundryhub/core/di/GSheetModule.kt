@@ -11,6 +11,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadInventoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import dagger.Module
 import dagger.Provides
@@ -75,6 +76,11 @@ object GSheetModule {
     @ViewModelScoped
     fun provideSubmitOrderUseCase(repository: GoogleSheetRepository): SubmitOrderUseCase =
         SubmitOrderUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideSubmitHistoryUseCase(repository: GoogleSheetRepository): SubmitHistoryUseCase =
+        SubmitHistoryUseCase(repository)
 
     @Provides
     @ViewModelScoped

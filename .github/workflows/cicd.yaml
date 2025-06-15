@@ -112,6 +112,20 @@ jobs:
           file: app/build/outputs/apk/release/app-release.apk
           releaseNotesFile: release-notes.txt
 
+      - name: Grant execute permission for Bump Version Script
+        run: chmod +x scripts/bump_version.sh
+
+      - name: Bump version
+        run: bash scripts/bump_version.sh
+
+      - name: Commit bumped version
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add version.properties
+          git commit -m "ci: bump version after Firebase upload"
+          git push origin main
+
   github-release:
     if: github.event.pull_request.base.ref == 'development' # Berjalan hanya ketika PR ke development
     runs-on: ubuntu-latest
