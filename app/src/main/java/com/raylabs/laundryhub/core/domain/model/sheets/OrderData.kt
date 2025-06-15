@@ -34,7 +34,7 @@ const val UNPAID_ID = "belum"
 const val QRIS = "qris"
 const val CASH = "cash"
 
-private fun getDisplayPaymentMethod(paymentMethod: String): String {
+fun getDisplayPaymentMethod(paymentMethod: String): String {
     return when (paymentMethod) {
         PAID_BY_CASH -> CASH
         PAID_BY_QRIS -> QRIS
@@ -43,7 +43,7 @@ private fun getDisplayPaymentMethod(paymentMethod: String): String {
     }
 }
 
-private fun getDisplayPaidStatus(paidStatus: String): String {
+fun getDisplayPaidStatus(paidStatus: String): String {
     return when (paidStatus) {
         PAID_BY_CASH, PAID_BY_QRIS -> PAID
         UNPAID -> UNPAID_ID

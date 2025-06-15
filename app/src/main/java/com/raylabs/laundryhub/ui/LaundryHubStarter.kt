@@ -40,6 +40,7 @@ import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
+import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import kotlinx.coroutines.launch
@@ -86,7 +87,10 @@ fun LaundryHubStarter(
                                     id
                                 )
                             ) {
-                                //Close after success submit
+                                //1. Submit to Google Sheet History
+                                viewModel.submitHistory(state.toHistoryData(id))
+
+                                //2. Close after success submit
                                 dismissSheet()
                                 viewModel.resetForm()
 

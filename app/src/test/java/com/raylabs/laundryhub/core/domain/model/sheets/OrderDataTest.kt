@@ -59,4 +59,20 @@ class OrderDataTest {
 
         assertEquals(expectedDue, data.getSpreadSheetDueDate)
     }
+
+    @Test
+    fun `getDisplayPaymentMethod returns correct label`() {
+        assertEquals("cash", getDisplayPaymentMethod(PAID_BY_CASH))
+        assertEquals("qris", getDisplayPaymentMethod(PAID_BY_QRIS))
+        assertEquals("Unpaid", getDisplayPaymentMethod(UNPAID))
+        assertEquals("", getDisplayPaymentMethod("UNKNOWN"))
+    }
+
+    @Test
+    fun `getDisplayPaidStatus returns correct label`() {
+        assertEquals("lunas", getDisplayPaidStatus(PAID_BY_CASH))
+        assertEquals("lunas", getDisplayPaidStatus(PAID_BY_QRIS))
+        assertEquals("belum", getDisplayPaidStatus(UNPAID))
+        assertEquals("", getDisplayPaidStatus("OTHER"))
+    }
 }
