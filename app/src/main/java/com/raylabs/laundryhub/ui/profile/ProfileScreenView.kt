@@ -33,10 +33,8 @@ import coil.compose.AsyncImage
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
-import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
-import com.raylabs.laundryhub.ui.profile.state.UserItem
 
 @Composable
 fun ProfileScreenView(

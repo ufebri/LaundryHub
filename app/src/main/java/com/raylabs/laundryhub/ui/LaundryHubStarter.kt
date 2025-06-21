@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,7 +33,6 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
@@ -170,11 +169,11 @@ fun BottomBar(
     modifier: Modifier = Modifier
 ) {
     BottomNavigation(
-        modifier = modifier,
-        backgroundColor = colorResource(id = R.color.colorPrimary),
-        contentColor = Color.White
+        modifier = modifier.background(Color.White),
+        backgroundColor = Color.White,
+        contentColor = Color.Black,
+        elevation = 0.dp
     ) {
-        //List Menu Item
         val items = listOf(
             BottomNavItem.Home,
             BottomNavItem.History,
@@ -182,47 +181,43 @@ fun BottomBar(
             BottomNavItem.Inventory,
             BottomNavItem.Profile
         )
-        BottomNavigation {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentRoute = navBackStackEntry?.destination?.route
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
 
-            items.map { item ->
-                BottomNavigationItem(
-                    icon = {
-                        Icon(
-                            painterResource(id = item.icon),
-                            contentDescription = item.title
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = item.title,
-                            fontSize = 9.sp
-                        )
-                    },
-                    selectedContentColor = Color.Black,
-                    unselectedContentColor = Color.Black.copy(0.4f),
-                    alwaysShowLabel = true,
-                    selected = currentRoute == item.screenRoute,
-                    onClick = {
-
-                        if (item.screenRoute == BottomNavItem.Order.screenRoute) {
-                            onOrderClick()
-                        } else {
-                            navController.navigate(item.screenRoute) {
-
-                                navController.graph.startDestinationRoute?.let { screenRoute ->
-                                    popUpTo(screenRoute) {
-                                        saveState = true
-                                    }
+        items.forEach { item ->
+            BottomNavigationItem(
+                icon = {
+                    Icon(
+                        painterResource(id = item.icon),
+                        contentDescription = item.title
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.title,
+                        fontSize = 9.sp
+                    )
+                },
+                selectedContentColor = Color.Black,
+                unselectedContentColor = Color.Black.copy(0.4f),
+                alwaysShowLabel = true,
+                selected = currentRoute == item.screenRoute,
+                onClick = {
+                    if (item.screenRoute == BottomNavItem.Order.screenRoute) {
+                        onOrderClick()
+                    } else {
+                        navController.navigate(item.screenRoute) {
+                            navController.graph.startDestinationRoute?.let { screenRoute ->
+                                popUpTo(screenRoute) {
+                                    saveState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
-                )
-            }
+                }
+            )
         }
     }
 }
