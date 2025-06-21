@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.home
 
+import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -22,6 +23,8 @@ import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -30,26 +33,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.dummyState
-import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.OrderStatusCard
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
-import com.raylabs.laundryhub.ui.home.state.DUMMY_SUMMARY_ITEM
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
-import com.raylabs.laundryhub.ui.home.state.PendingOrderItem
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
-import com.raylabs.laundryhub.ui.home.state.UserItem
-import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
-    val state = viewModel.uiState
+fun HomeScreen(viewModel: HomeViewModel) {
+    val state by viewModel.uiState.collectAsState()
     HomeScreenContent(state = state)
 }
 
@@ -57,7 +54,7 @@ fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
 fun HomeScreenContent(state: HomeUiState) {
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state) {
+    LaunchedEffect(state.orderUpdateKey) {
         listOf(state.user, state.todayIncome, state.summary, state.orderStatus).forEach {
             it.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg) }
         }
@@ -143,7 +140,7 @@ fun HomeScreenContent(state: HomeUiState) {
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.orderStatus.data) { item ->
+                    items(items = state.orderStatus.data, key = { it.orderID }) { item ->
                         OrderStatusCard(item)
                     }
                 }

@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.order
 
+import android.util.Log
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -80,28 +81,26 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun submitOrder(order: OrderData, onSuccess: () -> Unit) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                submitNewOrder = _uiState.value.submitNewOrder.loading()
-            )
+    suspend fun submitOrder(order: OrderData, onComplete: suspend () -> Unit) {
+        _uiState.value = _uiState.value.copy(
+            submitNewOrder = _uiState.value.submitNewOrder.loading()
+        )
 
-            when (val result = submitOrderUseCase(order = order)) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        submitNewOrder = _uiState.value.submitNewOrder.success(result.data)
-                    )
-                    onSuccess()
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        submitNewOrder = _uiState.value.submitNewOrder.error(result.message)
-                    )
-                }
-
-                else -> Unit
+        when (val result = submitOrderUseCase(order = order)) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    submitNewOrder = _uiState.value.submitNewOrder.success(result.data)
+                )
+                onComplete()
             }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    submitNewOrder = _uiState.value.submitNewOrder.error(result.message)
+                )
+            }
+
+            else -> Unit
         }
     }
 
@@ -152,23 +151,21 @@ class OrderViewModel @Inject constructor(
         )
     }
 
-    fun submitHistory(history: HistoryData) {
-        viewModelScope.launch {
-            when (val result = submitHistoryUseCase(history = history)) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        submitHistoryOrder = _uiState.value.submitNewOrder.success(result.data)
-                    )
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        submitHistoryOrder = _uiState.value.submitNewOrder.error(result.message)
-                    )
-                }
-
-                else -> Unit
+    suspend fun submitHistory(history: HistoryData) {
+        when (val result = submitHistoryUseCase(history = history)) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    submitHistoryOrder = _uiState.value.submitNewOrder.success(result.data)
+                )
             }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    submitHistoryOrder = _uiState.value.submitNewOrder.error(result.message)
+                )
+            }
+
+            else -> Unit
         }
     }
 }

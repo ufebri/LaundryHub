@@ -36,6 +36,7 @@ import androidx.navigation.compose.rememberNavController
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
+import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
@@ -43,6 +44,7 @@ import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -51,8 +53,9 @@ fun LaundryHubStarter(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    val viewModel: OrderViewModel = hiltViewModel()
-    val state = viewModel.uiState
+    val orderViewModel: OrderViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
+    val state = orderViewModel.uiState
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val showOrderSheet = remember { mutableStateOf(false) }
@@ -74,29 +77,26 @@ fun LaundryHubStarter(
             if (showOrderSheet.value) {
                 OrderBottomSheet(
                     state = state,
-                    onNameChanged = { viewModel.updateField("name", it) },
-                    onPhoneChanged = { viewModel.onPhoneChanged(it) },
-                    onPriceChanged = { viewModel.onPriceChanged(it) },
-                    onPackageSelected = { viewModel.onPackageSelected(it) },
-                    onPaymentMethodSelected = { viewModel.updateField("paymentMethod", it) },
-                    onNoteChanged = { viewModel.updateField("note", it) },
+                    onNameChanged = { orderViewModel.updateField("name", it) },
+                    onPhoneChanged = { orderViewModel.onPhoneChanged(it) },
+                    onPriceChanged = { orderViewModel.onPriceChanged(it) },
+                    onPackageSelected = { orderViewModel.onPackageSelected(it) },
+                    onPaymentMethodSelected = { orderViewModel.updateField("paymentMethod", it) },
+                    onNoteChanged = { orderViewModel.updateField("note", it) },
                     onSubmit = {
                         state.lastOrderId?.let { id ->
-                            viewModel.submitOrder(
-                                state.toOrderData(
-                                    id
-                                )
-                            ) {
-                                //1. Submit to Google Sheet History
-                                viewModel.submitHistory(state.toHistoryData(id))
+                            scope.launch {
+                                orderViewModel.submitOrder(state.toOrderData(id), onComplete = {
+                                    // Submit history after order is successfully submitted
+                                    orderViewModel.submitHistory(state.toHistoryData(id))
 
-                                //2. Close after success submit
-                                dismissSheet()
-                                viewModel.resetForm()
-
-                                scope.launch {
+                                    // Refresh home view model data
+                                    homeViewModel.fetchOrder()
+                                    // Dismiss the sheet and reset form
+                                    dismissSheet()
+                                    orderViewModel.resetForm()
                                     snackbarHostState.showSnackbar("Order #$id successfully submitted!")
-                                }
+                                })
                             }
                         }
                     }
@@ -136,7 +136,7 @@ fun LaundryHubStarter(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(BottomNavItem.Home.screenRoute) {
-                    HomeScreen()
+                    HomeScreen(viewModel = homeViewModel)
                 }
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()

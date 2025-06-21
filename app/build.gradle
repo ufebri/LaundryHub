@@ -155,10 +155,11 @@ dependencies {
     //SplashScreen
     implementation "androidx.core:core-splashscreen:1.0.1"
 
-    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2"
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
-    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6"
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.6'
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.6"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.6"
 
     //Coil
     implementation "io.coil-kt:coil-compose:2.5.0"
@@ -205,4 +206,8 @@ dependencies {
     //Data store
     /* v1.5.0 not support booleanPreferencesKey (?) */
     implementation "androidx.datastore:datastore-preferences:1.1.2"
+
+    testImplementation 'org.mockito:mockito-core:5.2.0'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
+    testImplementation 'org.mockito:mockito-inline:5.2.0'
 }

@@ -13,9 +13,8 @@ data class PendingOrderItem(
 )
 
 fun List<HistoryData>.toUI(): List<PendingOrderItem> {
-    val mList = arrayListOf<PendingOrderItem>()
-    this.map {
-        val mData = PendingOrderItem(
+    return this.map {
+        PendingOrderItem(
             orderID = it.orderId,
             customerName = it.customerName,
             packageType = it.packageType,
@@ -23,9 +22,7 @@ fun List<HistoryData>.toUI(): List<PendingOrderItem> {
             stationName = it.getStationNow(),
             dueDate = it.dueDate.orEmpty()
         )
-        mList.add(mData)
     }
-    return mList
 }
 
 fun HistoryData.getStationNow(): String =

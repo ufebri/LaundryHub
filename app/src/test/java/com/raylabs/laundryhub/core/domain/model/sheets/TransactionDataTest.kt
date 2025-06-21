@@ -38,6 +38,31 @@ class TransactionDataTest {
     }
 
     @Test
+    fun `toIncomeList handles missing or null fields gracefully`() {
+        val map = mapOf(
+            "orderID" to null,
+            "Date" to null,
+            "Name" to null,
+            "Weight" to null,
+            "Price/kg" to null,
+            "Total Price" to null,
+            "(lunas/belum)" to null,
+            "Package" to null,
+            "remark" to null,
+            "payment" to null,
+            "phoneNumber" to null,
+            "orderStatus" to null,
+            "station" to null,
+            "due date" to null
+        ).mapValues { it.value ?: "" }
+        val result = map.toIncomeList()
+        assertEquals("", result.orderID)
+        assertEquals("", result.name)
+        assertEquals("", result.paymentMethod)
+        assertEquals("", result.remark)
+    }
+
+    @Test
     fun `getAllIncomeData returns true only if name and totalPrice are present`() {
         val data = TransactionData(
             orderID = "", date = "", name = "Bob", weight = "", pricePerKg = "",
@@ -75,11 +100,29 @@ class TransactionDataTest {
     }
 
     @Test
+    fun `filterRangeDateData returns false for null or invalid date`() {
+        val data = TransactionData(
+            orderID = "", date = "invalid-date", name = "", weight = "", pricePerKg = "",
+            totalPrice = "", paymentStatus = "", packageType = "", remark = "",
+            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+        )
+        val range = RangeDate("2024-06-01", "2024-06-30")
+        assertFalse(data.filterRangeDateData(range))
+        assertFalse(data.filterRangeDateData(null))
+    }
+
+    @Test
     fun `isUnpaidData detects unpaid correctly`() {
         val unpaid = TransactionData("", "", "", "", "", "", "Unpaid", "", "", "", "", "", "", "")
         val empty = unpaid.copy(paymentStatus = "")
         assertTrue(unpaid.isUnpaidData())
         assertTrue(empty.isUnpaidData())
+    }
+
+    @Test
+    fun `isUnpaidData returns false for paid status`() {
+        val paid = TransactionData("", "", "", "", "", "", "Paid", "", "", "", "", "", "", "")
+        assertFalse(paid.isUnpaidData())
     }
 
     @Test
@@ -111,5 +154,17 @@ class TransactionDataTest {
 
         val unpaid = paidQris.copy(paymentStatus = "Unpaid")
         assertEquals("Unpaid", unpaid.paidDescription())
+    }
+
+    @Test
+    fun `getAllIncomeData returns false if only one field is present`() {
+        val data = TransactionData(
+            orderID = "", date = "", name = "Bob", weight = "", pricePerKg = "",
+            totalPrice = "", paymentStatus = "", packageType = "", remark = "",
+            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+        )
+        assertFalse(data.getAllIncomeData())
+        val data2 = data.copy(name = "", totalPrice = "10000")
+        assertFalse(data2.getAllIncomeData())
     }
 }

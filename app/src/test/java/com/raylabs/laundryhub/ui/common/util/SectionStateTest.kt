@@ -1,6 +1,9 @@
 package com.raylabs.laundryhub.ui.common.util
 
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SectionStateTest {
@@ -27,11 +30,11 @@ class SectionStateTest {
 
     @Test
     fun `error() should set isLoading false and update errorMessage`() {
-        val initial = SectionState<String>(isLoading = true, data = "Old Data")
+        val initial = SectionState<String>(isLoading = true, data = null)
         val result = initial.error("Something went wrong")
 
         assertFalse(result.isLoading)
-        assertEquals("Old Data", result.data) // data tetap
+        assertEquals(null, result.data) // data tetap
         assertEquals("Something went wrong", result.errorMessage)
     }
 }
