@@ -21,6 +21,7 @@ data class OrderUiState(
     val weight: String = "",
     val paymentMethod: String = "",
     val note: String = "",
+    val isSubmitting: Boolean = false,
 )
 
 fun OrderUiState.toOrderData(orderId: String): OrderData {

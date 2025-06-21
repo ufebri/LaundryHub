@@ -92,6 +92,17 @@ fun LaundryHubStarter(
 
                                     // Refresh home view model data
                                     homeViewModel.fetchOrder()
+
+                                    // Refresh income data
+                                    homeViewModel.fetchTodayIncome()
+
+                                    // Refresh summary data
+                                    homeViewModel.fetchSummary()
+
+
+                                    // Delay to ensure data is refreshed before dismissing
+                                    delay(500)
+
                                     // Dismiss the sheet and reset form
                                     dismissSheet()
                                     orderViewModel.resetForm()

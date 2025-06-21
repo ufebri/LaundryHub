@@ -35,8 +35,8 @@ class HomeViewModel @Inject constructor(
 
     init {
         fetchUser()
-        fetchTodayIncome()
-        fetchSummary()
+        fetchTodayIncomeFromInit()
+        fetchSummaryFromInit()
         fetchOrderFromInit()
     }
 
@@ -47,69 +47,72 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun fetchTodayIncome() {
+    private fun fetchTodayIncomeFromInit() {
+        viewModelScope.launch { fetchTodayIncome() }
+    }
+
+    suspend fun fetchTodayIncome() {
         _uiState.update {
             it.copy(todayIncome = it.todayIncome.loading())
         }
 
-        viewModelScope.launch {
-            when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
-                is Resource.Success -> {
-                    val uiData = result.data.toUI()
-                    _uiState.update {
-                        it.copy(todayIncome = it.todayIncome.success(uiData))
-                    }
+        when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
+            is Resource.Success -> {
+                val uiData = result.data.toUI()
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.success(uiData))
                 }
-
-                is Resource.Error -> {
-                    _uiState.update {
-                        it.copy(todayIncome = it.todayIncome.error(result.message))
-                    }
-                }
-
-                Resource.Empty -> {
-                    _uiState.update {
-                        it.copy(todayIncome = it.todayIncome.error("Tidak ada data hari ini"))
-                    }
-                }
-
-                else -> Unit
             }
+
+            is Resource.Error -> {
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.error(result.message))
+                }
+            }
+
+            Resource.Empty -> {
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.error("Tidak ada data hari ini"))
+                }
+            }
+
+            else -> Unit
         }
     }
 
-    private fun fetchSummary() {
+    private fun fetchSummaryFromInit() {
+        viewModelScope.launch { fetchSummary() }
+    }
+
+    suspend fun fetchSummary() {
         _uiState.update {
             it.copy(summary = SectionState(isLoading = true))
         }
-
-        viewModelScope.launch {
-            when (val result = summaryUseCase()) {
-                is Resource.Success -> {
-                    val uiData = result.data.toUI()
-                    _uiState.update {
-                        it.copy(summary = it.summary.success(uiData))
-                    }
+        when (val result = summaryUseCase()) {
+            is Resource.Success -> {
+                val uiData = result.data.toUI()
+                _uiState.update {
+                    it.copy(summary = it.summary.success(uiData))
                 }
-
-                is Resource.Error -> {
-                    _uiState.update {
-                        it.copy(summary = it.summary.error(result.message))
-                    }
-                }
-
-                Resource.Empty -> {
-                    _uiState.update {
-                        it.copy(summary = it.summary.error("Data Kosong"))
-                    }
-                }
-
-                else -> Unit
             }
+
+            is Resource.Error -> {
+                _uiState.update {
+                    it.copy(summary = it.summary.error(result.message))
+                }
+            }
+
+            Resource.Empty -> {
+                _uiState.update {
+                    it.copy(summary = it.summary.error("Data Kosong"))
+                }
+            }
+
+            else -> Unit
         }
     }
 
-    fun fetchOrderFromInit() {
+    private fun fetchOrderFromInit() {
         viewModelScope.launch { fetchOrder() }
     }
 
@@ -122,8 +125,14 @@ class HomeViewModel @Inject constructor(
             is Resource.Success -> {
                 val uiData = result.data.toUI()
                 _uiState.update {
-                    it.copy(orderStatus = SectionState(data = uiData, isLoading = false, errorMessage = null),
-                        orderUpdateKey = System.currentTimeMillis())
+                    it.copy(
+                        orderStatus = SectionState(
+                            data = uiData,
+                            isLoading = false,
+                            errorMessage = null
+                        ),
+                        orderUpdateKey = System.currentTimeMillis()
+                    )
                 }
             }
 

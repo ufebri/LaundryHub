@@ -200,14 +200,21 @@ fun OrderBottomSheet(
 
             Button(
                 onClick = onSubmit,
-                enabled = state.isSubmitEnabled,
+                enabled = state.isSubmitEnabled && !state.isSubmitting,
                 modifier = Modifier
                     .align(Alignment.Bottom)
                     .height(56.dp)
                     .defaultMinSize(minWidth = 120.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Submit")
+                if (state.isSubmitting) {
+                    androidx.compose.material.CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text("Submit")
+                }
             }
         }
     }

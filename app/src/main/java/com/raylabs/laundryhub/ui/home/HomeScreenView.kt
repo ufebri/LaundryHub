@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.ui.home
 
-import android.util.Log
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -85,7 +84,7 @@ fun HomeScreenContent(state: HomeUiState) {
             }
         }
 
-        item { Spacer(Modifier.height(100.dp)) }
+        item { Spacer(Modifier.height(120.dp)) }
 
         item {
             Text(

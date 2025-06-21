@@ -83,24 +83,29 @@ class OrderViewModel @Inject constructor(
 
     suspend fun submitOrder(order: OrderData, onComplete: suspend () -> Unit) {
         _uiState.value = _uiState.value.copy(
-            submitNewOrder = _uiState.value.submitNewOrder.loading()
+            submitNewOrder = _uiState.value.submitNewOrder.loading(),
+            isSubmitting = true
         )
 
         when (val result = submitOrderUseCase(order = order)) {
             is Resource.Success -> {
                 _uiState.value = _uiState.value.copy(
-                    submitNewOrder = _uiState.value.submitNewOrder.success(result.data)
+                    submitNewOrder = _uiState.value.submitNewOrder.success(result.data),
+                    isSubmitting = false
                 )
                 onComplete()
             }
 
             is Resource.Error -> {
                 _uiState.value = _uiState.value.copy(
-                    submitNewOrder = _uiState.value.submitNewOrder.error(result.message)
+                    submitNewOrder = _uiState.value.submitNewOrder.error(result.message),
+                    isSubmitting = false
                 )
             }
 
-            else -> Unit
+            else -> {
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
+            }
         }
     }
 

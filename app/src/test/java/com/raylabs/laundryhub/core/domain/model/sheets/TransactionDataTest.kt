@@ -8,7 +8,7 @@ import org.junit.Test
 
 class TransactionDataTest {
 
-    private fun today(): String = DateUtil.getTodayDate("yyyy-MM-dd")
+    private fun today(): String = DateUtil.getTodayDate(dateFormat = "dd/MM/yyyy")
 
     @Test
     fun `toIncomeList parses all fields correctly`() {

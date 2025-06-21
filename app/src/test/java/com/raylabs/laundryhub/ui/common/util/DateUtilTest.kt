@@ -24,7 +24,7 @@ class DateUtilTest {
     @Test
     fun `isToday returns true for today's date`() {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
-        assertTrue(DateUtil.isToday(today))
+        assertTrue(DateUtil.isToday(date = today, formatedDate = "yyyy-MM-dd"))
     }
 
     @Test
@@ -34,7 +34,7 @@ class DateUtilTest {
         }.time
 
         val yesterdayStr = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(yesterday)
-        assertFalse(DateUtil.isToday(yesterdayStr))
+        assertFalse(DateUtil.isToday(date = yesterdayStr, formatedDate = "yyyy-MM-dd"))
     }
 
     @Test

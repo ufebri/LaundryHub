@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.home.state
 
 import androidx.compose.ui.graphics.Color
+import com.raylabs.laundryhub.core.domain.model.sheets.PAID
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
@@ -16,25 +17,22 @@ data class TodayActivityItem(
 )
 
 fun List<TransactionData>.toUI(): List<TodayActivityItem> {
-    var mList = arrayListOf<TodayActivityItem>()
-    this.map {
-        val mData = TodayActivityItem(
+    return this.map {
+        TodayActivityItem(
             id = it.orderID,
             name = it.name,
-            totalPrice = "Rp ${it.totalPrice.ifEmpty { "0" }},-",
+            totalPrice = "${it.totalPrice.ifEmpty { "Rp 0" }},-",
             status = it.paidDescription(),
             statusColor = getColor(it.paymentStatus),
             packageDuration = it.packageType
         )
-        mList.add(mData)
-    }
-    return mList
+    }.toList()
 }
 
 private fun getColor(paymentStatus: String): Color {
     return when (paymentStatus) {
         "" -> RedLaundryHub
-        "lunas" -> PurpleLaundryHub
+        PAID -> PurpleLaundryHub
         else -> Color.Black
     }
 }

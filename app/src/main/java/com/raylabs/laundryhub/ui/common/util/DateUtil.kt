@@ -20,8 +20,8 @@ object DateUtil {
         }
     }
 
-    fun isToday(date: String): Boolean {
-        val today = getTodayDate()
+    fun isToday(date: String, formatedDate: String): Boolean {
+        val today = getTodayDate(dateFormat = formatedDate)
         return date == today
     }
 
