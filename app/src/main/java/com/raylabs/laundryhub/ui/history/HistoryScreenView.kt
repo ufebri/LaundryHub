@@ -20,11 +20,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
 import com.raylabs.laundryhub.ui.common.util.DateUtil
-import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.HistoryItemCard
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
-import com.raylabs.laundryhub.ui.history.state.HistoryItem
 import com.raylabs.laundryhub.ui.history.state.HistoryUiItem
 import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 

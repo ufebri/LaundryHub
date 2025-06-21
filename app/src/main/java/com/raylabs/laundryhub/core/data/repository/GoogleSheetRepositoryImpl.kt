@@ -11,6 +11,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.InventoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
+import com.raylabs.laundryhub.core.domain.model.sheets.STATUS_ORDER_PENDING
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.filterRangeDateData
@@ -24,6 +25,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.toHistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toInventoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.toSheetRow
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
@@ -144,7 +146,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         }
                         mappedRow.toHistoryData()
                     }.sortedByDescending { transaction ->
-                        parseDate(transaction.dueDate)
+                        parseDate(transaction.dueDate.orEmpty())
                     }
 
                     if (filterHistory == HistoryFilter.SHOW_UNDONE_ORDER) {
@@ -310,7 +312,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             incomeSheetData.remark,
                             incomeSheetData.getSpreadSheetPaymentMethod,
                             incomeSheetData.phoneNumber,
-                            "Pending", // orderStatus awal,
+                            STATUS_ORDER_PENDING, // orderStatus awal,
                             incomeSheetData.getSpreadSheetDueDate
                         )
                     )
@@ -318,6 +320,27 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     val body = ValueRange().setValues(values)
                     googleSheetService.getSheetsService().spreadsheets().values()
                         .append(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE, body)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+
+                    Resource.Success(true)
+
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to append order.")
+                }
+            } ?: Resource.Error("Gagal menambahkan order setelah 3 kali coba.")
+        }
+    }
+
+    override suspend fun addHistoryOrder(history: HistoryData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val values = listOf(history.toSheetRow())
+
+                    val body = ValueRange().setValues(values)
+                    googleSheetService.getSheetsService().spreadsheets().values()
+                        .append(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE, body)
                         .setValueInputOption("USER_ENTERED")
                         .execute()
 

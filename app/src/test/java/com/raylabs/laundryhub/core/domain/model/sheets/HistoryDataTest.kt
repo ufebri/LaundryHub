@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -138,5 +139,45 @@ class HistoryDataTest {
     @Test(expected = IllegalArgumentException::class)
     fun `invalid enum name should throw exception`() {
         HistoryFilter.valueOf("INVALID_FILTER")
+    }
+
+    @Test
+    fun `toSheetRow returns 22 columns with correct values`() {
+        val data = HistoryData(
+            orderId = "ORD001",
+            customerName = "John Doe",
+            packageType = "Express",
+            duration = "1d",
+            orderDate = "2025-06-15",
+            dueDate = "3d",
+            status = "CREATED",
+            paymentMethod = "Paid By Cash",
+            paymentStatus = "Paid By Cash",
+            totalPrice = "15000"
+        )
+
+        val row = data.toSheetRow()
+
+        // Total kolom harus 22
+        assertEquals(22, row.size)
+
+        // Cek nilai-nilai awal
+        assertEquals("ORD001", row[0])
+        assertEquals("John Doe", row[1])
+        assertEquals("Express", row[2])
+        assertEquals("1d", row[3])
+        assertEquals(DateUtil.getTodayDate("dd/MM/yyyy"), row[4])
+        assertEquals(DateUtil.getDueDate("3d"), row[5])
+        assertEquals("Pending", row[6]) // STATUS_ORDER_PENDING
+
+        // Kolom kosong (kolom 7 sampai 18)
+        for (i in 7..18) {
+            assertEquals("", row[i])
+        }
+
+        // Kolom akhir
+        assertEquals("", row[19])      // getDisplayPaymentMethod
+        assertEquals("", row[20])      // getDisplayPaidStatus
+        assertEquals("15000", row[21])     // totalPrice
     }
 }

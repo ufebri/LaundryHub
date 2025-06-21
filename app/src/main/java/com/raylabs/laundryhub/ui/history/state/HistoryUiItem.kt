@@ -3,7 +3,6 @@ package com.raylabs.laundryhub.ui.history.state
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
-import com.raylabs.laundryhub.ui.common.util.DateUtil
 
 data class HistoryItem(
     val orderId: String,
@@ -38,5 +37,6 @@ fun List<TransactionData>.toUiItems(): List<HistoryUiItem> {
         .flatMap { (date, items) ->
             listOf(HistoryUiItem.Header(date)) +
                     items.map { HistoryUiItem.Entry(it.toUiItem()) }
+                        .sortedByDescending { it.item.orderId }
         }
 }

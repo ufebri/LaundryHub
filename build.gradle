@@ -5,9 +5,9 @@ buildscript {
     ext {
         kotlin_version = '1.9.23'
         nav_version = "2.7.1"
-        compose_version = "1.0.5"
+        compose_version = "1.6.5"
         materialui_version = "1.5.0"
-        activitycompose_version = "1.7.2"
+        activitycompose_version = "1.8.2"
     }
     repositories {
         google()

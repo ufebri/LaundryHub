@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -22,7 +23,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,15 +33,17 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
+import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
+import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -50,8 +52,9 @@ fun LaundryHubStarter(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    val viewModel: OrderViewModel = hiltViewModel()
-    val state = viewModel.uiState
+    val orderViewModel: OrderViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
+    val state = orderViewModel.uiState
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val showOrderSheet = remember { mutableStateOf(false) }
@@ -73,26 +76,37 @@ fun LaundryHubStarter(
             if (showOrderSheet.value) {
                 OrderBottomSheet(
                     state = state,
-                    onNameChanged = { viewModel.updateField("name", it) },
-                    onPhoneChanged = { viewModel.onPhoneChanged(it) },
-                    onPriceChanged = { viewModel.onPriceChanged(it) },
-                    onPackageSelected = { viewModel.onPackageSelected(it) },
-                    onPaymentMethodSelected = { viewModel.updateField("paymentMethod", it) },
-                    onNoteChanged = { viewModel.updateField("note", it) },
+                    onNameChanged = { orderViewModel.updateField("name", it) },
+                    onPhoneChanged = { orderViewModel.onPhoneChanged(it) },
+                    onPriceChanged = { orderViewModel.onPriceChanged(it) },
+                    onPackageSelected = { orderViewModel.onPackageSelected(it) },
+                    onPaymentMethodSelected = { orderViewModel.updateField("paymentMethod", it) },
+                    onNoteChanged = { orderViewModel.updateField("note", it) },
                     onSubmit = {
                         state.lastOrderId?.let { id ->
-                            viewModel.submitOrder(
-                                state.toOrderData(
-                                    id
-                                )
-                            ) {
-                                //Close after success submit
-                                dismissSheet()
-                                viewModel.resetForm()
+                            scope.launch {
+                                orderViewModel.submitOrder(state.toOrderData(id), onComplete = {
+                                    // Submit history after order is successfully submitted
+                                    orderViewModel.submitHistory(state.toHistoryData(id))
 
-                                scope.launch {
+                                    // Refresh home view model data
+                                    homeViewModel.fetchOrder()
+
+                                    // Refresh income data
+                                    homeViewModel.fetchTodayIncome()
+
+                                    // Refresh summary data
+                                    homeViewModel.fetchSummary()
+
+
+                                    // Delay to ensure data is refreshed before dismissing
+                                    delay(500)
+
+                                    // Dismiss the sheet and reset form
+                                    dismissSheet()
+                                    orderViewModel.resetForm()
                                     snackbarHostState.showSnackbar("Order #$id successfully submitted!")
-                                }
+                                })
                             }
                         }
                     }
@@ -132,7 +146,7 @@ fun LaundryHubStarter(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(BottomNavItem.Home.screenRoute) {
-                    HomeScreen()
+                    HomeScreen(viewModel = homeViewModel)
                 }
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
@@ -155,11 +169,11 @@ fun BottomBar(
     modifier: Modifier = Modifier
 ) {
     BottomNavigation(
-        modifier = modifier,
-        backgroundColor = colorResource(id = R.color.colorPrimary),
-        contentColor = Color.White
+        modifier = modifier.background(Color.White),
+        backgroundColor = Color.White,
+        contentColor = Color.Black,
+        elevation = 0.dp
     ) {
-        //List Menu Item
         val items = listOf(
             BottomNavItem.Home,
             BottomNavItem.History,
@@ -167,47 +181,43 @@ fun BottomBar(
             BottomNavItem.Inventory,
             BottomNavItem.Profile
         )
-        BottomNavigation {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentRoute = navBackStackEntry?.destination?.route
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
 
-            items.map { item ->
-                BottomNavigationItem(
-                    icon = {
-                        Icon(
-                            painterResource(id = item.icon),
-                            contentDescription = item.title
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = item.title,
-                            fontSize = 9.sp
-                        )
-                    },
-                    selectedContentColor = Color.Black,
-                    unselectedContentColor = Color.Black.copy(0.4f),
-                    alwaysShowLabel = true,
-                    selected = currentRoute == item.screenRoute,
-                    onClick = {
-
-                        if (item.screenRoute == BottomNavItem.Order.screenRoute) {
-                            onOrderClick()
-                        } else {
-                            navController.navigate(item.screenRoute) {
-
-                                navController.graph.startDestinationRoute?.let { screenRoute ->
-                                    popUpTo(screenRoute) {
-                                        saveState = true
-                                    }
+        items.forEach { item ->
+            BottomNavigationItem(
+                icon = {
+                    Icon(
+                        painterResource(id = item.icon),
+                        contentDescription = item.title
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.title,
+                        fontSize = 9.sp
+                    )
+                },
+                selectedContentColor = Color.Black,
+                unselectedContentColor = Color.Black.copy(0.4f),
+                alwaysShowLabel = true,
+                selected = currentRoute == item.screenRoute,
+                onClick = {
+                    if (item.screenRoute == BottomNavItem.Order.screenRoute) {
+                        onOrderClick()
+                    } else {
+                        navController.navigate(item.screenRoute) {
+                            navController.graph.startDestinationRoute?.let { screenRoute ->
+                                popUpTo(screenRoute) {
+                                    saveState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
-                )
-            }
+                }
+            )
         }
     }
 }

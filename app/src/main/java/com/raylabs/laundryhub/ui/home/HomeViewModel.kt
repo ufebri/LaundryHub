@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.ui.home
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
@@ -17,6 +16,9 @@ import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.toUI
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -28,108 +30,125 @@ class HomeViewModel @Inject constructor(
     private val readOrderStatusUseCase: ReadOrderStatusUseCase
 ) : ViewModel() {
 
-    private val _uiState = mutableStateOf(HomeUiState())
-    val uiState: HomeUiState get() = _uiState.value
+    private val _uiState = MutableStateFlow(HomeUiState())
+    val uiState: StateFlow<HomeUiState> = _uiState
 
     init {
         fetchUser()
-        fetchTodayIncome()
-        fetchSummary()
-        fetchOrder()
+        fetchTodayIncomeFromInit()
+        fetchSummaryFromInit()
+        fetchOrderFromInit()
     }
 
     private fun fetchUser() {
         val user = userUseCase.getCurrentUser()
-        _uiState.value = _uiState.value.copy(
-            user = SectionState(data = user?.toUI())
-        )
-    }
-
-    private fun fetchTodayIncome() {
-        _uiState.value = _uiState.value.copy(todayIncome = _uiState.value.todayIncome.loading())
-
-        viewModelScope.launch {
-            when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
-                is Resource.Success -> {
-                    val uiData = result.data.toUI()
-                    _uiState.value = _uiState.value.copy(
-                        todayIncome = _uiState.value.todayIncome.success(uiData)
-                    )
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        todayIncome = _uiState.value.todayIncome.error(result.message)
-                    )
-                }
-
-                Resource.Empty -> {
-                    _uiState.value = _uiState.value.copy(
-                        todayIncome = _uiState.value.todayIncome.error("Tidak ada data hari ini")
-                    )
-                }
-
-                else -> Unit
-            }
+        _uiState.update {
+            it.copy(user = SectionState(data = user?.toUI()))
         }
     }
 
-    private fun fetchSummary() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(summary = SectionState(isLoading = true))
+    private fun fetchTodayIncomeFromInit() {
+        viewModelScope.launch { fetchTodayIncome() }
+    }
 
-            when (val result = summaryUseCase()) {
-                is Resource.Success -> {
-                    val uiData = result.data.toUI() // convert to UI model
-                    _uiState.value = _uiState.value.copy(
-                        summary = SectionState(data = uiData)
-                    )
+    suspend fun fetchTodayIncome() {
+        _uiState.update {
+            it.copy(todayIncome = it.todayIncome.loading())
+        }
+
+        when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
+            is Resource.Success -> {
+                val uiData = result.data.toUI()
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.success(uiData))
                 }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        summary = SectionState(errorMessage = result.message)
-                    )
-                }
-
-                Resource.Empty -> {
-                    _uiState.value = _uiState.value.copy(
-                        summary = SectionState(errorMessage = "Data kosong")
-                    )
-                }
-
-                is Resource.Loading -> {}
             }
+
+            is Resource.Error -> {
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.error(result.message))
+                }
+            }
+
+            Resource.Empty -> {
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.error("Tidak ada data hari ini"))
+                }
+            }
+
+            else -> Unit
         }
     }
 
-    private fun fetchOrder() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(orderStatus = SectionState(isLoading = true))
+    private fun fetchSummaryFromInit() {
+        viewModelScope.launch { fetchSummary() }
+    }
 
-            when (val result =
-                readOrderStatusUseCase(filterHistory = HistoryFilter.SHOW_UNDONE_ORDER)) {
-                is Resource.Success -> {
-                    val uiData = result.data.toUI()
-                    _uiState.value = _uiState.value.copy(
-                        orderStatus = SectionState(data = uiData)
-                    )
+    suspend fun fetchSummary() {
+        _uiState.update {
+            it.copy(summary = SectionState(isLoading = true))
+        }
+        when (val result = summaryUseCase()) {
+            is Resource.Success -> {
+                val uiData = result.data.toUI()
+                _uiState.update {
+                    it.copy(summary = it.summary.success(uiData))
                 }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        orderStatus = SectionState(errorMessage = result.message)
-                    )
-                }
-
-                is Resource.Empty -> {
-                    _uiState.value = _uiState.value.copy(
-                        orderStatus = SectionState(errorMessage = "Data Kosong")
-                    )
-                }
-
-                is Resource.Loading -> {}
             }
+
+            is Resource.Error -> {
+                _uiState.update {
+                    it.copy(summary = it.summary.error(result.message))
+                }
+            }
+
+            Resource.Empty -> {
+                _uiState.update {
+                    it.copy(summary = it.summary.error("Data Kosong"))
+                }
+            }
+
+            else -> Unit
+        }
+    }
+
+    private fun fetchOrderFromInit() {
+        viewModelScope.launch { fetchOrder() }
+    }
+
+    suspend fun fetchOrder() {
+        _uiState.update {
+            it.copy(orderStatus = SectionState(isLoading = true))
+        }
+        when (val result =
+            readOrderStatusUseCase(filterHistory = HistoryFilter.SHOW_UNDONE_ORDER)) {
+            is Resource.Success -> {
+                val uiData = result.data.toUI()
+                _uiState.update {
+                    it.copy(
+                        orderStatus = SectionState(
+                            data = uiData,
+                            isLoading = false,
+                            errorMessage = null
+                        ),
+                        orderUpdateKey = System.currentTimeMillis()
+                    )
+                }
+            }
+
+            is Resource.Error -> {
+                _uiState.update {
+                    it.copy(orderStatus = it.orderStatus.error(result.message))
+                }
+            }
+
+            is Resource.Empty -> {
+                _uiState.update {
+                    it.copy(orderStatus = it.orderStatus.error("Data Kosong"))
+                }
+            }
+
+            else -> Unit
         }
     }
 }

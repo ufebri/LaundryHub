@@ -44,6 +44,7 @@ fun Transaction(mTransaction: TodayActivityItem) {
                     .weight(1f)
             ) {
                 Text(
+                    color = Color.Black,
                     style = MaterialTheme.typography.subtitle1,
                     text = mTransaction.name.capitalizeFirstLetter(),
                     fontWeight = FontWeight.Bold,

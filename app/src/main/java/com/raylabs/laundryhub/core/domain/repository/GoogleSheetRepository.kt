@@ -20,4 +20,5 @@ interface GoogleSheetRepository {
     suspend fun readOtherPackage(): Resource<List<String>>
     suspend fun getLastOrderId(): Resource<String>
     suspend fun addOrder(order: OrderData): Resource<Boolean>
+    suspend fun addHistoryOrder(history: HistoryData): Resource<Boolean>
 }

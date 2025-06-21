@@ -8,4 +8,5 @@ data class SectionState<T>(
 
 fun <T> SectionState<T>.loading() = copy(isLoading = true, errorMessage = null)
 fun <T> SectionState<T>.success(data: T) = copy(isLoading = false, data = data, errorMessage = null)
-fun <T> SectionState<T>.error(message: String?) = copy(isLoading = false, errorMessage = message)
+fun <T> SectionState<T>.error(message: String?) =
+    copy(isLoading = false, data = null, errorMessage = message)
