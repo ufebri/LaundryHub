@@ -67,6 +67,7 @@ fun OrderBottomSheet(
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
             .heightIn(max = 900.dp)
+            .background(MaterialTheme.colors.surface, shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .padding(16.dp)
     ) {
         // Drag Handle

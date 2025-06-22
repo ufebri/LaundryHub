@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
@@ -19,7 +20,7 @@ import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.ui.home.state.PendingOrderItem
 
 @Composable
-fun OrderStatusCard(item: PendingOrderItem) {
+fun OrderStatusCard(item: PendingOrderItem, onClick: (() -> Unit)? = null) {
     Card(
         backgroundColor = Color(0xFF3E3750),
         shape = RoundedCornerShape(16.dp),
@@ -27,6 +28,7 @@ fun OrderStatusCard(item: PendingOrderItem) {
             .widthIn(min = 140.dp, max = 180.dp)
             .heightIn(min = 180.dp)
             .wrapContentHeight()
+            .let { if (onClick != null) it.clickable { onClick() } else it }
     ) {
         Column(
             modifier = Modifier

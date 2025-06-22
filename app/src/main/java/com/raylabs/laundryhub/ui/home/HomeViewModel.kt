@@ -4,17 +4,24 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetAvailableMachineUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateMarkStepHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.LaundryStepUiModel
 import com.raylabs.laundryhub.ui.home.state.toUI
+import com.raylabs.laundryhub.ui.home.state.toUi
+import com.raylabs.laundryhub.ui.home.state.withAvailableMachine
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +34,10 @@ class HomeViewModel @Inject constructor(
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
-    private val readOrderStatusUseCase: ReadOrderStatusUseCase
+    private val readOrderStatusUseCase: ReadOrderStatusUseCase,
+    private val getHistoryUseCase: GetHistoryUseCase,
+    private val updateMarkStepHistoryUseCase: UpdateMarkStepHistoryUseCase,
+    private val getAvailableMachineUseCase: GetAvailableMachineUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -149,6 +159,88 @@ class HomeViewModel @Inject constructor(
             }
 
             else -> Unit
+        }
+    }
+
+    fun setSelectedOrderId(id: String) {
+        _uiState.update { it.copy(selectedOrderID = id) }
+    }
+
+    fun clearSelectedOrder() {
+        _uiState.update { it.copy(selectedOrderID = null) }
+    }
+
+    fun getOrderById(orderId: String) {
+        _uiState.update { it.copy(historyOrder = it.historyOrder.loading()) }
+
+        viewModelScope.launch {
+            when (val result = getHistoryUseCase(orderID = orderId)) {
+                is Resource.Success -> {
+                    var uiData = result.data.toUi()
+                    val availableMachine = getAvailableMachineForCurrentStep(uiData)
+                    if (availableMachine != null) {
+                        uiData = uiData.copy(
+                            steps = uiData.steps.withAvailableMachine(availableMachine)
+                        )
+                    }
+                    _uiState.update {
+                        it.copy(historyOrder = it.historyOrder.success(uiData))
+                    }
+                }
+
+                is Resource.Error -> {
+                    _uiState.update {
+                        it.copy(historyOrder = it.historyOrder.error(result.message))
+                    }
+                }
+
+                else -> Unit
+            }
+        }
+    }
+
+    private suspend fun getAvailableMachineForCurrentStep(uiData: com.raylabs.laundryhub.ui.home.state.OrderStatusDetailUiModel): String? {
+        val currentStep = uiData.steps.firstOrNull { it.isCurrent && it.machine.isBlank() }
+        if (currentStep != null) {
+            val availableMachine = getAvailableMachineUseCase(stationType = currentStep.label)
+            if (availableMachine is Resource.Success) {
+                return availableMachine.data.stationName
+            }
+        }
+        return null
+    }
+
+    fun markStepStarted(step: LaundryStepUiModel) {
+        val orderId = uiState.value.historyOrder.data?.orderId ?: return
+
+        viewModelScope.launch {
+            _uiState.update { it.copy(isMarkingStep = true) }
+
+            // Step 1: Get available machine
+            val availableMachine = getAvailableMachineUseCase(stationType = step.label)
+            if (availableMachine !is Resource.Success) {
+                _uiState.update { it.copy(isMarkingStep = false) }
+                return@launch
+            }
+
+            val machine = availableMachine.data
+            val startedAt = DateUtil.getTodayDate(dateFormat = "dd-MM-yyyy HH:mm")
+
+            // Step 2: Update order step and mark machine as unavailable by ID
+            val result = updateMarkStepHistoryUseCase(
+                orderId = orderId,
+                step = step.label,
+                startedAt = startedAt,
+                machineId = machine.id,
+                machineName = machine.stationName
+            )
+
+            if (result is Resource.Success) {
+                // Step 4: Refresh order detail
+                getOrderById(orderId)
+            }
+
+            _uiState.update { it.copy(isMarkingStep = false) }
         }
     }
 }

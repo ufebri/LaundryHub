@@ -44,18 +44,18 @@ import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel) {
+fun HomeScreen(viewModel: HomeViewModel, onOrderCardClick: (String) -> Unit) {
     val state by viewModel.uiState.collectAsState()
-    HomeScreenContent(state = state)
+    HomeScreenContent(state = state, onOrderCardClick = onOrderCardClick)
 }
 
 @Composable
-fun HomeScreenContent(state: HomeUiState) {
-    val snackbarHostState = remember { SnackbarHostState() }
+fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
+    val snackBarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.orderUpdateKey) {
         listOf(state.user, state.todayIncome, state.summary, state.orderStatus).forEach {
-            it.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg) }
+            it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
 
@@ -140,7 +140,7 @@ fun HomeScreenContent(state: HomeUiState) {
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(items = state.orderStatus.data, key = { it.orderID }) { item ->
-                        OrderStatusCard(item)
+                        OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) })
                     }
                 }
             }
@@ -203,5 +203,5 @@ fun CardList(state: List<TodayActivityItem>) {
 @Preview
 @Composable
 fun PreviewHomeScreen() {
-    HomeScreenContent(dummyState)
+    HomeScreenContent(dummyState, onOrderCardClick = {})
 }

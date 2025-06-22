@@ -21,4 +21,8 @@ interface GoogleSheetRepository {
     suspend fun getLastOrderId(): Resource<String>
     suspend fun addOrder(order: OrderData): Resource<Boolean>
     suspend fun addHistoryOrder(history: HistoryData): Resource<Boolean>
+    suspend fun getOrderById(orderId: String): Resource<HistoryData>
+    suspend fun updateOrderStep(orderId: String, step: String, startedAt: String, machineName: String): Resource<Boolean>
+    suspend fun getAvailableMachineByStation(stationType: String): Resource<InventoryData>
+    suspend fun updateMachineAvailability(idMachine: String, isAvailable: Boolean): Resource<Boolean>
 }

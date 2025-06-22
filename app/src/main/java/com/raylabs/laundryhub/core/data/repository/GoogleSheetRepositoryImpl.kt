@@ -17,6 +17,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.filterRangeDateData
 import com.raylabs.laundryhub.core.domain.model.sheets.getAllIncomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getTodayIncomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.groupStatus
 import com.raylabs.laundryhub.core.domain.model.sheets.isCashData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
@@ -206,6 +207,84 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         } ?: Resource.Error("Failed after 3 attempts.")
     }
 
+    override suspend fun getAvailableMachineByStation(stationType: String): Resource<InventoryData> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INVENTORY_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val dataRows = response.getValues().drop(1)
+
+                    val machines = dataRows.map { row ->
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toInventoryData()
+                    }.filter {
+                        it.stationType.equals(
+                            stationType,
+                            ignoreCase = true
+                        ) && it.isAvailable == true
+                    }
+
+                    if (machines.isNotEmpty()) Resource.Success(machines.first())
+                    else Resource.Error("No available machine for $stationType")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            } ?: Resource.Error("Failed after 3 attempts.")
+        }
+    }
+
+    override suspend fun updateMachineAvailability(
+        id: String,
+        isAvailable: Boolean
+    ): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val rowIndex = findInventoryRowById(id)
+                        ?: return@retry Resource.Error("Machine with ID $id not found")
+
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INVENTORY_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val columnIndex = headers.indexOf("is_available") + 1
+
+                    // Convert column index to letter (A=1, B=2, ...)
+                    val columnLetter = ('A' + (columnIndex - 1)).toString()
+                    val cell = "station!$columnLetter$rowIndex"
+
+                    val body = ValueRange().setValues(
+                        listOf(listOf(if (isAvailable) "TRUE" else "FALSE"))
+                    )
+
+                    googleSheetService.getSheetsService().spreadsheets().values()
+                        .update(BuildConfig.SPREAD_SHEET_ID, cell, body)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+
+                    Resource.Success(true)
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to update machine availability.")
+                }
+            } ?: Resource.Error("Failed after 3 attempts.")
+        }
+    }
+
+    private fun findInventoryRowById(id: String): Int? {
+        val response = googleSheetService.getSheetsService().spreadsheets().values()
+            .get(BuildConfig.SPREAD_SHEET_ID, INVENTORY_RANGE)
+            .execute()
+
+        val rows = response.getValues()
+        val index = rows.indexOfFirst { it.firstOrNull() == id }
+        return if (index >= 0) index + 2 else null
+    }
+
     override suspend fun readPackageData(): Resource<List<PackageData>> {
         return withContext(Dispatchers.IO) {
             retry {
@@ -351,5 +430,112 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                 }
             } ?: Resource.Error("Gagal menambahkan order setelah 3 kali coba.")
         }
+    }
+
+    override suspend fun getOrderById(orderId: String): Resource<HistoryData> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService
+                        .getSheetsService()
+                        .spreadsheets()
+                        .values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE)
+                        .execute()
+
+                    val headers = response.getValues().firstOrNull()
+                    val dataRows = response.getValues().drop(1)
+
+                    if (headers == null || dataRows.isEmpty()) {
+                        return@retry Resource.Empty
+                    }
+
+                    val mapped = dataRows
+                        .map { row ->
+                            headers.zip(row)
+                                .associate { (key, value) -> key.toString() to value.toString() }
+                        }
+                        .firstOrNull { it["order_id"] == orderId }
+
+                    if (mapped != null) {
+                        val history = mapped.toHistoryData()
+                        val groupStatus = history.groupStatus()
+                        val enriched = history.copy(status = groupStatus)
+                        Resource.Success(enriched)
+                    } else {
+                        Resource.Empty
+                    }
+                } catch (e: GoogleJsonResponseException) {
+                    val statusCode = e.statusCode
+                    val statusMessage = e.statusMessage
+                    val details = e.details?.message ?: "Unknown Error"
+
+                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            }
+        } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun updateOrderStep(
+        orderId: String,
+        step: String,
+        startedAt: String,
+        machineName: String
+    ): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val rowIndex = findRowByOrderId(orderId)
+                        ?: return@retry Resource.Error("Order ID not found")
+
+                    val (dateCol, machineCol) = when (step) {
+                        "Washing" -> "H" to "I"
+                        "Drying" -> "J" to "K"
+                        "Ironing" -> "L" to "M"
+                        "Folding" -> "N" to "O"
+                        "Packing" -> "P" to "Q"
+                        else -> return@retry Resource.Error("Unknown step: $step")
+                    }
+
+                    val service = googleSheetService.getSheetsService()
+
+                    val updateDate = ValueRange().setValues(listOf(listOf(startedAt)))
+                    service.spreadsheets().values()
+                        .update(
+                            BuildConfig.SPREAD_SHEET_ID,
+                            "history!$dateCol$rowIndex",
+                            updateDate
+                        )
+                        .setValueInputOption("RAW")
+                        .execute()
+
+                    val updateMachine = ValueRange().setValues(listOf(listOf(machineName)))
+                    service.spreadsheets().values()
+                        .update(
+                            BuildConfig.SPREAD_SHEET_ID,
+                            "history!$machineCol$rowIndex",
+                            updateMachine
+                        )
+                        .setValueInputOption("RAW")
+                        .execute()
+
+                    Resource.Success(true)
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to update step")
+                }
+            }
+        } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    private fun findRowByOrderId(orderId: String): Int? {
+        val response = googleSheetService.getSheetsService().spreadsheets().values()
+            .get(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE)
+            .execute()
+
+        val rows = response.getValues()
+        val index = rows.indexOfFirst { it.firstOrNull() == orderId }
+        return if (index >= 0) index + 2 else null // +2 karena A2:A dimulai dari baris 2
     }
 }

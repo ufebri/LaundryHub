@@ -17,6 +17,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -33,6 +34,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.raylabs.laundryhub.ui.component.OrderStatusDetailSheet
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
@@ -43,6 +45,7 @@ import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -54,17 +57,20 @@ fun LaundryHubStarter(
 ) {
     val orderViewModel: OrderViewModel = hiltViewModel()
     val homeViewModel: HomeViewModel = hiltViewModel()
-    val state = orderViewModel.uiState
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val showOrderSheet = remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackBarHostState = remember { SnackbarHostState() }
     val triggerOpenSheet = remember { mutableStateOf(false) }
+    val showDetailOrderSheet = remember { mutableStateOf(false) }
 
     fun dismissSheet() {
         scope.launch {
             scaffoldState.bottomSheetState.collapse()
             showOrderSheet.value = false
+            showDetailOrderSheet.value = false
+            orderViewModel.resetForm()
+            homeViewModel.clearSelectedOrder()
         }
     }
 
@@ -73,47 +79,24 @@ fun LaundryHubStarter(
         sheetPeekHeight = 0.dp,
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContent = {
-            if (showOrderSheet.value) {
-                OrderBottomSheet(
-                    state = state,
-                    onNameChanged = { orderViewModel.updateField("name", it) },
-                    onPhoneChanged = { orderViewModel.onPhoneChanged(it) },
-                    onPriceChanged = { orderViewModel.onPriceChanged(it) },
-                    onPackageSelected = { orderViewModel.onPackageSelected(it) },
-                    onPaymentMethodSelected = { orderViewModel.updateField("paymentMethod", it) },
-                    onNoteChanged = { orderViewModel.updateField("note", it) },
-                    onSubmit = {
-                        state.lastOrderId?.let { id ->
-                            scope.launch {
-                                orderViewModel.submitOrder(state.toOrderData(id), onComplete = {
-                                    // Submit history after order is successfully submitted
-                                    orderViewModel.submitHistory(state.toHistoryData(id))
+            when {
+                showOrderSheet.value -> {
+                    ShowOrderBottomSheet(
+                        orderViewModel,
+                        homeViewModel,
+                        scope,
+                        snackBarHostState
+                    ) { dismissSheet() }
+                }
 
-                                    // Refresh home view model data
-                                    homeViewModel.fetchOrder()
+                showDetailOrderSheet.value -> {
+                    ShowDetailOrderBottomSheet(homeViewModel)
+                }
 
-                                    // Refresh income data
-                                    homeViewModel.fetchTodayIncome()
-
-                                    // Refresh summary data
-                                    homeViewModel.fetchSummary()
-
-
-                                    // Delay to ensure data is refreshed before dismissing
-                                    delay(500)
-
-                                    // Dismiss the sheet and reset form
-                                    dismissSheet()
-                                    orderViewModel.resetForm()
-                                    snackbarHostState.showSnackbar("Order #$id successfully submitted!")
-                                })
-                            }
-                        }
-                    }
-                )
-            } else {
-                // Tetap render konten kosong agar sheet tidak null
-                Spacer(Modifier.height(1.dp))
+                else -> {
+                    // Tetap render konten kosong agar sheet tidak null
+                    Spacer(Modifier.height(1.dp))
+                }
             }
         }) {
 
@@ -128,13 +111,14 @@ fun LaundryHubStarter(
         Scaffold(
             snackbarHost = {
                 SnackbarHost(
-                    hostState = snackbarHostState,
+                    hostState = snackBarHostState,
                     modifier = Modifier.padding(top = 48.dp)
                 )
             },
             bottomBar = {
                 BottomBar(navController, onOrderClick = {
                     showOrderSheet.value = true
+                    showDetailOrderSheet.value = false // Pastikan hanya satu sheet aktif
                     triggerOpenSheet.value = true
                 })
             },
@@ -146,7 +130,16 @@ fun LaundryHubStarter(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(BottomNavItem.Home.screenRoute) {
-                    HomeScreen(viewModel = homeViewModel)
+                    HomeScreen(
+                        viewModel = homeViewModel,
+                        onOrderCardClick = { orderId ->
+                            homeViewModel.setSelectedOrderId(orderId)
+                            homeViewModel.getOrderById(orderId)
+                            showDetailOrderSheet.value = true
+                            showOrderSheet.value = false // Pastikan hanya satu sheet aktif
+                            triggerOpenSheet.value = true
+                        }
+                    )
                 }
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
@@ -160,6 +153,64 @@ fun LaundryHubStarter(
             }
         }
     }
+}
+
+@Composable
+fun ShowDetailOrderBottomSheet(homeViewModel: HomeViewModel) {
+    val uiState by homeViewModel.uiState.collectAsState()
+    uiState.historyOrder.data?.let {
+        OrderStatusDetailSheet(
+            uiModel = it,
+            onStepAction = { step -> homeViewModel.markStepStarted(step) },
+            isLoading = uiState.isMarkingStep
+        )
+    } ?: Spacer(modifier = Modifier.height(1.dp))
+}
+
+@Composable
+fun ShowOrderBottomSheet(
+    state: OrderViewModel,
+    homeViewModel: HomeViewModel,
+    scope: CoroutineScope,
+    snackBarHostState: SnackbarHostState,
+    dismissSheet: () -> Unit
+) {
+    OrderBottomSheet(
+        state = state.uiState,
+        onNameChanged = { state.updateField("name", it) },
+        onPhoneChanged = { state.onPhoneChanged(it) },
+        onPriceChanged = { state.onPriceChanged(it) },
+        onPackageSelected = { state.onPackageSelected(it) },
+        onPaymentMethodSelected = { state.updateField("paymentMethod", it) },
+        onNoteChanged = { state.updateField("note", it) },
+        onSubmit = {
+            state.uiState.lastOrderId?.let { id ->
+                scope.launch {
+                    state.submitOrder(state.uiState.toOrderData(id), onComplete = {
+                        // Submit history after order is successfully submitted
+                        state.submitHistory(state.uiState.toHistoryData(id))
+
+                        // Refresh home view model data
+                        homeViewModel.fetchOrder()
+
+                        // Refresh income data
+                        homeViewModel.fetchTodayIncome()
+
+                        // Refresh summary data
+                        homeViewModel.fetchSummary()
+
+                        // Delay to ensure data is refreshed before dismissing
+                        delay(500)
+
+                        // Dismiss the sheet and reset form
+                        dismissSheet()
+                        state.resetForm()
+                        snackBarHostState.showSnackbar("Order #$id successfully submitted!")
+                    })
+                }
+            }
+        }
+    )
 }
 
 @Composable

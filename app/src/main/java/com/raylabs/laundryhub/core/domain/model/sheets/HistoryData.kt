@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
 import com.raylabs.laundryhub.ui.common.util.DateUtil
+import java.util.Date
 
 data class HistoryData(
     val orderId: String,
@@ -91,4 +92,18 @@ fun HistoryData.toSheetRow(): List<String> {
         getDisplayPaidStatus(paymentStatus),
         totalPrice
     )
+}
+
+fun HistoryData.groupStatus(): String {
+    val now = Date()
+    val due = DateUtil.parseDate(dueDate.orEmpty(), "dd-MM-yyyy HH:mm")
+
+
+    return when {
+        washingDate.orEmpty().isBlank() -> "Todo"
+        completedDate.orEmpty().isNotBlank() -> "Completed"
+        readyDate.orEmpty().isNotBlank() && due != null && due.before(now) -> "Overdue"
+        readyDate.orEmpty().isNotBlank() -> "Ready"
+        else -> "In Progress"
+    }
 }

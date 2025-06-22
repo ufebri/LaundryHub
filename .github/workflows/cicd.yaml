@@ -106,7 +106,7 @@ jobs:
       - name: Pull before push to avoid non-fast-forward error
         run: |
           git config pull.rebase false
-          git pull origin ${{ github.event.pull_request.base.ref }}
+          git pull origin ${{ github.event.pull_request.base.ref }} --allow-unrelated-histories
           git push origin HEAD:${{ github.event.pull_request.base.ref }}
 
       - name: Bump version

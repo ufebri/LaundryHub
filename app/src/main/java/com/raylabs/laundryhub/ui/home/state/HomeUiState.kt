@@ -7,5 +7,9 @@ data class HomeUiState(
     val user: SectionState<UserItem> = SectionState(),
     val todayIncome: SectionState<List<TodayActivityItem>> = SectionState(),
     val summary: SectionState<List<SummaryItem>> = SectionState(),
-    val orderStatus: SectionState<List<PendingOrderItem>> = SectionState()
+    val orderStatus: SectionState<List<PendingOrderItem>> = SectionState(),
+    val historyOrder: SectionState<OrderStatusDetailUiModel> = SectionState(),
+
+    val selectedOrderID: String? = null,
+    val isMarkingStep: Boolean = false
 )
