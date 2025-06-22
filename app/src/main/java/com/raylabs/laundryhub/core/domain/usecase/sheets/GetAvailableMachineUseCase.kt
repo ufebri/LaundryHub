@@ -12,7 +12,7 @@ class GetAvailableMachineUseCase @Inject constructor(
     suspend operator fun invoke(
         onRetry: ((Int) -> Unit)? = null,
         stationType: String
-    ): Resource<InventoryData> {
+    ): Resource<List<InventoryData>> {
         val result = retry(onRetry = onRetry) {
             repository.getAvailableMachineByStation(stationType)
         }

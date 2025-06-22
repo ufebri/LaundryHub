@@ -21,7 +21,7 @@ import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.LaundryStepUiModel
 import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.home.state.toUi
-import com.raylabs.laundryhub.ui.home.state.withAvailableMachine
+import com.raylabs.laundryhub.ui.home.state.withAvailableMachines
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -177,11 +177,17 @@ class HomeViewModel @Inject constructor(
             when (val result = getHistoryUseCase(orderID = orderId)) {
                 is Resource.Success -> {
                     var uiData = result.data.toUi()
-                    val availableMachine = getAvailableMachineForCurrentStep(uiData)
-                    if (availableMachine != null) {
-                        uiData = uiData.copy(
-                            steps = uiData.steps.withAvailableMachine(availableMachine)
-                        )
+                    val currentStep =
+                        uiData.steps.firstOrNull { it.isCurrent && it.selectedMachine.isBlank() }
+                    if (currentStep != null) {
+                        // Ambil semua mesin available dari repository
+                        val availableMachinesRes =
+                            getAvailableMachinesForCurrentStep(currentStep.label)
+                        if (availableMachinesRes.isNotEmpty()) {
+                            uiData = uiData.copy(
+                                steps = uiData.steps.withAvailableMachines(availableMachinesRes)
+                            )
+                        }
                     }
                     _uiState.update {
                         it.copy(historyOrder = it.historyOrder.success(uiData))
@@ -199,44 +205,43 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun getAvailableMachineForCurrentStep(uiData: com.raylabs.laundryhub.ui.home.state.OrderStatusDetailUiModel): String? {
-        val currentStep = uiData.steps.firstOrNull { it.isCurrent && it.machine.isBlank() }
-        if (currentStep != null) {
-            val availableMachine = getAvailableMachineUseCase(stationType = currentStep.label)
-            if (availableMachine is Resource.Success) {
-                return availableMachine.data.stationName
-            }
-        }
-        return null
+    private suspend fun getAvailableMachinesForCurrentStep(stationType: String): List<String> {
+        // Ambil semua mesin available dari repository
+        val inventoryRes = getAvailableMachineUseCase(stationType = stationType)
+        return if (inventoryRes is Resource.Success) {
+            inventoryRes.data.map { it.stationName }
+        } else emptyList()
     }
 
     fun markStepStarted(step: LaundryStepUiModel) {
         val orderId = uiState.value.historyOrder.data?.orderId ?: return
+        val machineName = step.selectedMachine
+        if (machineName.isBlank()) return // Tidak ada mesin yang dipilih
 
         viewModelScope.launch {
             _uiState.update { it.copy(isMarkingStep = true) }
 
-            // Step 1: Get available machine
-            val availableMachine = getAvailableMachineUseCase(stationType = step.label)
-            if (availableMachine !is Resource.Success) {
+            // Cari id mesin dari inventory jika perlu (misal: untuk updateMarkStepHistoryUseCase)
+            val inventoryRes = getAvailableMachineUseCase(stationType = step.label)
+            val machineId = if (inventoryRes is Resource.Success) {
+                inventoryRes.data.firstOrNull { it.stationName == machineName }?.id
+            } else null
+            if (machineId == null) {
                 _uiState.update { it.copy(isMarkingStep = false) }
                 return@launch
             }
 
-            val machine = availableMachine.data
             val startedAt = DateUtil.getTodayDate(dateFormat = "dd-MM-yyyy HH:mm")
 
-            // Step 2: Update order step and mark machine as unavailable by ID
             val result = updateMarkStepHistoryUseCase(
                 orderId = orderId,
                 step = step.label,
                 startedAt = startedAt,
-                machineId = machine.id,
-                machineName = machine.stationName
+                machineId = machineId,
+                machineName = machineName
             )
 
             if (result is Resource.Success) {
-                // Step 4: Refresh order detail
                 getOrderById(orderId)
             }
 

@@ -244,40 +244,58 @@ fun StepItem(
 
             if (step.isDone) {
                 Text(
-                    text = "On ${step.machine}, ${step.date}",
+                    text = "On ${step.selectedMachine}, ${step.date}",
                     style = MaterialTheme.typography.body2.copy(color = Color(0xFFBDBDBD))
                 )
             } else if (step.isCurrent) {
-                OutlinedButton(
-                    onClick = { onStepAction(step) },
-                    enabled = !isLoading,
-                    shape = CircleShape,
-                    border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF5F1F9)),
-                    modifier = Modifier.padding(top = 4.dp)
-                ) {
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            color = Color(0xFF2C2C54),
-                            strokeWidth = 2.dp,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Check,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Start on ${step.machine}",
-                            color = Color(0xFF2C2C54)
-                        )
+                if (step.selectedMachine.isBlank() && step.availableMachines.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        step.availableMachines.forEach { machineName ->
+                            OutlinedButton(
+                                onClick = { onStepAction(step.copy(selectedMachine = machineName)) },
+                                enabled = !isLoading,
+                                shape = CircleShape,
+                                border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF5F1F9)),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(text = machineName, color = Color(0xFF2C2C54))
+                            }
+                        }
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { onStepAction(step) },
+                        enabled = !isLoading,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF5F1F9)),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF2C2C54),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Start on ${step.selectedMachine}",
+                                color = Color(0xFF2C2C54)
+                            )
+                        }
                     }
                 }
             } else {
                 Text(
-                    text = "Waiting on ${step.machine}",
+                    text = "Waiting on ${step.selectedMachine}",
                     style = MaterialTheme.typography.body2.copy(color = Color(0xFF757575))
                 )
             }

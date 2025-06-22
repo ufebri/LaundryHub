@@ -207,7 +207,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         } ?: Resource.Error("Failed after 3 attempts.")
     }
 
-    override suspend fun getAvailableMachineByStation(stationType: String): Resource<InventoryData> {
+    override suspend fun getAvailableMachineByStation(stationType: String): Resource<List<InventoryData>> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
@@ -229,7 +229,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         ) && it.isAvailable == true
                     }
 
-                    if (machines.isNotEmpty()) Resource.Success(machines.first())
+                    if (machines.isNotEmpty()) Resource.Success(machines)
                     else Resource.Error("No available machine for $stationType")
                 } catch (e: Exception) {
                     Resource.Error(e.message ?: "Unexpected Error")

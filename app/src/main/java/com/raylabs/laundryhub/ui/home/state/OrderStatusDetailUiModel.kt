@@ -17,9 +17,10 @@ data class OrderStatusDetailUiModel(
 data class LaundryStepUiModel(
     val label: String,           // e.g. "Washing"
     val date: String,            // e.g. "21 Jun, 14:00"
-    val machine: String,        // e.g. "Washer #2"
+    val selectedMachine: String,        // e.g. "Washer #2"
     val isDone: Boolean,         // based on whether `date` is empty or not
-    val isCurrent: Boolean
+    val isCurrent: Boolean,
+    val availableMachines: List<String> = emptyList() // list mesin yang available
 )
 
 
@@ -48,11 +49,11 @@ fun HistoryData.toUi(): OrderStatusDetailUiModel {
     )
 }
 
-fun List<LaundryStepUiModel>.withAvailableMachine(availableMachineName: String?): List<LaundryStepUiModel> {
-    val currentStepIndex = indexOfFirst { it.isCurrent && it.machine.isBlank() }
+fun List<LaundryStepUiModel>.withAvailableMachines(availableMachines: List<String>): List<LaundryStepUiModel> {
+    val currentStepIndex = indexOfFirst { it.isCurrent && it.selectedMachine.isBlank() }
     if (currentStepIndex == -1) return this
     return mapIndexed { idx, step ->
-        if (idx == currentStepIndex) step.copy(machine = availableMachineName.orEmpty())
+        if (idx == currentStepIndex) step.copy(availableMachines = availableMachines)
         else step
     }
 }
