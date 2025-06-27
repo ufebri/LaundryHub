@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -16,13 +17,13 @@ import androidx.compose.material.Text
 import androidx.compose.material.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -33,15 +34,19 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.raylabs.laundryhub.R
+import com.raylabs.laundryhub.ui.component.OrderStatusDetailSheet
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
+import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
+import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -50,18 +55,22 @@ fun LaundryHubStarter(
     modifier: Modifier = Modifier,
     navController: NavHostController = rememberNavController()
 ) {
-    val viewModel: OrderViewModel = hiltViewModel()
-    val state = viewModel.uiState
+    val orderViewModel: OrderViewModel = hiltViewModel()
+    val homeViewModel: HomeViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val showOrderSheet = remember { mutableStateOf(false) }
-    val snackbarHostState = remember { SnackbarHostState() }
+    val snackBarHostState = remember { SnackbarHostState() }
     val triggerOpenSheet = remember { mutableStateOf(false) }
+    val showDetailOrderSheet = remember { mutableStateOf(false) }
 
     fun dismissSheet() {
         scope.launch {
             scaffoldState.bottomSheetState.collapse()
             showOrderSheet.value = false
+            showDetailOrderSheet.value = false
+            orderViewModel.resetForm()
+            homeViewModel.clearSelectedOrder()
         }
     }
 
@@ -70,36 +79,24 @@ fun LaundryHubStarter(
         sheetPeekHeight = 0.dp,
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContent = {
-            if (showOrderSheet.value) {
-                OrderBottomSheet(
-                    state = state,
-                    onNameChanged = { viewModel.updateField("name", it) },
-                    onPhoneChanged = { viewModel.onPhoneChanged(it) },
-                    onPriceChanged = { viewModel.onPriceChanged(it) },
-                    onPackageSelected = { viewModel.onPackageSelected(it) },
-                    onPaymentMethodSelected = { viewModel.updateField("paymentMethod", it) },
-                    onNoteChanged = { viewModel.updateField("note", it) },
-                    onSubmit = {
-                        state.lastOrderId?.let { id ->
-                            viewModel.submitOrder(
-                                state.toOrderData(
-                                    id
-                                )
-                            ) {
-                                //Close after success submit
-                                dismissSheet()
-                                viewModel.resetForm()
+            when {
+                showOrderSheet.value -> {
+                    ShowOrderBottomSheet(
+                        orderViewModel,
+                        homeViewModel,
+                        scope,
+                        snackBarHostState
+                    ) { dismissSheet() }
+                }
 
-                                scope.launch {
-                                    snackbarHostState.showSnackbar("Order #$id successfully submitted!")
-                                }
-                            }
-                        }
-                    }
-                )
-            } else {
-                // Tetap render konten kosong agar sheet tidak null
-                Spacer(Modifier.height(1.dp))
+                showDetailOrderSheet.value -> {
+                    ShowDetailOrderBottomSheet(homeViewModel)
+                }
+
+                else -> {
+                    // Tetap render konten kosong agar sheet tidak null
+                    Spacer(Modifier.height(1.dp))
+                }
             }
         }) {
 
@@ -114,13 +111,14 @@ fun LaundryHubStarter(
         Scaffold(
             snackbarHost = {
                 SnackbarHost(
-                    hostState = snackbarHostState,
+                    hostState = snackBarHostState,
                     modifier = Modifier.padding(top = 48.dp)
                 )
             },
             bottomBar = {
                 BottomBar(navController, onOrderClick = {
                     showOrderSheet.value = true
+                    showDetailOrderSheet.value = false // Pastikan hanya satu sheet aktif
                     triggerOpenSheet.value = true
                 })
             },
@@ -132,7 +130,16 @@ fun LaundryHubStarter(
                 modifier = Modifier.padding(innerPadding)
             ) {
                 composable(BottomNavItem.Home.screenRoute) {
-                    HomeScreen()
+                    HomeScreen(
+                        viewModel = homeViewModel,
+                        onOrderCardClick = { orderId ->
+                            homeViewModel.setSelectedOrderId(orderId)
+                            homeViewModel.getOrderById(orderId)
+                            showDetailOrderSheet.value = true
+                            showOrderSheet.value = false // Pastikan hanya satu sheet aktif
+                            triggerOpenSheet.value = true
+                        }
+                    )
                 }
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
@@ -149,17 +156,75 @@ fun LaundryHubStarter(
 }
 
 @Composable
+fun ShowDetailOrderBottomSheet(homeViewModel: HomeViewModel) {
+    val uiState by homeViewModel.uiState.collectAsState()
+    uiState.historyOrder.data?.let {
+        OrderStatusDetailSheet(
+            uiModel = it,
+            onStepAction = { step -> homeViewModel.markStepStarted(step) },
+            isLoading = uiState.isMarkingStep
+        )
+    } ?: Spacer(modifier = Modifier.height(1.dp))
+}
+
+@Composable
+fun ShowOrderBottomSheet(
+    state: OrderViewModel,
+    homeViewModel: HomeViewModel,
+    scope: CoroutineScope,
+    snackBarHostState: SnackbarHostState,
+    dismissSheet: () -> Unit
+) {
+    OrderBottomSheet(
+        state = state.uiState,
+        onNameChanged = { state.updateField("name", it) },
+        onPhoneChanged = { state.onPhoneChanged(it) },
+        onPriceChanged = { state.onPriceChanged(it) },
+        onPackageSelected = { state.onPackageSelected(it) },
+        onPaymentMethodSelected = { state.updateField("paymentMethod", it) },
+        onNoteChanged = { state.updateField("note", it) },
+        onSubmit = {
+            state.uiState.lastOrderId?.let { id ->
+                scope.launch {
+                    state.submitOrder(state.uiState.toOrderData(id), onComplete = {
+                        // Submit history after order is successfully submitted
+                        state.submitHistory(state.uiState.toHistoryData(id))
+
+                        // Refresh home view model data
+                        homeViewModel.fetchOrder()
+
+                        // Refresh income data
+                        homeViewModel.fetchTodayIncome()
+
+                        // Refresh summary data
+                        homeViewModel.fetchSummary()
+
+                        // Delay to ensure data is refreshed before dismissing
+                        delay(500)
+
+                        // Dismiss the sheet and reset form
+                        dismissSheet()
+                        state.resetForm()
+                        snackBarHostState.showSnackbar("Order #$id successfully submitted!")
+                    })
+                }
+            }
+        }
+    )
+}
+
+@Composable
 fun BottomBar(
     navController: NavHostController,
     onOrderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     BottomNavigation(
-        modifier = modifier,
-        backgroundColor = colorResource(id = R.color.colorPrimary),
-        contentColor = Color.White
+        modifier = modifier.background(Color.White),
+        backgroundColor = Color.White,
+        contentColor = Color.Black,
+        elevation = 0.dp
     ) {
-        //List Menu Item
         val items = listOf(
             BottomNavItem.Home,
             BottomNavItem.History,
@@ -167,47 +232,43 @@ fun BottomBar(
             BottomNavItem.Inventory,
             BottomNavItem.Profile
         )
-        BottomNavigation {
-            val navBackStackEntry by navController.currentBackStackEntryAsState()
-            val currentRoute = navBackStackEntry?.destination?.route
+        val navBackStackEntry by navController.currentBackStackEntryAsState()
+        val currentRoute = navBackStackEntry?.destination?.route
 
-            items.map { item ->
-                BottomNavigationItem(
-                    icon = {
-                        Icon(
-                            painterResource(id = item.icon),
-                            contentDescription = item.title
-                        )
-                    },
-                    label = {
-                        Text(
-                            text = item.title,
-                            fontSize = 9.sp
-                        )
-                    },
-                    selectedContentColor = Color.Black,
-                    unselectedContentColor = Color.Black.copy(0.4f),
-                    alwaysShowLabel = true,
-                    selected = currentRoute == item.screenRoute,
-                    onClick = {
-
-                        if (item.screenRoute == BottomNavItem.Order.screenRoute) {
-                            onOrderClick()
-                        } else {
-                            navController.navigate(item.screenRoute) {
-
-                                navController.graph.startDestinationRoute?.let { screenRoute ->
-                                    popUpTo(screenRoute) {
-                                        saveState = true
-                                    }
+        items.forEach { item ->
+            BottomNavigationItem(
+                icon = {
+                    Icon(
+                        painterResource(id = item.icon),
+                        contentDescription = item.title
+                    )
+                },
+                label = {
+                    Text(
+                        text = item.title,
+                        fontSize = 9.sp
+                    )
+                },
+                selectedContentColor = Color.Black,
+                unselectedContentColor = Color.Black.copy(0.4f),
+                alwaysShowLabel = true,
+                selected = currentRoute == item.screenRoute,
+                onClick = {
+                    if (item.screenRoute == BottomNavItem.Order.screenRoute) {
+                        onOrderClick()
+                    } else {
+                        navController.navigate(item.screenRoute) {
+                            navController.graph.startDestinationRoute?.let { screenRoute ->
+                                popUpTo(screenRoute) {
+                                    saveState = true
                                 }
-                                launchSingleTop = true
-                                restoreState = true
                             }
+                            launchSingleTop = true
+                            restoreState = true
                         }
                     }
-                )
-            }
+                }
+            )
         }
     }
 }

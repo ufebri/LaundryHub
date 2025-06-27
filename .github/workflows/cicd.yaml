@@ -103,6 +103,26 @@ jobs:
             const notes = commits.map(c => `- ${c.commit.message.split('\n')[0]} (${c.commit.author.name})`).join('\n');
             require('fs').writeFileSync('release-notes.txt', notes);
 
+      - name: Pull before push to avoid non-fast-forward error
+        run: |
+          git config pull.rebase false
+          git pull origin ${{ github.event.pull_request.base.ref }} --allow-unrelated-histories
+          git push origin HEAD:${{ github.event.pull_request.base.ref }}
+
+      - name: Bump version
+        run: |
+          chmod +x scripts/bump_version.sh
+          bash scripts/bump_version.sh
+        
+
+      - name: Commit bumped version
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add version.properties
+          git commit -m "ci: bump version after Firebase upload"
+          git push origin HEAD:${{ github.event.pull_request.base.ref }}
+
       - name: Distribute APK to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
         with:

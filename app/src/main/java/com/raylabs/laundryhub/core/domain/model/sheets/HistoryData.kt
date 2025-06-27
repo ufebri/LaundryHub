@@ -1,31 +1,34 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import com.raylabs.laundryhub.ui.common.util.DateUtil
+import java.util.Date
+
 data class HistoryData(
     val orderId: String,
     val customerName: String,
     val packageType: String,
     val duration: String,
-    val orderDate: String,
-    val dueDate: String,
-    val status: String,
+    val orderDate: String? = "",
+    val dueDate: String? = "",
+    val status: String? = "",
 
-    val washingDate: String,
-    val washingMachine: String,
+    val washingDate: String? = "",
+    val washingMachine: String? = "",
 
-    val dryingDate: String,
-    val dryingMachine: String,
+    val dryingDate: String? = "",
+    val dryingMachine: String? = "",
 
-    val ironingDate: String,
-    val ironingMachine: String,
+    val ironingDate: String? = "",
+    val ironingMachine: String? = "",
 
-    val foldingDate: String,
-    val foldingStation: String,
+    val foldingDate: String? = "",
+    val foldingStation: String? = "",
 
-    val packingDate: String,
-    val packingStation: String,
+    val packingDate: String? = "",
+    val packingStation: String? = "",
 
-    val readyDate: String,
-    val completedDate: String,
+    val readyDate: String? = "",
+    val completedDate: String? = "",
 
     val paymentMethod: String,
     val paymentStatus: String,
@@ -37,8 +40,10 @@ enum class HistoryFilter {
     SHOW_UNDONE_ORDER
 }
 
+const val STATUS_ORDER_PENDING: String = "Pending"
+
 fun Map<String, String>.toHistoryData(): HistoryData {
-    fun get(key: String) = this[key]?.toString().orEmpty()
+    fun get(key: String) = this[key].orEmpty()
 
     return HistoryData(
         orderId = get("order_id"),
@@ -62,7 +67,6 @@ fun Map<String, String>.toHistoryData(): HistoryData {
         foldingStation = get("folding_station"),
 
         packingDate = get("packing_date"),
-        packingStation = get("packing_station"),
 
         readyDate = get("ready_date"),
         completedDate = get("completed_date"),
@@ -71,4 +75,34 @@ fun Map<String, String>.toHistoryData(): HistoryData {
         paymentStatus = get("payment_status"),
         totalPrice = get("total_price")
     )
+}
+
+fun HistoryData.toSheetRow(): List<String> {
+    return listOf(
+        orderId,
+        customerName,
+        packageType,
+        duration,
+        DateUtil.getTodayDate("dd/MM/yyyy"),
+        DateUtil.getDueDate(dueDate.orEmpty()),
+        STATUS_ORDER_PENDING,
+    ) + List(12) { "" } + listOf(
+        getDisplayPaymentMethod(paymentMethod),
+        getDisplayPaidStatus(paymentStatus),
+        totalPrice
+    )
+}
+
+fun HistoryData.groupStatus(): String {
+    val now = Date()
+    val due = DateUtil.parseDate(dueDate.orEmpty(), "dd-MM-yyyy HH:mm")
+
+
+    return when {
+        washingDate.orEmpty().isBlank() -> "Todo"
+        completedDate.orEmpty().isNotBlank() -> "Completed"
+        readyDate.orEmpty().isNotBlank() && due != null && due.before(now) -> "Overdue"
+        readyDate.orEmpty().isNotBlank() -> "Ready"
+        else -> "In Progress"
+    }
 }

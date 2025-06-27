@@ -67,6 +67,7 @@ fun OrderBottomSheet(
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
             .heightIn(max = 900.dp)
+            .background(MaterialTheme.colors.surface, shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
             .padding(16.dp)
     ) {
         // Drag Handle
@@ -200,14 +201,21 @@ fun OrderBottomSheet(
 
             Button(
                 onClick = onSubmit,
-                enabled = state.isSubmitEnabled,
+                enabled = state.isSubmitEnabled && !state.isSubmitting,
                 modifier = Modifier
                     .align(Alignment.Bottom)
                     .height(56.dp)
                     .defaultMinSize(minWidth = 120.dp),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Submit")
+                if (state.isSubmitting) {
+                    androidx.compose.material.CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                } else {
+                    Text("Submit")
+                }
             }
         }
     }

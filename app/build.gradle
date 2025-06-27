@@ -1,3 +1,5 @@
+import io.gitlab.arturbosch.detekt.Detekt
+
 plugins {
     id 'com.android.application'
     id 'com.google.dagger.hilt.android' version '2.50'
@@ -7,6 +9,7 @@ plugins {
     id 'com.google.firebase.crashlytics'
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.12.0'
+    id 'io.gitlab.arturbosch.detekt' version '1.23.8'
 }
 
 def apikeyPropertiesFile = rootProject.file("config.properties")
@@ -16,6 +19,10 @@ if (apikeyPropertiesFile.exists()) {
     apikeyProperties.load(new FileInputStream(apikeyPropertiesFile))
 }
 
+def versionPropsFile = rootProject.file('version.properties')
+def versionProps = new Properties()
+versionProps.load(new FileInputStream(versionPropsFile))
+
 android {
     namespace 'com.raylabs.laundryhub'
     compileSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
@@ -23,8 +30,8 @@ android {
         applicationId "com.raylabs.laundryhub"
         minSdkVersion 23
         targetSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
-        versionCode 1
-        versionName "1.0"
+        versionCode versionProps['VERSION_CODE'].toInteger()
+        versionName versionProps['VERSION_NAME']
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
         vectorDrawables {
             useSupportLibrary = true
@@ -63,7 +70,6 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion compose_version
         kotlinCompilerExtensionVersion = "1.5.13"
     }
 
@@ -91,6 +97,23 @@ android {
 
 jacoco {
     toolVersion = "0.8.8"
+}
+
+detekt {
+    config.setFrom(files("$rootDir/config/detekt/detekt.yml"))
+    buildUponDefaultConfig = true
+    allRules = false
+    autoCorrect = false
+
+    tasks.withType(Detekt).configureEach {
+        jvmTarget = "18"
+        reports {
+            txt.required.set(true)
+            xml.required.set(true)
+            html.required.set(true)
+            sarif.required.set(true)
+        }
+    }
 }
 
 tasks.withType(Test).configureEach {
@@ -131,10 +154,11 @@ dependencies {
     //SplashScreen
     implementation "androidx.core:core-splashscreen:1.0.1"
 
-    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.6.2"
-    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.6.2'
-    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2"
-    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.6.2"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6"
+    implementation 'androidx.lifecycle:lifecycle-runtime-ktx:2.8.6'
+    implementation "androidx.lifecycle:lifecycle-runtime-compose:2.8.6"
+    implementation "androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6"
+    implementation "androidx.lifecycle:lifecycle-livedata-ktx:2.8.6"
 
     //Coil
     implementation "io.coil-kt:coil-compose:2.5.0"
@@ -175,9 +199,14 @@ dependencies {
     // Coroutine
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1'
     implementation "org.jetbrains.kotlinx:kotlinx-coroutines-core:1.8.1"
-    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1" // atau versi yang sesuai
+    testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1"
+    // atau versi yang sesuai
 
     //Data store
     /* v1.5.0 not support booleanPreferencesKey (?) */
     implementation "androidx.datastore:datastore-preferences:1.1.2"
+
+    testImplementation 'org.mockito:mockito-core:5.2.0'
+    testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
+    testImplementation 'org.mockito:mockito-inline:5.2.0'
 }

@@ -22,6 +22,8 @@ import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -30,36 +32,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.dummyState
-import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.OrderStatusCard
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
-import com.raylabs.laundryhub.ui.home.state.DUMMY_SUMMARY_ITEM
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
-import com.raylabs.laundryhub.ui.home.state.PendingOrderItem
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
-import com.raylabs.laundryhub.ui.home.state.UserItem
-import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel = hiltViewModel()) {
-    val state = viewModel.uiState
-    HomeScreenContent(state = state)
+fun HomeScreen(viewModel: HomeViewModel, onOrderCardClick: (String) -> Unit) {
+    val state by viewModel.uiState.collectAsState()
+    HomeScreenContent(state = state, onOrderCardClick = onOrderCardClick)
 }
 
 @Composable
-fun HomeScreenContent(state: HomeUiState) {
-    val snackbarHostState = remember { SnackbarHostState() }
+fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
+    val snackBarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state) {
+    LaunchedEffect(state.orderUpdateKey) {
         listOf(state.user, state.todayIncome, state.summary, state.orderStatus).forEach {
-            it.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg) }
+            it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
 
@@ -88,7 +84,7 @@ fun HomeScreenContent(state: HomeUiState) {
             }
         }
 
-        item { Spacer(Modifier.height(100.dp)) }
+        item { Spacer(Modifier.height(120.dp)) }
 
         item {
             Text(
@@ -143,8 +139,8 @@ fun HomeScreenContent(state: HomeUiState) {
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(state.orderStatus.data) { item ->
-                        OrderStatusCard(item)
+                    items(items = state.orderStatus.data, key = { it.orderID }) { item ->
+                        OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) })
                     }
                 }
             }
@@ -207,5 +203,5 @@ fun CardList(state: List<TodayActivityItem>) {
 @Preview
 @Composable
 fun PreviewHomeScreen() {
-    HomeScreenContent(dummyState)
+    HomeScreenContent(dummyState, onOrderCardClick = {})
 }

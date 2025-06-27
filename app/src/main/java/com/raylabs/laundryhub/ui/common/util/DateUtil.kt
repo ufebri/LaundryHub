@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.common.util
 import android.os.Build
 import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
@@ -13,15 +14,20 @@ object DateUtil {
     // Mendapatkan tanggal hari ini dalam format yang sesuai
     fun getTodayDate(dateFormat: String = "yyyy-MM-dd"): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            LocalDate.now().format(DateTimeFormatter.ofPattern(dateFormat))
+            // Cek apakah format mengandung jam/menit
+            return if (dateFormat.contains("H") || dateFormat.contains("m") || dateFormat.contains("s")) {
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern(dateFormat))
+            } else {
+                LocalDate.now().format(DateTimeFormatter.ofPattern(dateFormat))
+            }
         } else {
-            val mDateFormat = SimpleDateFormat(dateFormat, Locale.getDefault())
-            mDateFormat.format(Date())
+            val sdf = SimpleDateFormat(dateFormat, Locale.getDefault())
+            sdf.format(Date())
         }
     }
 
-    fun isToday(date: String): Boolean {
-        val today = getTodayDate()
+    fun isToday(date: String, formatedDate: String): Boolean {
+        val today = getTodayDate(dateFormat = formatedDate)
         return date == today
     }
 

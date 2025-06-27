@@ -23,20 +23,20 @@ data class TransactionData(
 
 fun Map<String, String>.toIncomeList(): TransactionData {
     return TransactionData(
-        orderID        = (this["orderID"] ?: "").toString(),
-        date           = (this["Date"] ?: "").toString(),
-        name           = (this["Name"] ?: "").toString(),
-        weight         = (this["Weight"] ?: "").toString(),
-        pricePerKg     = (this["Price/kg"] ?: "").toString(),
-        totalPrice     = (this["Total Price"] ?: "").toString(),
-        paymentStatus  = (this["(lunas/belum)"] ?: "").toString(),
-        packageType    = (this["Package"] ?: "").toString(),
-        remark         = (this["remark"] ?: "").toString(),
-        paymentMethod  = (this["payment"] ?: "").toString(),
-        phoneNumber    = (this["phoneNumber"] ?: "").toString(),
-        orderStatus    = (this["orderStatus"] ?: "").toString(),
-        station        = (this["station"] ?: "").toString(),
-        dueDate        = (this["due date"] ?: "").toString()
+        orderID = (this["orderID"] ?: "").toString(),
+        date = (this["Date"] ?: "").toString(),
+        name = (this["Name"] ?: "").toString(),
+        weight = (this["Weight"] ?: "").toString(),
+        pricePerKg = (this["Price/kg"] ?: "").toString(),
+        totalPrice = (this["Total Price"] ?: "").toString(),
+        paymentStatus = (this["(lunas/belum)"] ?: "").toString(),
+        packageType = (this["Package"] ?: "").toString(),
+        remark = (this["remark"] ?: "").toString(),
+        paymentMethod = (this["payment"] ?: "").toString(),
+        phoneNumber = (this["phoneNumber"] ?: "").toString(),
+        orderStatus = (this["orderStatus"] ?: "").toString(),
+        station = (this["station"] ?: "").toString(),
+        dueDate = (this["due date"] ?: "").toString()
     )
 }
 
@@ -55,7 +55,8 @@ data class RangeDate(val startDate: String?, val endDate: String?)
 fun TransactionData.getAllIncomeData(): Boolean =
     this.name.isNotEmpty() && this.totalPrice.isNotEmpty()
 
-fun TransactionData.getTodayIncomeData(): Boolean = DateUtil.isToday(this.date)
+fun TransactionData.getTodayIncomeData(): Boolean =
+    DateUtil.isToday(date = this.date, formatedDate = "dd/MM/yyyy")
 
 fun TransactionData.filterRangeDateData(rangeDate: RangeDate?): Boolean {
     // Filter berdasarkan range tanggal jika ada
