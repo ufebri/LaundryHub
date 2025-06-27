@@ -67,7 +67,6 @@ class HistoryDataTest {
             foldingStation = "F1",
 
             packingDate = "01/01/2025",
-            packingStation = "P1",
 
             readyDate = "01/01/2025",
             completedDate = "01/01/2025",
@@ -111,7 +110,6 @@ class HistoryDataTest {
             foldingStation = "",
 
             packingDate = "",
-            packingStation = "",
 
             readyDate = "",
             completedDate = "",

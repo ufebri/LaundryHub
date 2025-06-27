@@ -25,16 +25,16 @@ data class LaundryStepUiModel(
 
 
 fun HistoryData.toUi(): OrderStatusDetailUiModel {
-    val rawSteps = listOf(
+    val steps = listOf(
         LaundryStepUiModel("Washing Machine", washingDate.orEmpty(), washingMachine.orEmpty(), washingDate.orEmpty().isNotBlank(), false),
         LaundryStepUiModel("Drying Machine", dryingDate.orEmpty(), dryingMachine.orEmpty(), dryingDate.orEmpty().isNotBlank(), false),
         LaundryStepUiModel("Ironing Machine", ironingDate.orEmpty(), ironingMachine.orEmpty(), ironingDate.orEmpty().isNotBlank(), false),
         LaundryStepUiModel("Folding", foldingDate.orEmpty(), foldingStation.orEmpty(), foldingDate.orEmpty().isNotBlank(), false),
-        LaundryStepUiModel("Packing", packingDate.orEmpty(), packingStation.orEmpty(), packingDate.orEmpty().isNotBlank(), false),
-        LaundryStepUiModel("Ready", readyDate.orEmpty(), "", readyDate.orEmpty().isNotBlank(), false)
+        LaundryStepUiModel("Packing", packingDate.orEmpty(), packingStation.orEmpty(), packingDate.orEmpty().isNotBlank(), false, emptyList()), // Tidak perlu cek mesin
+        LaundryStepUiModel("Ready", readyDate.orEmpty(), "", readyDate.orEmpty().isNotBlank(), false, emptyList()) // Tidak perlu cek mesin
     )
-    val currentStepIndex = rawSteps.indexOfFirst { !it.isDone }
-    val steps = rawSteps.mapIndexed { index, step ->
+    val currentStepIndex = steps.indexOfFirst { !it.isDone }
+    val stepsWithCurrent = steps.mapIndexed { index, step ->
         step.copy(isCurrent = index == currentStepIndex)
     }
     return OrderStatusDetailUiModel(
@@ -45,7 +45,7 @@ fun HistoryData.toUi(): OrderStatusDetailUiModel {
         totalPrice = totalPrice,
         paymentMethod = paymentMethod,
         groupStatus = groupStatus(),
-        steps = steps
+        steps = stepsWithCurrent
     )
 }
 

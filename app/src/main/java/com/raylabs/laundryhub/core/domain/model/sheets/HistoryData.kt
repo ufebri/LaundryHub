@@ -43,7 +43,7 @@ enum class HistoryFilter {
 const val STATUS_ORDER_PENDING: String = "Pending"
 
 fun Map<String, String>.toHistoryData(): HistoryData {
-    fun get(key: String) = this[key]?.toString().orEmpty()
+    fun get(key: String) = this[key].orEmpty()
 
     return HistoryData(
         orderId = get("order_id"),
@@ -67,7 +67,6 @@ fun Map<String, String>.toHistoryData(): HistoryData {
         foldingStation = get("folding_station"),
 
         packingDate = get("packing_date"),
-        packingStation = get("packing_station"),
 
         readyDate = get("ready_date"),
         completedDate = get("completed_date"),

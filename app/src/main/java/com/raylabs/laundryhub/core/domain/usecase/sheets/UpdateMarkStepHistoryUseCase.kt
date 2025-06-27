@@ -23,7 +23,7 @@ class UpdateMarkStepHistoryUseCase @Inject constructor(
                 startedAt = startedAt,
                 machineName = machineName
             )
-            if (updateResult is Resource.Success && updateResult.data == true) {
+            if (updateResult is Resource.Success && updateResult.data) {
                 repository.updateMachineAvailability(machineId, false)
             }
             updateResult

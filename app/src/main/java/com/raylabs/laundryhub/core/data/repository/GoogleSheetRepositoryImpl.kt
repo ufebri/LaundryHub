@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.core.data.repository
 
+import android.util.Log
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
@@ -226,7 +227,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         it.stationType.equals(
                             stationType,
                             ignoreCase = true
-                        ) && it.isAvailable == true
+                        ) && it.isAvailable
                     }
 
                     if (machines.isNotEmpty()) Resource.Success(machines)
@@ -239,14 +240,14 @@ class GoogleSheetRepositoryImpl @Inject constructor(
     }
 
     override suspend fun updateMachineAvailability(
-        id: String,
+        idMachine: String,
         isAvailable: Boolean
     ): Resource<Boolean> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
-                    val rowIndex = findInventoryRowById(id)
-                        ?: return@retry Resource.Error("Machine with ID $id not found")
+                    val rowIndex = findInventoryRowById(idMachine)
+                        ?: return@retry Resource.Error("Machine with ID $idMachine not found")
 
                     val response = googleSheetService.getSheetsService().spreadsheets().values()
                         .get(BuildConfig.SPREAD_SHEET_ID, INVENTORY_RANGE).execute()
@@ -374,25 +375,25 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addOrder(incomeSheetData: OrderData): Resource<Boolean> {
+    override suspend fun addOrder(order: OrderData): Resource<Boolean> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
                     val values = listOf(
                         listOf(
-                            incomeSheetData.orderId,
+                            order.orderId,
                             DateUtil.getTodayDate("dd/MM/yyyy"),
-                            incomeSheetData.name,
-                            incomeSheetData.weight,
-                            incomeSheetData.priceKg,
-                            incomeSheetData.totalPrice, // total price, bisa hitung nanti
-                            incomeSheetData.getSpreadSheetPaidStatus, // status lunas/belum
-                            incomeSheetData.packageName,
-                            incomeSheetData.remark,
-                            incomeSheetData.getSpreadSheetPaymentMethod,
-                            incomeSheetData.phoneNumber,
+                            order.name,
+                            order.weight,
+                            order.priceKg,
+                            order.totalPrice, // total price, bisa hitung nanti
+                            order.getSpreadSheetPaidStatus, // status lunas/belum
+                            order.packageName,
+                            order.remark,
+                            order.getSpreadSheetPaymentMethod,
+                            order.phoneNumber,
                             STATUS_ORDER_PENDING, // orderStatus awal,
-                            incomeSheetData.getSpreadSheetDueDate
+                            order.getSpreadSheetDueDate
                         )
                     )
 
@@ -495,13 +496,16 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         "Drying" -> "J" to "K"
                         "Ironing" -> "L" to "M"
                         "Folding" -> "N" to "O"
-                        "Packing" -> "P" to "Q"
+                        "Packing" -> "P" to null // Only date for Packing
+                        "Ready" -> "Q" to null // Only date for Ready, Q is now the ready date column
+                        "Completed" -> "R" to null // Only date for Completed
                         else -> return@retry Resource.Error("Unknown step: $step")
                     }
 
                     val service = googleSheetService.getSheetsService()
 
                     val updateDate = ValueRange().setValues(listOf(listOf(startedAt)))
+                    Log.d("GoogleSheetRepo", "Updating step '$step' at history!$dateCol$rowIndex with date: $startedAt")
                     service.spreadsheets().values()
                         .update(
                             BuildConfig.SPREAD_SHEET_ID,
@@ -511,15 +515,18 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         .setValueInputOption("RAW")
                         .execute()
 
-                    val updateMachine = ValueRange().setValues(listOf(listOf(machineName)))
-                    service.spreadsheets().values()
-                        .update(
-                            BuildConfig.SPREAD_SHEET_ID,
-                            "history!$machineCol$rowIndex",
-                            updateMachine
-                        )
-                        .setValueInputOption("RAW")
-                        .execute()
+                    if (machineCol != null) {
+                        Log.d("GoogleSheetRepo", "Updating machineCol '$machineCol' at history!$machineCol$rowIndex with machineName: $machineName")
+                        val updateMachine = ValueRange().setValues(listOf(listOf(machineName)))
+                        service.spreadsheets().values()
+                            .update(
+                                BuildConfig.SPREAD_SHEET_ID,
+                                "history!$machineCol$rowIndex",
+                                updateMachine
+                            )
+                            .setValueInputOption("RAW")
+                            .execute()
+                    }
 
                     Resource.Success(true)
                 } catch (e: Exception) {
@@ -535,7 +542,15 @@ class GoogleSheetRepositoryImpl @Inject constructor(
             .execute()
 
         val rows = response.getValues()
-        val index = rows.indexOfFirst { it.firstOrNull() == orderId }
-        return if (index >= 0) index + 2 else null // +2 karena A2:A dimulai dari baris 2
+        if (rows.isEmpty()) return null
+        // Lewati header (index 0), cari di data saja
+        rows.forEachIndexed { idx, row ->
+            val sheetOrderId = row.firstOrNull()?.toString()?.trim()
+            Log.d("GoogleSheetRepo", "Row ${idx + 1}: orderId=$sheetOrderId (target=$orderId)")
+        }
+        val dataRows = rows.drop(1) // index 0 = header
+        val index = dataRows.indexOfFirst { it.firstOrNull()?.toString()?.trim() == orderId.trim() }
+        Log.d("GoogleSheetRepo", "Result index for orderId=$orderId is $index (dataRows, offset+2)")
+        return if (index >= 0) index + 2 else null // +2 karena baris 2 di sheet = dataRows[0]
     }
 }

@@ -187,7 +187,7 @@ fun OrderStatusDetailSheet(
                     )
                 )
                 Text(
-                    text = "Rp ${uiModel.totalPrice},-",
+                    text = "${uiModel.totalPrice},-",
                     style = MaterialTheme.typography.body1.copy(
                         fontWeight = FontWeight.Bold,
                         color = Color.White
@@ -248,16 +248,76 @@ fun StepItem(
                     style = MaterialTheme.typography.body2.copy(color = Color(0xFFBDBDBD))
                 )
             } else if (step.isCurrent) {
-                if (step.selectedMachine.isBlank() && step.availableMachines.isNotEmpty()) {
+                // Jika step tidak butuh mesin (Packing/Ready), langsung tampilkan tombol Start aktif
+                val isNoMachineStep = step.label == "Packing" || step.label == "Ready"
+                if (isNoMachineStep) {
+                    OutlinedButton(
+                        onClick = { if (!isLoading) onStepAction(step.copy(selectedMachine = step.selectedMachine.ifBlank { "-" })) },
+                        enabled = !isLoading,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF5F1F9)),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        if (isLoading) {
+                            CircularProgressIndicator(
+                                color = Color(0xFF2C2C54),
+                                strokeWidth = 2.dp,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Start",
+                                color = Color(0xFF2C2C54)
+                            )
+                        }
+                    }
+                } else if (step.selectedMachine.isBlank() && step.availableMachines.isEmpty()) {
+                    // Tidak ada mesin tersedia untuk step yang butuh mesin
+                    Text(
+                        text = "No machine available",
+                        style = MaterialTheme.typography.body2.copy(color = Color(0xFFBDBDBD))
+                    )
+                    OutlinedButton(
+                        onClick = {},
+                        enabled = false,
+                        shape = CircleShape,
+                        border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFFBDBDBD),
+                            backgroundColor = Color(0xFFF5F1F9)
+                        ),
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Start",
+                            color = Color(0xFFBDBDBD)
+                        )
+                    }
+                } else if (step.selectedMachine.isBlank() && step.availableMachines.isNotEmpty()) {
                     Spacer(modifier = Modifier.height(4.dp))
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         step.availableMachines.forEach { machineName ->
                             OutlinedButton(
-                                onClick = { onStepAction(step.copy(selectedMachine = machineName)) },
+                                onClick = { if (!isLoading) onStepAction(step.copy(selectedMachine = machineName)) },
                                 enabled = !isLoading,
                                 shape = CircleShape,
                                 border = BorderStroke(1.dp, Color(0xFFF5F1F9)),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = Color(0xFFF5F1F9)),
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = Color(0xFFF5F1F9)
+                                ),
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(text = machineName, color = Color(0xFF2C2C54))
