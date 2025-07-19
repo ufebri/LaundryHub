@@ -7,7 +7,6 @@ import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadInventoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
@@ -51,11 +50,6 @@ object GSheetModule {
     fun provideReadOrderStatusUseCase(
         repository: GoogleSheetRepository
     ): ReadOrderStatusUseCase = ReadOrderStatusUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideReadInventoryUseCase(repository: GoogleSheetRepository): ReadInventoryUseCase =
-        ReadInventoryUseCase(repository)
 
     @Provides
     @ViewModelScoped

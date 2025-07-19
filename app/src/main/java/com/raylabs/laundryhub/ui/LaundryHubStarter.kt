@@ -161,7 +161,7 @@ fun ShowDetailOrderBottomSheet(homeViewModel: HomeViewModel) {
     uiState.historyOrder.data?.let {
         OrderStatusDetailSheet(
             uiModel = it,
-            onStepAction = { step -> homeViewModel.markStepStarted(step) },
+            onStepAction = { },
             isLoading = uiState.isMarkingStep
         )
     } ?: Spacer(modifier = Modifier.height(1.dp))

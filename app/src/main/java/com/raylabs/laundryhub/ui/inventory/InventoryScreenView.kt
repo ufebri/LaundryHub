@@ -5,7 +5,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -40,8 +39,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
-import com.raylabs.laundryhub.ui.inventory.state.InventoryCardItemData
-import com.raylabs.laundryhub.ui.inventory.state.InventoryGroupItem
 import com.raylabs.laundryhub.ui.inventory.state.InventoryUiState
 import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 
@@ -62,9 +59,6 @@ fun InventoryContent(state: InventoryUiState, modifier: Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state) {
-        state.inventory.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-        }
         state.packages.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
         }
@@ -74,22 +68,6 @@ fun InventoryContent(state: InventoryUiState, modifier: Modifier) {
         modifier = modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        item {
-            SectionOrLoading(
-                isLoading = state.inventory.isLoading,
-                error = state.inventory.errorMessage,
-                content = {
-                    InventoryGrid(
-                        data = state.inventory.data.orEmpty(),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp, horizontal = 16.dp)
-                            .heightIn(max = 400.dp)
-                    )
-                }
-            )
-        }
-
         item {
             SectionOrLoading(
                 isLoading = state.packages.isLoading,
@@ -175,7 +153,9 @@ fun SetupPackageSection(
     Column {
         // Header with title + add button
         Row(
-            modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
@@ -233,78 +213,6 @@ fun SetupPackageSection(
                     }
                 }
             }
-        }
-    }
-}
-
-
-@Composable
-fun InventoryCardItem(
-    title: String,
-    subtitle: String,
-    backgroundColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Card(
-        backgroundColor = backgroundColor,
-        shape = RoundedCornerShape(12.dp),
-        modifier = modifier
-            .height(100.dp)
-            .fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier
-                .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
-        ) {
-            Text(
-                text = title,
-                color = Color.White,
-                style = MaterialTheme.typography.h6,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = subtitle,
-                color = Color.White,
-                style = MaterialTheme.typography.body2
-            )
-        }
-    }
-}
-
-@Composable
-fun InventoryGrid(
-    data: List<InventoryGroupItem>,
-    modifier: Modifier = Modifier
-) {
-    val items = data.map {
-        InventoryCardItemData(
-            title = it.stationType,
-            subtitle = if (it.availableCount == 0) "All machines are in use"
-            else "${it.availableCount} machine(s) available",
-            color = Color(0xFF5B3E9E)
-        )
-    } + listOf(
-        InventoryCardItemData(
-            title = "Add Machine",
-            subtitle = "Tap to Add Machine",
-            color = Color(0xFFB3261E)
-        )
-    )
-
-    LazyVerticalGrid(
-        modifier = modifier,
-        columns = GridCells.Fixed(2),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(0.dp)
-    ) {
-        items(items) { item ->
-            InventoryCardItem(
-                title = item.title,
-                subtitle = item.subtitle,
-                backgroundColor = item.color
-            )
         }
     }
 }

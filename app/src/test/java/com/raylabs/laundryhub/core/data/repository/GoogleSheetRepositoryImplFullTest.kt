@@ -44,7 +44,7 @@ class GoogleSheetRepositoryImplFullTest {
 
     @Test
     fun `readSummaryTransaction returns success`() = runTest {
-        mockSheets("summary!A2:B14", listOf(listOf("key1", "val1"), listOf("key2", "val2")))
+        mockSheets("summary!A2:B", listOf(listOf("key1", "val1"), listOf("key2", "val2")))
         val result = repo.readSummaryTransaction()
         assertTrue(result is Resource.Success)
         val data = (result as Resource.Success).data
@@ -84,34 +84,10 @@ class GoogleSheetRepositoryImplFullTest {
     }
 
     @Test
-    fun `readInventoryData returns success`() = runTest {
-        mockSheets(
-            "station!A1:E", listOf(
-                listOf("id", "name"),
-                listOf("1", "Station1"),
-                listOf("2", "Station2")
-            )
-        )
-        val result = repo.readInventoryData()
-        assertTrue(result is Resource.Success)
-        val data = (result as Resource.Success).data
-        assertEquals(2, data.size)
-    }
-
-    @Test
-    fun `readInventoryData returns empty`() = runTest {
-        mockSheets("station!A1:E", listOf())
-        val result = repo.readInventoryData()
-        assertTrue(result is Resource.Error || result is Resource.Empty)
-    }
-
-    @Test
     fun `readPackageData returns success`() = runTest {
         mockSheets(
             "notes!A1:D", listOf(
-                listOf("id", "name"),
-                listOf("1", "Reguler"),
-                listOf("2", "Express")
+                listOf("id", "name"), listOf("1", "Reguler"), listOf("2", "Express")
             )
         )
         val result = repo.readPackageData()
@@ -175,17 +151,7 @@ class GoogleSheetRepositoryImplFullTest {
         whenever(append.setValueInputOption(any())).thenReturn(append)
         whenever(append.execute()).thenReturn(mock())
         val order = OrderData(
-            "3",
-            "Bob",
-            "0812",
-            "Reguler",
-            "5000",
-            "Cash",
-            "-",
-            "5000",
-            "Paid",
-            "1",
-            "21/06/2025"
+            "3", "Bob", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025"
         )
         val result = repo.addOrder(order)
         assertTrue(result is Resource.Success)
@@ -204,17 +170,7 @@ class GoogleSheetRepositoryImplFullTest {
         whenever(append.setValueInputOption(any())).thenReturn(append)
         whenever(append.execute()).thenThrow(RuntimeException("fail"))
         val order = OrderData(
-            "3",
-            "Bob",
-            "0812",
-            "Reguler",
-            "5000",
-            "Cash",
-            "-",
-            "5000",
-            "Paid",
-            "1",
-            "21/06/2025"
+            "3", "Bob", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025"
         )
         val result = repo.addOrder(order)
         assertTrue(result is Resource.Error)
