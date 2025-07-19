@@ -1,12 +1,12 @@
 package com.raylabs.laundryhub.ui.component
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
 import androidx.compose.material.MaterialTheme
@@ -20,20 +20,20 @@ import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
 @Composable
-fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null) {
+fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null, modifier: Modifier = Modifier) {
     Card(
         backgroundColor = Color(0xFF3E3750),
         shape = RoundedCornerShape(16.dp),
-        modifier = Modifier
-            .width(180.dp)
+        modifier = modifier
             .height(200.dp)
-            .wrapContentHeight()
             .let { if (onClick != null) it.clickable { onClick() } else it }
     ) {
         Column(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth()
+                .fillMaxHeight(), // pastikan konten memenuhi tinggi card
+            verticalArrangement = Arrangement.SpaceBetween // ratakan konten atas-bawah
         ) {
             // Header
             Text(

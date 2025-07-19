@@ -151,7 +151,9 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             rowItems.forEach { item ->
-                                OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) })
+                                OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) },
+                                    modifier = Modifier.weight(1f)
+                                )
                             }
                         }
                     }

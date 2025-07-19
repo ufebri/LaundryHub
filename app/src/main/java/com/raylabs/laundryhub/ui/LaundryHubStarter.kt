@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,6 +35,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
@@ -165,8 +167,9 @@ fun ShowOrderBottomSheet(
     homeViewModel: HomeViewModel,
     scope: CoroutineScope,
     snackBarHostState: SnackbarHostState,
-    dismissSheet: () -> Unit
+    dismissSheet: () -> Unit,
 ) {
+    val context = LocalContext.current
     OrderBottomSheet(
         state = state.uiState,
         onNameChanged = { state.updateField("name", it) },
@@ -193,8 +196,19 @@ fun ShowOrderBottomSheet(
 
                         // Dismiss the sheet and reset form
                         dismissSheet()
+
+                        val message = WhatsAppHelper.buildOrderMessage(
+                            customerName = state.uiState.name,
+                            packageName = state.uiState.selectedPackage?.name.orEmpty(),
+                            total = state.uiState.price,
+                            paymentStatus = state.uiState.paymentMethod
+                        )
+
+                        val phone = state.uiState.phone
+
                         state.resetForm()
-                        snackBarHostState.showSnackbar("Order #$id successfully submitted!")
+                        snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
+                        WhatsAppHelper.sendWhatsApp(context, phone, message)
                     })
                 }
             }

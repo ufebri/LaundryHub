@@ -39,7 +39,7 @@ class TransactionDataTest {
 
     @Test
     fun `toIncomeList handles missing or null fields gracefully`() {
-        val map = mapOf(
+        val mapNullable = mapOf<String, String?>(
             "orderID" to null,
             "Date" to null,
             "Name" to null,
@@ -54,7 +54,8 @@ class TransactionDataTest {
             "orderStatus" to null,
             "station" to null,
             "due date" to null
-        ).mapValues { it.value ?: "" }
+        )
+        val map = mapNullable.mapValues { it.value ?: "" }
         val result = map.toIncomeList()
         assertEquals("", result.orderID)
         assertEquals("", result.name)
