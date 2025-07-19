@@ -68,7 +68,7 @@ class TransactionDataTest {
         val data = TransactionData(
             orderID = "", date = "", name = "Bob", weight = "", pricePerKg = "",
             totalPrice = "10000", paymentStatus = "", packageType = "", remark = "",
-            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+            paymentMethod = "", phoneNumber = "", dueDate = ""
         )
         assertTrue(data.getAllIncomeData())
 
@@ -81,7 +81,7 @@ class TransactionDataTest {
         val data = TransactionData(
             orderID = "", date = today(), name = "", weight = "", pricePerKg = "",
             totalPrice = "", paymentStatus = "", packageType = "", remark = "",
-            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+            paymentMethod = "", phoneNumber = "", dueDate = ""
         )
         assertTrue(data.getTodayIncomeData())
     }
@@ -91,7 +91,7 @@ class TransactionDataTest {
         val data = TransactionData(
             orderID = "", date = "2024-06-15", name = "", weight = "", pricePerKg = "",
             totalPrice = "", paymentStatus = "", packageType = "", remark = "",
-            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+            paymentMethod = "", phoneNumber = "", dueDate = ""
         )
         val range = RangeDate("2024-06-01", "2024-06-30")
         assertTrue(data.filterRangeDateData(range))
@@ -105,7 +105,7 @@ class TransactionDataTest {
         val data = TransactionData(
             orderID = "", date = "invalid-date", name = "", weight = "", pricePerKg = "",
             totalPrice = "", paymentStatus = "", packageType = "", remark = "",
-            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+            paymentMethod = "", phoneNumber = "", dueDate = ""
         )
         val range = RangeDate("2024-06-01", "2024-06-30")
         assertFalse(data.filterRangeDateData(range))
@@ -114,7 +114,7 @@ class TransactionDataTest {
 
     @Test
     fun `isUnpaidData detects unpaid correctly`() {
-        val unpaid = TransactionData("", "", "", "", "", "", "belum", "", "", "", "", "", "", "")
+        val unpaid = TransactionData("", "", "", "", "", "", "belum", "", "", "", "", "")
         val empty = unpaid.copy(paymentStatus = "")
         assertTrue(unpaid.isUnpaidData())
         assertTrue(empty.isUnpaidData())
@@ -122,13 +122,13 @@ class TransactionDataTest {
 
     @Test
     fun `isUnpaidData returns false for paid status`() {
-        val paid = TransactionData("", "", "", "", "", "", "Paid", "", "", "", "", "", "", "")
+        val paid = TransactionData("", "", "", "", "", "", "Paid", "", "", "", "", "")
         assertFalse(paid.isUnpaidData())
     }
 
     @Test
     fun `isPaidData detects paid correctly`() {
-        val paid = TransactionData("", "", "", "", "", "", PAID, "", "", "", "", "", "", "")
+        val paid = TransactionData("", "", "", "", "", "", PAID, "", "", "", "", "")
         assertTrue(paid.isPaidData())
 
         val notPaid = paid.copy(paymentStatus = "Unpaid")
@@ -137,7 +137,7 @@ class TransactionDataTest {
 
     @Test
     fun `isQRISData and isCashData detect payment method correctly`() {
-        val qris = TransactionData("", "", "", "", "", "", "", "", "", "QRIS", "", "", "", "")
+        val qris = TransactionData("", "", "", "", "", "", "", "", "", "QRIS", "", "")
         val cash = qris.copy(paymentMethod = "Cash")
 
         assertTrue(qris.isQRISData())
@@ -150,7 +150,7 @@ class TransactionDataTest {
     @Test
     fun `paidDescription returns correct string`() {
         val paidQris =
-            TransactionData("", "", "", "", "", "", PAID, "", "", QRIS, "", "", "", "")
+            TransactionData("", "", "", "", "", "", PAID, "", "", QRIS, "", "")
         assertEquals("Paid by Qris", paidQris.paidDescription())
 
         val unpaid = paidQris.copy(paymentStatus = "Unpaid")
@@ -162,7 +162,7 @@ class TransactionDataTest {
         val data = TransactionData(
             orderID = "", date = "", name = "Bob", weight = "", pricePerKg = "",
             totalPrice = "", paymentStatus = "", packageType = "", remark = "",
-            paymentMethod = "", phoneNumber = "", orderStatus = "", station = "", dueDate = ""
+            paymentMethod = "", phoneNumber = "", dueDate = ""
         )
         assertFalse(data.getAllIncomeData())
         val data2 = data.copy(name = "", totalPrice = "10000")
