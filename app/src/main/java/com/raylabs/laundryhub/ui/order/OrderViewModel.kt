@@ -3,11 +3,9 @@ package com.raylabs.laundryhub.ui.order
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.error
@@ -24,7 +22,6 @@ import javax.inject.Inject
 class OrderViewModel @Inject constructor(
     private val getLastOrderIdUseCase: GetLastOrderIdUseCase,
     private val submitOrderUseCase: SubmitOrderUseCase,
-    private val submitHistoryUseCase: SubmitHistoryUseCase,
     private val packageListUseCase: ReadPackageUseCase
 ) : ViewModel() {
 
@@ -153,23 +150,5 @@ class OrderViewModel @Inject constructor(
             price = "",
             note = ""
         )
-    }
-
-    suspend fun submitHistory(history: HistoryData) {
-        when (val result = submitHistoryUseCase(history = history)) {
-            is Resource.Success -> {
-                _uiState.value = _uiState.value.copy(
-                    submitHistoryOrder = _uiState.value.submitNewOrder.success(result.data)
-                )
-            }
-
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    submitHistoryOrder = _uiState.value.submitNewOrder.error(result.message)
-                )
-            }
-
-            else -> Unit
-        }
     }
 }

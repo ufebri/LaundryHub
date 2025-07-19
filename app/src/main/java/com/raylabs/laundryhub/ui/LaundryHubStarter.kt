@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -34,7 +35,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.raylabs.laundryhub.ui.component.OrderStatusDetailSheet
+import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
@@ -42,7 +43,6 @@ import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
-import com.raylabs.laundryhub.ui.order.state.toHistoryData
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import kotlinx.coroutines.CoroutineScope
@@ -158,13 +158,7 @@ fun LaundryHubStarter(
 @Composable
 fun ShowDetailOrderBottomSheet(homeViewModel: HomeViewModel) {
     val uiState by homeViewModel.uiState.collectAsState()
-    uiState.historyOrder.data?.let {
-        OrderStatusDetailSheet(
-            uiModel = it,
-            onStepAction = { step -> homeViewModel.markStepStarted(step) },
-            isLoading = uiState.isMarkingStep
-        )
-    } ?: Spacer(modifier = Modifier.height(1.dp))
+    uiState.historyOrder.data?.let { } ?: Spacer(modifier = Modifier.height(1.dp))
 }
 
 @Composable
@@ -173,8 +167,9 @@ fun ShowOrderBottomSheet(
     homeViewModel: HomeViewModel,
     scope: CoroutineScope,
     snackBarHostState: SnackbarHostState,
-    dismissSheet: () -> Unit
+    dismissSheet: () -> Unit,
 ) {
+    val context = LocalContext.current
     OrderBottomSheet(
         state = state.uiState,
         onNameChanged = { state.updateField("name", it) },
@@ -187,9 +182,6 @@ fun ShowOrderBottomSheet(
             state.uiState.lastOrderId?.let { id ->
                 scope.launch {
                     state.submitOrder(state.uiState.toOrderData(id), onComplete = {
-                        // Submit history after order is successfully submitted
-                        state.submitHistory(state.uiState.toHistoryData(id))
-
                         // Refresh home view model data
                         homeViewModel.fetchOrder()
 
@@ -204,8 +196,19 @@ fun ShowOrderBottomSheet(
 
                         // Dismiss the sheet and reset form
                         dismissSheet()
+
+                        val message = WhatsAppHelper.buildOrderMessage(
+                            customerName = state.uiState.name,
+                            packageName = state.uiState.selectedPackage?.name.orEmpty(),
+                            total = state.uiState.price,
+                            paymentStatus = state.uiState.paymentMethod
+                        )
+
+                        val phone = state.uiState.phone
+
                         state.resetForm()
-                        snackBarHostState.showSnackbar("Order #$id successfully submitted!")
+                        snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
+                        WhatsAppHelper.sendWhatsApp(context, phone, message)
                     })
                 }
             }

@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -12,11 +13,9 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
@@ -41,7 +40,7 @@ import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
-import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
+import com.raylabs.laundryhub.ui.home.state.TransactionItem
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel, onOrderCardClick: (String) -> Unit) {
@@ -63,6 +62,7 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(bottom = 80.dp)
     ) {
+        // Header Section
         item {
             Box(modifier = Modifier.fillMaxWidth()) {
                 GreetingWithImageBackground(username = state.user.data?.displayName ?: "Guest")
@@ -84,8 +84,10 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
             }
         }
 
+        // Spacer to create space between header and next section
         item { Spacer(Modifier.height(120.dp)) }
 
+        // Today Activity Section
         item {
             Text(
                 text = "Today Activity",
@@ -96,6 +98,7 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
             )
         }
 
+        // Loading or Error Section for Today's Income
         item {
             SectionOrLoading(
                 isLoading = state.todayIncome.isLoading,
@@ -114,11 +117,13 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
             )
         }
 
+        // Spacer to create space between sections
         item { Spacer(Modifier.height(24.dp)) }
 
+        // Pending Orders Section
         item {
             Text(
-                text = "Order Status",
+                text = "Pending Orders",
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier
                     .padding(16.dp)
@@ -134,13 +139,23 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                LazyRow(
-                    userScrollEnabled = true,
-                    contentPadding = PaddingValues(horizontal = 16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                val chunked = state.orderStatus.data.chunked(2)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(items = state.orderStatus.data, key = { it.orderID }) { item ->
-                        OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) })
+                    chunked.forEach { rowItems ->
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            rowItems.forEach { item ->
+                                OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -187,7 +202,7 @@ fun InfoCardSection(summary: List<SummaryItem>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CardList(state: List<TodayActivityItem>) {
+fun CardList(state: List<TransactionItem>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()

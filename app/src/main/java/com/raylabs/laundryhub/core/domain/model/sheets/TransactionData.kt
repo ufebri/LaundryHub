@@ -16,27 +16,23 @@ data class TransactionData(
     val remark: String,
     val paymentMethod: String,
     val phoneNumber: String,
-    val orderStatus: String,
-    val station: String,
     val dueDate: String
 )
 
 fun Map<String, String>.toIncomeList(): TransactionData {
     return TransactionData(
-        orderID = (this["orderID"] ?: "").toString(),
-        date = (this["Date"] ?: "").toString(),
-        name = (this["Name"] ?: "").toString(),
-        weight = (this["Weight"] ?: "").toString(),
-        pricePerKg = (this["Price/kg"] ?: "").toString(),
-        totalPrice = (this["Total Price"] ?: "").toString(),
-        paymentStatus = (this["(lunas/belum)"] ?: "").toString(),
-        packageType = (this["Package"] ?: "").toString(),
-        remark = (this["remark"] ?: "").toString(),
-        paymentMethod = (this["payment"] ?: "").toString(),
-        phoneNumber = (this["phoneNumber"] ?: "").toString(),
-        orderStatus = (this["orderStatus"] ?: "").toString(),
-        station = (this["station"] ?: "").toString(),
-        dueDate = (this["due date"] ?: "").toString()
+        orderID = (this["orderID"] ?: ""),
+        date = (this["Date"] ?: ""),
+        name = (this["Name"] ?: ""),
+        weight = (this["Weight"] ?: ""),
+        pricePerKg = (this["Price/kg"] ?: ""),
+        totalPrice = (this["Total Price"] ?: ""),
+        paymentStatus = (this["(lunas/belum)"] ?: ""),
+        packageType = (this["Package"] ?: ""),
+        remark = (this["remark"] ?: ""),
+        paymentMethod = (this["payment"] ?: ""),
+        phoneNumber = (this["phoneNumber"] ?: ""),
+        dueDate = (this["due date"] ?: "")
     )
 }
 
@@ -72,7 +68,7 @@ fun TransactionData.filterRangeDateData(rangeDate: RangeDate?): Boolean {
 }
 
 fun TransactionData.isUnpaidData(): Boolean =
-    this.paymentStatus.equals(UNPAID, ignoreCase = true) || this.paymentStatus.isEmpty()
+    this.paymentStatus.equals(UNPAID_ID, ignoreCase = true) || this.paymentStatus.isEmpty()
 
 fun TransactionData.isPaidData(): Boolean = this.paymentStatus.equals(PAID, ignoreCase = true)
 

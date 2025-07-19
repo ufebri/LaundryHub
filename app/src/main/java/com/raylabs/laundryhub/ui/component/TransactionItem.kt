@@ -21,11 +21,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
-import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
+import com.raylabs.laundryhub.ui.home.state.TransactionItem
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 
 @Composable
-fun Transaction(mTransaction: TodayActivityItem) {
+fun Transaction(mTransaction: TransactionItem) {
     Card(
         shape = RoundedCornerShape(8.dp), modifier = Modifier
             .padding(vertical = 4.dp)
@@ -85,7 +85,7 @@ fun Transaction(mTransaction: TodayActivityItem) {
 @Composable
 fun PreviewHomeScreen() {
     Transaction(
-        TodayActivityItem(
+        TransactionItem(
             id = "1",
             name = "Customer A",
             totalPrice = "Rp 105.000,-",
