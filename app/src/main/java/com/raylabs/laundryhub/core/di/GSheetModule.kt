@@ -7,10 +7,8 @@ import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import dagger.Module
 import dagger.Provides
@@ -47,12 +45,6 @@ object GSheetModule {
 
     @Provides
     @ViewModelScoped
-    fun provideReadOrderStatusUseCase(
-        repository: GoogleSheetRepository
-    ): ReadOrderStatusUseCase = ReadOrderStatusUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
     fun provideReadPackageUseCase(repository: GoogleSheetRepository): ReadPackageUseCase =
         ReadPackageUseCase(repository)
 
@@ -70,11 +62,6 @@ object GSheetModule {
     @ViewModelScoped
     fun provideSubmitOrderUseCase(repository: GoogleSheetRepository): SubmitOrderUseCase =
         SubmitOrderUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideSubmitHistoryUseCase(repository: GoogleSheetRepository): SubmitHistoryUseCase =
-        SubmitHistoryUseCase(repository)
 
     @Provides
     @ViewModelScoped

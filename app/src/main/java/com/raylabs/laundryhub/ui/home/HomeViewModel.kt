@@ -4,10 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetHistoryUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
@@ -17,6 +15,7 @@ import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.toUI
+import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,8 +28,7 @@ class HomeViewModel @Inject constructor(
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
-    private val readOrderStatusUseCase: ReadOrderStatusUseCase,
-    private val getHistoryUseCase: GetHistoryUseCase
+    private val getOrderUseCase: GetOrderUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -124,9 +122,9 @@ class HomeViewModel @Inject constructor(
             it.copy(orderStatus = SectionState(isLoading = true))
         }
         when (val result =
-            readOrderStatusUseCase(filterHistory = HistoryFilter.SHOW_UNDONE_ORDER)) {
+            readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
             is Resource.Success -> {
-                val uiData = result.data.toUI()
+                val uiData = result.data.toUi()
                 _uiState.update {
                     it.copy(
                         orderStatus = SectionState(
@@ -165,7 +163,7 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(historyOrder = it.historyOrder.loading()) }
 
         viewModelScope.launch {
-            when (val result = getHistoryUseCase(orderID = orderId)) {
+            when (val result = getOrderUseCase(orderID = orderId)) {
                 is Resource.Success -> {
                     Log.d("HomeViewModel", "getOrderById success, data=${result.data}")
                 }

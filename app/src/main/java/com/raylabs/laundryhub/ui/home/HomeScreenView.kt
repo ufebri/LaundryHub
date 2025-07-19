@@ -41,7 +41,7 @@ import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
-import com.raylabs.laundryhub.ui.home.state.TodayActivityItem
+import com.raylabs.laundryhub.ui.home.state.TransactionItem
 
 @Composable
 fun HomeScreen(viewModel: HomeViewModel, onOrderCardClick: (String) -> Unit) {
@@ -187,7 +187,7 @@ fun InfoCardSection(summary: List<SummaryItem>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CardList(state: List<TodayActivityItem>) {
+fun CardList(state: List<TransactionItem>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()

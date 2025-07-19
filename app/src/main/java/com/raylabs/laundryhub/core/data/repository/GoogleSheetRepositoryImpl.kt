@@ -5,26 +5,20 @@ import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryData
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
-import com.raylabs.laundryhub.core.domain.model.sheets.STATUS_ORDER_PENDING
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.filterRangeDateData
 import com.raylabs.laundryhub.core.domain.model.sheets.getAllIncomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getTodayIncomeData
-import com.raylabs.laundryhub.core.domain.model.sheets.groupStatus
 import com.raylabs.laundryhub.core.domain.model.sheets.isCashData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidData
-import com.raylabs.laundryhub.core.domain.model.sheets.toHistoryData
 import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
-import com.raylabs.laundryhub.core.domain.model.sheets.toSheetRow
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
@@ -41,7 +35,6 @@ class GoogleSheetRepositoryImpl @Inject constructor(
     companion object {
         private const val SUMMARY_RANGE = "summary!A2:B"
         private const val INCOME_RANGE = "income!A1:N"
-        private const val HISTORY_RANGE = "history!A1:V"
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
         private const val ORDER_ID_RANGE = "income!A2:A"
@@ -126,50 +119,6 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                 }
             } ?: Resource.Error("Failed after 3 attempts.")
         }
-    }
-
-    override suspend fun readHistoryData(filterHistory: HistoryFilter): Resource<List<HistoryData>> {
-        return withContext(Dispatchers.IO) {
-            retry {
-                try {
-                    val response = googleSheetService.getSheetsService().spreadsheets().values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE).execute()
-
-                    val headers = response.getValues().firstOrNull() ?: emptyList()
-                    val dataRows = response.getValues().drop(1)
-
-                    val data = dataRows.map { row ->
-                        val mappedRow = headers.zip(row).associate {
-                            it.first.toString() to it.second?.toString().orEmpty()
-                        }
-                        mappedRow.toHistoryData()
-                    }.sortedByDescending { transaction ->
-                        parseDate(transaction.dueDate.orEmpty())
-                    }
-
-                    if (filterHistory == HistoryFilter.SHOW_UNDONE_ORDER) {
-                        data.filterNot {
-                            it.status in listOf(
-                                "Ready for Pickup",
-                                "Delivered",
-                                "Overdue Pickup"
-                            )
-                        }
-                    }
-
-                    if (data.isEmpty()) Resource.Empty else Resource.Success(data)
-                } catch (e: GoogleJsonResponseException) {
-                    // Tangkap error detail dari Google API
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
-                } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
-                }
-            }
-        } ?: Resource.Error("Failed after 3 attempts.")
     }
 
     override suspend fun readPackageData(): Resource<List<PackageData>> {
@@ -277,9 +226,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             order.packageName,
                             order.remark,
                             order.getSpreadSheetPaymentMethod,
-                            order.phoneNumber,
-                            STATUS_ORDER_PENDING, // orderStatus awal,
-                            order.getSpreadSheetDueDate
+                            order.phoneNumber
                         )
                     )
 
@@ -298,28 +245,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun addHistoryOrder(history: HistoryData): Resource<Boolean> {
-        return withContext(Dispatchers.IO) {
-            retry {
-                try {
-                    val values = listOf(history.toSheetRow())
-
-                    val body = ValueRange().setValues(values)
-                    googleSheetService.getSheetsService().spreadsheets().values()
-                        .append(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE, body)
-                        .setValueInputOption("USER_ENTERED")
-                        .execute()
-
-                    Resource.Success(true)
-
-                } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Failed to append order.")
-                }
-            } ?: Resource.Error("Gagal menambahkan order setelah 3 kali coba.")
-        }
-    }
-
-    override suspend fun getOrderById(orderId: String): Resource<HistoryData> {
+    override suspend fun getOrderById(orderId: String): Resource<TransactionData> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
@@ -327,7 +253,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         .getSheetsService()
                         .spreadsheets()
                         .values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, HISTORY_RANGE)
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE)
                         .execute()
 
                     val headers = response.getValues().firstOrNull()
@@ -345,10 +271,8 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         .firstOrNull { it["order_id"] == orderId }
 
                     if (mapped != null) {
-                        val history = mapped.toHistoryData()
-                        val groupStatus = history.groupStatus()
-                        val enriched = history.copy(status = groupStatus)
-                        Resource.Success(enriched)
+                        val history = mapped.toIncomeList()
+                        Resource.Success(history)
                     } else {
                         Resource.Empty
                     }

@@ -17,10 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.raylabs.laundryhub.ui.home.state.PendingOrderItem
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
 @Composable
-fun OrderStatusCard(item: PendingOrderItem, onClick: (() -> Unit)? = null) {
+fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null) {
     Card(
         backgroundColor = Color(0xFF3E3750),
         shape = RoundedCornerShape(16.dp),
@@ -63,12 +63,6 @@ fun OrderStatusCard(item: PendingOrderItem, onClick: (() -> Unit)? = null) {
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier.padding(top = 12.dp)
             )
-            Text(
-                item.stationName,
-                color = Color.White,
-                fontWeight = FontWeight.Light,
-                style = MaterialTheme.typography.body2
-            )
 
             // Due Date
             Text(
@@ -92,12 +86,11 @@ fun OrderStatusCard(item: PendingOrderItem, onClick: (() -> Unit)? = null) {
 @Composable
 fun PreviewOrderStatusCard() {
     OrderStatusCard(
-        PendingOrderItem(
+        UnpaidOrderItem(
             "3",
             "Arifin",
             "Regular",
-            "On Dry",
-            "On DM #1",
+            "Unpaid",
             "17 Sep 25, 16.40 PM"
         )
     )

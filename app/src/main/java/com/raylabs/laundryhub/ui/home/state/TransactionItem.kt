@@ -7,7 +7,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 import com.raylabs.laundryhub.ui.theme.RedLaundryHub
 
-data class TodayActivityItem(
+data class TransactionItem(
     val id: String,
     val name: String,
     val totalPrice: String,
@@ -16,9 +16,9 @@ data class TodayActivityItem(
     val packageDuration: String
 )
 
-fun List<TransactionData>.toUI(): List<TodayActivityItem> {
+fun List<TransactionData>.toUI(): List<TransactionItem> {
     return this.map {
-        TodayActivityItem(
+        TransactionItem(
             id = it.orderID,
             name = it.name,
             totalPrice = "${it.totalPrice.ifEmpty { "Rp 0" }},-",
