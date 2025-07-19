@@ -42,7 +42,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 ) : GoogleSheetRepository {
 
     companion object {
-        private const val SUMMARY_RANGE = "summary!A2:B14"
+        private const val SUMMARY_RANGE = "summary!A2:B"
         private const val INCOME_RANGE = "income!A1:N"
         private const val HISTORY_RANGE = "history!A1:V"
         private const val INVENTORY_RANGE = "station!A1:E"
