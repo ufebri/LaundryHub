@@ -3,9 +3,9 @@ package com.raylabs.laundryhub.ui.component
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Card
@@ -25,8 +25,8 @@ fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null) {
         backgroundColor = Color(0xFF3E3750),
         shape = RoundedCornerShape(16.dp),
         modifier = Modifier
-            .widthIn(min = 140.dp, max = 180.dp)
-            .heightIn(min = 180.dp)
+            .width(180.dp)
+            .height(200.dp)
             .wrapContentHeight()
             .let { if (onClick != null) it.clickable { onClick() } else it }
     ) {

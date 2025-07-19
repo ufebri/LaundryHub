@@ -96,7 +96,6 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             FILTER.RANGE_TRANSACTION_DATA -> transaction.filterRangeDateData(
                                 rangeDate
                             )
-
                             FILTER.SHOW_PAID_DATA -> transaction.isPaidData()
                             FILTER.SHOW_UNPAID_DATA -> transaction.isUnpaidData()
                             FILTER.SHOW_PAID_BY_QR -> transaction.isQRISData()
