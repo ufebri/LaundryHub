@@ -4,25 +4,18 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.HistoryFilter
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetAvailableMachineUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetHistoryUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOrderStatusUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateMarkStepHistoryUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
-import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
-import com.raylabs.laundryhub.ui.home.state.LaundryStepUiModel
 import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.home.state.toUi
-import com.raylabs.laundryhub.ui.home.state.withAvailableMachines
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,10 +28,7 @@ class HomeViewModel @Inject constructor(
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
-    private val readOrderStatusUseCase: ReadOrderStatusUseCase,
-    private val getHistoryUseCase: GetHistoryUseCase,
-    private val updateMarkStepHistoryUseCase: UpdateMarkStepHistoryUseCase,
-    private val getAvailableMachineUseCase: GetAvailableMachineUseCase
+    private val getOrderUseCase: GetOrderUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -132,9 +122,9 @@ class HomeViewModel @Inject constructor(
             it.copy(orderStatus = SectionState(isLoading = true))
         }
         when (val result =
-            readOrderStatusUseCase(filterHistory = HistoryFilter.SHOW_UNDONE_ORDER)) {
+            readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
             is Resource.Success -> {
-                val uiData = result.data.toUI()
+                val uiData = result.data.toUi()
                 _uiState.update {
                     it.copy(
                         orderStatus = SectionState(
@@ -173,32 +163,9 @@ class HomeViewModel @Inject constructor(
         _uiState.update { it.copy(historyOrder = it.historyOrder.loading()) }
 
         viewModelScope.launch {
-            when (val result = getHistoryUseCase(orderID = orderId)) {
+            when (val result = getOrderUseCase(orderID = orderId)) {
                 is Resource.Success -> {
                     Log.d("HomeViewModel", "getOrderById success, data=${result.data}")
-                    var uiData = result.data.toUi()
-                    val currentStep =
-                        uiData.steps.firstOrNull { it.isCurrent && it.selectedMachine.isBlank() }
-                    val machineSteps = listOf("Washing Machine", "Drying Machine", "Ironing Machine", "Folding")
-                    if (currentStep != null && machineSteps.contains(currentStep.label)) {
-                        val availableMachinesRes =
-                            getAvailableMachinesForCurrentStep(currentStep.label)
-                        Log.d(
-                            "HomeViewModel",
-                            "Available machines for ${currentStep.label}: $availableMachinesRes"
-                        )
-                        if (availableMachinesRes.isNotEmpty()) {
-                            uiData = uiData.copy(
-                                steps = uiData.steps.withAvailableMachines(availableMachinesRes)
-                            )
-                        }
-                    }
-                    _uiState.update {
-                        Log.d(
-                            "HomeViewModel", "Updating uiState.historyOrder with: $uiData"
-                        )
-                        it.copy(historyOrder = it.historyOrder.success(uiData))
-                    }
                 }
 
                 is Resource.Error -> {
@@ -209,98 +176,6 @@ class HomeViewModel @Inject constructor(
                 }
 
                 else -> Unit
-            }
-        }
-    }
-
-    private suspend fun getAvailableMachinesForCurrentStep(stationType: String): List<String> {
-        // Untuk step yang tidak butuh mesin, langsung return emptyList tanpa log error
-        if (stationType == "Packing" || stationType == "Ready") {
-            return emptyList()
-        }
-        val inventoryRes = getAvailableMachineUseCase(stationType = stationType)
-        Log.d("HomeViewModel", "getAvailableMachinesForCurrentStep: stationType=$stationType, inventoryRes=$inventoryRes")
-        return if (inventoryRes is Resource.Success) {
-            val machines = inventoryRes.data.map { it.stationName }
-            Log.d("HomeViewModel", "Available machines for $stationType: $machines")
-            machines
-        } else {
-            Log.d("HomeViewModel", "No machines found for $stationType")
-            emptyList()
-        }
-    }
-
-    fun markStepStarted(step: LaundryStepUiModel) {
-        val orderId = uiState.value.historyOrder.data?.orderId ?: return
-        val machineName = step.selectedMachine
-        val noMachineStep = step.label == "Packing" || step.label == "Ready"
-        if (!noMachineStep && machineName.isBlank()) return // Tidak ada mesin yang dipilih untuk step yang butuh mesin
-
-        viewModelScope.launch {
-            Log.d("HomeViewModel", "markStepStarted called with step=$step")
-            _uiState.update { it.copy(isMarkingStep = true) }
-
-            if (noMachineStep) {
-                val startedAt = DateUtil.getTodayDate(dateFormat = "dd-MM-yyyy HH:mm")
-                Log.d(
-                    "HomeViewModel",
-                    "Calling updateMarkStepHistoryUseCase (no machine) with orderId=$orderId, step=${step.label}, startedAt=$startedAt"
-                )
-                val result = updateMarkStepHistoryUseCase(
-                    orderId = orderId,
-                    step = step.label.replace("Machine", "").trim(),
-                    startedAt = startedAt,
-                    machineId = "", // string kosong, bukan null
-                    machineName = "-"
-                )
-                Log.d("HomeViewModel", "updateMarkStepHistoryUseCase result: $result")
-                if (result is Resource.Success) {
-                    getOrderById(orderId)
-                }
-                _uiState.update {
-                    Log.d("HomeViewModel", "isMarkingStep set to false")
-                    it.copy(isMarkingStep = false)
-                }
-                return@launch
-            }
-
-            val inventoryRes = getAvailableMachineUseCase(stationType = step.label)
-            val machineId = if (inventoryRes is Resource.Success) {
-                inventoryRes.data.firstOrNull { it.stationName == machineName }?.id
-            } else null
-            Log.d(
-                "HomeViewModel", "Resolved machineId=$machineId for machineName=$machineName"
-            )
-            if (machineId == null) {
-                Log.e(
-                    "HomeViewModel", "MachineId not found for machineName=$machineName"
-                )
-                _uiState.update { it.copy(isMarkingStep = false) }
-                return@launch
-            }
-
-            val startedAt = DateUtil.getTodayDate(dateFormat = "dd-MM-yyyy HH:mm")
-            Log.d(
-                "HomeViewModel",
-                "Calling updateMarkStepHistoryUseCase with orderId=$orderId, step=${step.label}, startedAt=$startedAt, machineId=$machineId, machineName=$machineName"
-            )
-
-            val result = updateMarkStepHistoryUseCase(
-                orderId = orderId,
-                step = step.label.replace("Machine", "").trim(),
-                startedAt = startedAt,
-                machineId = machineId,
-                machineName = machineName
-            )
-
-            Log.d("HomeViewModel", "updateMarkStepHistoryUseCase result: $result")
-            if (result is Resource.Success) {
-                getOrderById(orderId)
-            }
-
-            _uiState.update {
-                Log.d("HomeViewModel", "isMarkingStep set to false")
-                it.copy(isMarkingStep = false)
             }
         }
     }
