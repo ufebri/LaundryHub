@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.onboarding
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -35,6 +37,7 @@ import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
 import com.airbnb.lottie.compose.LottieConstants
 import com.airbnb.lottie.compose.rememberLottieComposition
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.onboarding.state.OnboardingPage
 import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
@@ -64,6 +67,15 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_branding),
+                contentDescription = "Laundry Hub Logo",
+                modifier = Modifier
+                    .padding(top = 24.dp)
+                    .height(90.dp)
+                    .fillMaxWidth()
+            )
+
             HorizontalPager(
                 state = pagerState,
                 modifier = Modifier
