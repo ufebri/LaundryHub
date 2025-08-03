@@ -5,13 +5,16 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.BottomNavigation
 import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.BottomSheetScaffold
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.Scaffold
@@ -26,6 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -71,6 +75,7 @@ fun AppRoot(
         ).googleSignInClient()
 ) {
     val user by loginViewModel.userState.collectAsState()
+    val isLoading by loginViewModel.isLoading.collectAsState()
     val context = LocalContext.current
 
     val launcher = rememberLauncherForActivityResult(
@@ -89,15 +94,27 @@ fun AppRoot(
         }
     }
 
-    if (user != null) {
-        LaundryHubStarter(loginViewModel = loginViewModel)
-    } else {
-        OnboardingScreen(
-            pages = getListOnboardingPage,
-            onLoginClick = {
-                launcher.launch(googleSignInClient.signInIntent)
-            }
-        )
+    when {
+        isLoading -> { // Show loading indicator
+            Box(
+                Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) { CircularProgressIndicator() }
+        }
+
+        user != null -> {
+            LaundryHubStarter(loginViewModel = loginViewModel)
+        }
+
+        else -> {
+            // Show onboarding screen
+            OnboardingScreen(
+                pages = getListOnboardingPage,
+                onLoginClick = {
+                    launcher.launch(googleSignInClient.signInIntent)
+                }
+            )
+        }
     }
 }
 

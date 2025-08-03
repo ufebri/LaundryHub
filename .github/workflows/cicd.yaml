@@ -133,7 +133,7 @@ jobs:
           git config user.email github-actions@users.noreply.github.com
           git add version.properties
           git commit -m "ci: bump version after Firebase upload"
-          git push origin HEAD:${{ github.event.pull_request.base.ref }}
+          git push origin $(git rev-parse --abbrev-ref HEAD)
 
       - name: Distribute APK to Firebase App Distribution
         uses: wzieba/Firebase-Distribution-Github-Action@v1
