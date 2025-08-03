@@ -1,8 +1,7 @@
-package com.raylabs.laundryhub.ui.home
+package com.raylabs.laundryhub.ui.home.state
 
 import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.home.state.*
 import org.junit.Assert.*
 import org.junit.Test
 

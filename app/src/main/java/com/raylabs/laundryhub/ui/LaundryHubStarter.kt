@@ -90,7 +90,7 @@ fun AppRoot(
     }
 
     if (user != null) {
-        LaundryHubStarter()
+        LaundryHubStarter(loginViewModel = loginViewModel)
     } else {
         OnboardingScreen(
             pages = getListOnboardingPage,
@@ -106,6 +106,7 @@ fun AppRoot(
 @Composable
 fun LaundryHubStarter(
     modifier: Modifier = Modifier,
+    loginViewModel: LoginViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val orderViewModel: OrderViewModel = hiltViewModel()
@@ -204,7 +205,7 @@ fun LaundryHubStarter(
                     InventoryScreenView()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
-                    ProfileScreenView()
+                    ProfileScreenView(loginViewModel = loginViewModel)
                 }
             }
         }
@@ -335,5 +336,5 @@ fun BottomBar(
 @Preview(apiLevel = 33)
 @Composable
 fun BottomNavigationPreview() {
-    LaundryHubStarter()
+    LaundryHubStarter(loginViewModel = hiltViewModel<LoginViewModel>())
 }

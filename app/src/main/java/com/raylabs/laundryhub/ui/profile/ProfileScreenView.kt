@@ -20,6 +20,8 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,18 +36,29 @@ import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
+import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
 
 @Composable
 fun ProfileScreenView(
-    viewModel: ProfileViewModel = hiltViewModel()
+    viewModel: ProfileViewModel = hiltViewModel(),
+    loginViewModel: LoginViewModel
 ) {
-    val state = viewModel.uiState
-    
+    val state by viewModel.uiState.collectAsState()
+
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
-        ProfileScreenContent(state, modifier = Modifier.padding(padding))
+        ProfileScreenContent(
+            state = state,
+            modifier = Modifier.padding(padding),
+            onLoggedOut = {
+                viewModel.logOut(onSuccess = {
+                    // Handle successful logout, e.g., navigate to login screen
+                    loginViewModel.clearUser()
+                })
+            }
+        )
     }
 }
 

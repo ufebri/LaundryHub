@@ -53,7 +53,7 @@ class LoginViewModel @Inject constructor(
         }
     }
 
-    fun clearError() {
-        _errorState.value = null
+    fun clearUser() {
+        _userState.value = null
     }
 }
