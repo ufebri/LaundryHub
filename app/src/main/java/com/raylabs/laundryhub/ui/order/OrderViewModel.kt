@@ -132,7 +132,7 @@ class OrderViewModel @Inject constructor(
                     _uiState.value = _uiState.value.copy(
                         packageNameList = _uiState.value.packageNameList.success(mData),
                         selectedPackage = selected,
-                        weight = weight
+                        weight = weight,
                     )
                 }
 
@@ -240,6 +240,13 @@ class OrderViewModel @Inject constructor(
     }
 
     fun resetForm() {
-        _uiState.value = OrderUiState()
+        _uiState.value = _uiState.value.copy(
+            isEditMode = false,
+            name = "",
+            phone = "",
+            price = "",
+            note = "",
+            weight = ""
+        )
     }
 }

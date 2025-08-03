@@ -110,7 +110,6 @@ fun OrderBottomSheet(
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            enabled = state.isEditMode,
             value = state.phone,
             onValueChange = { if (it.length <= 13) onPhoneChanged(it) },
             label = { Text("Phone Number") },
