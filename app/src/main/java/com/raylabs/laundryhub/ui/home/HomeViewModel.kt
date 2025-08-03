@@ -1,10 +1,8 @@
 package com.raylabs.laundryhub.ui.home
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
@@ -28,7 +26,6 @@ class HomeViewModel @Inject constructor(
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
-    private val getOrderUseCase: GetOrderUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -119,7 +116,7 @@ class HomeViewModel @Inject constructor(
 
     suspend fun fetchOrder() {
         _uiState.update {
-            it.copy(orderStatus = SectionState(isLoading = true))
+            it.copy(unpaidOrder = SectionState(isLoading = true))
         }
         when (val result =
             readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
@@ -127,7 +124,7 @@ class HomeViewModel @Inject constructor(
                 val uiData = result.data.toUi()
                 _uiState.update {
                     it.copy(
-                        orderStatus = SectionState(
+                        unpaidOrder = SectionState(
                             data = uiData, isLoading = false, errorMessage = null
                         ), orderUpdateKey = System.currentTimeMillis()
                     )
@@ -136,47 +133,17 @@ class HomeViewModel @Inject constructor(
 
             is Resource.Error -> {
                 _uiState.update {
-                    it.copy(orderStatus = it.orderStatus.error(result.message))
+                    it.copy(unpaidOrder = it.unpaidOrder.error(result.message))
                 }
             }
 
             is Resource.Empty -> {
                 _uiState.update {
-                    it.copy(orderStatus = it.orderStatus.error("Data Kosong"))
+                    it.copy(unpaidOrder = it.unpaidOrder.error("Data Kosong"))
                 }
             }
 
             else -> Unit
-        }
-    }
-
-    fun setSelectedOrderId(id: String) {
-        _uiState.update { it.copy(selectedOrderID = id) }
-    }
-
-    fun clearSelectedOrder() {
-        _uiState.update { it.copy(selectedOrderID = null) }
-    }
-
-    fun getOrderById(orderId: String) {
-        Log.d("HomeViewModel", "getOrderById called with orderId=$orderId")
-        _uiState.update { it.copy(historyOrder = it.historyOrder.loading()) }
-
-        viewModelScope.launch {
-            when (val result = getOrderUseCase(orderID = orderId)) {
-                is Resource.Success -> {
-                    Log.d("HomeViewModel", "getOrderById success, data=${result.data}")
-                }
-
-                is Resource.Error -> {
-                    Log.e("HomeViewModel", "getOrderById error: ${result.message}")
-                    _uiState.update {
-                        it.copy(historyOrder = it.historyOrder.error(result.message))
-                    }
-                }
-
-                else -> Unit
-            }
         }
     }
 }

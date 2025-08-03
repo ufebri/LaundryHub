@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.core.data.repository
 
+import android.util.Log
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
@@ -96,6 +97,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             FILTER.RANGE_TRANSACTION_DATA -> transaction.filterRangeDateData(
                                 rangeDate
                             )
+
                             FILTER.SHOW_PAID_DATA -> transaction.isPaidData()
                             FILTER.SHOW_UNPAID_DATA -> transaction.isUnpaidData()
                             FILTER.SHOW_PAID_BY_QR -> transaction.isQRISData()
@@ -225,7 +227,8 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                             order.packageName,
                             order.remark,
                             order.getSpreadSheetPaymentMethod,
-                            order.phoneNumber
+                            order.phoneNumber,
+                            order.dueDate
                         )
                     )
 
@@ -262,12 +265,15 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         return@retry Resource.Empty
                     }
 
-                    val mapped = dataRows
-                        .map { row ->
-                            headers.zip(row)
-                                .associate { (key, value) -> key.toString() to value.toString() }
-                        }
-                        .firstOrNull { it["order_id"] == orderId }
+                    val mapped = dataRows.mapIndexed { idx, row ->
+                        val assoc = headers.zip(row)
+                            .associate { (key, value) -> key.toString() to value.toString() }
+                        Log.d(
+                            "OrderLookup",
+                            "idx=$idx, assoc[order_id]=${assoc["order_id"]}, orderIdParam=$orderId, assoc=$assoc"
+                        )
+                        assoc
+                    }.firstOrNull { it["orderID"]?.trim() == orderId.trim() }
 
                     if (mapped != null) {
                         val history = mapped.toIncomeList()
@@ -286,5 +292,59 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                 }
             }
         } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun updateOrder(order: OrderData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService()
+                        .spreadsheets()
+                        .values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE)
+                        .execute()
+
+                    val dataRows = response.getValues().drop(1)
+
+                    val rowIndex = dataRows.indexOfFirst { row ->
+                        row.firstOrNull()?.toString() == order.orderId
+                    }
+
+                    if (rowIndex == -1) {
+                        return@retry Resource.Error("Order ID not found.")
+                    }
+
+                    // Ambil existing date dari dataRows
+                    val existingDate =
+                        dataRows[rowIndex].getOrNull(1) ?: DateUtil.getTodayDate("dd/MM/yyyy")
+
+                    val updatedRow = listOf(
+                        order.orderId,
+                        existingDate,
+                        order.name,
+                        order.weight,
+                        order.priceKg,
+                        order.totalPrice,
+                        order.getSpreadSheetPaidStatus,
+                        order.packageName,
+                        order.remark,
+                        order.getSpreadSheetPaymentMethod,
+                        order.phoneNumber,
+                        order.dueDate
+                    )
+
+                    val body = ValueRange().setValues(listOf(updatedRow))
+                    googleSheetService.getSheetsService().spreadsheets().values()
+                        .update(BuildConfig.SPREAD_SHEET_ID, "income!A${rowIndex + 2}:L", body)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+
+                    Resource.Success(true)
+
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to update order.")
+                }
+            } ?: Resource.Error("Gagal memperbarui order setelah 3 kali coba.")
+        }
     }
 }

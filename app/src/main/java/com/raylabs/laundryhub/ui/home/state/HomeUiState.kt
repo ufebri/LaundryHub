@@ -7,8 +7,6 @@ data class HomeUiState(
     val user: SectionState<UserItem> = SectionState(),
     val todayIncome: SectionState<List<TransactionItem>> = SectionState(),
     val summary: SectionState<List<SummaryItem>> = SectionState(),
-    val orderStatus: SectionState<List<UnpaidOrderItem>> = SectionState(),
-    val historyOrder: SectionState<TransactionItem> = SectionState(),
-
-    val selectedOrderID: String? = null
+    val unpaidOrder: SectionState<List<UnpaidOrderItem>> = SectionState(),
+    val detailOrder: SectionState<TransactionItem> = SectionState(),
 )

@@ -10,6 +10,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUs
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateOrderUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -68,5 +69,11 @@ object GSheetModule {
     fun provideGoogleSheetService(@ApplicationContext context: Context): GoogleSheetService {
         // Inject aplikasi context langsung ke GoogleSheetService
         return GoogleSheetService(context)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideUpdateOrderUseCase(repository: GoogleSheetRepository): UpdateOrderUseCase {
+        return UpdateOrderUseCase(repository)
     }
 }

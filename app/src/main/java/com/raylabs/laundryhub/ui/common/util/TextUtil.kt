@@ -17,4 +17,12 @@ object TextUtil {
         val formatter = NumberFormat.getInstance(Locale("id", "ID"))
         return "${formatter.format(number)}"
     }
+
+    fun String.removeRupiahFormat(): String {
+        return this.replace("Rp", "")
+    }
+
+    fun String.removeRupiahFormatWithComma(): String {
+        return this.replace("Rp", "").replace(".", "").replace(",", "")
+    }
 }

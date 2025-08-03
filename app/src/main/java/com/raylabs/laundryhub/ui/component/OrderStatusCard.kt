@@ -20,7 +20,11 @@ import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
 @Composable
-fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null, modifier: Modifier = Modifier) {
+fun OrderStatusCard(
+    modifier: Modifier = Modifier,
+    item: UnpaidOrderItem,
+    onClick: (() -> Unit)? = null
+) {
     Card(
         backgroundColor = Color(0xFF3E3750),
         shape = RoundedCornerShape(16.dp),
@@ -86,6 +90,7 @@ fun OrderStatusCard(item: UnpaidOrderItem, onClick: (() -> Unit)? = null, modifi
 @Composable
 fun PreviewOrderStatusCard() {
     OrderStatusCard(
+        Modifier,
         UnpaidOrderItem(
             "3",
             "Arifin",

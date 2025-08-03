@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.ui.common.util
 
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
+import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
+import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -75,5 +77,21 @@ class TextUtilTest {
         val expected = "1.500.000"
         val result = input.toRupiahFormat()
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun `removeRupiahFormat removes Rp prefix only`() {
+        assertEquals("1000", "Rp1000".removeRupiahFormat())
+        assertEquals(" 2.000", "Rp 2.000".removeRupiahFormat())
+        assertEquals("10,000", "Rp10,000".removeRupiahFormat())
+        assertEquals("2500", "2500".removeRupiahFormat()) // No Rp, should be unchanged
+    }
+
+    @Test
+    fun `removeRupiahFormatWithComma removes Rp, dots and commas`() {
+        assertEquals("1000", "Rp1.000".removeRupiahFormatWithComma())
+        assertEquals("2000", "Rp2,000".removeRupiahFormatWithComma())
+        assertEquals("5000", "Rp5,000".removeRupiahFormatWithComma())
+        assertEquals("1500", "1500".removeRupiahFormatWithComma()) // No Rp, comma, dot
     }
 }

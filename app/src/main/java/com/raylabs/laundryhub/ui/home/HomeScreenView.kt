@@ -53,7 +53,7 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
     val snackBarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.orderUpdateKey) {
-        listOf(state.user, state.todayIncome, state.summary, state.orderStatus).forEach {
+        listOf(state.user, state.todayIncome, state.summary, state.unpaidOrder).forEach {
             it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
@@ -132,14 +132,16 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
         }
 
         item {
-            if (state.orderStatus.data.isNullOrEmpty()) {
+            if (state.unpaidOrder.data.isNullOrEmpty()) {
                 Text(
                     text = "Belum ada data",
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth()
                 )
             } else {
-                val chunked = state.orderStatus.data.chunked(2)
+                val chunked = state.unpaidOrder.data.chunked(2)
+                val detailOrder = state.detailOrder.data
+
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -151,7 +153,8 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
                             horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             rowItems.forEach { item ->
-                                OrderStatusCard(item, onClick = { onOrderCardClick(item.orderID) },
+                                OrderStatusCard(
+                                    item = item, onClick = { onOrderCardClick(item.orderID) },
                                     modifier = Modifier.weight(1f)
                                 )
                             }
