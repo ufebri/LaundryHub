@@ -13,8 +13,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
@@ -23,12 +23,9 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
@@ -49,15 +46,13 @@ fun OnboardingScreen(
     pages: List<OnboardingPage>,
     onLoginClick: () -> Unit
 ) {
-    var currentPage by remember { mutableIntStateOf(0) }
-    val listState = rememberLazyListState()
+    val pagerState = rememberPagerState(initialPage = 0, pageCount = { pages.size })
 
     LaunchedEffect(Unit) {
         while (true) {
             delay(3500)
-            val nextPage = (currentPage + 1) % pages.size
-            listState.animateScrollToItem(nextPage)
-            currentPage = nextPage
+            val nextPage = (pagerState.currentPage + 1) % pages.size
+            pagerState.animateScrollToPage(nextPage)
         }
     }
 
@@ -69,22 +64,19 @@ fun OnboardingScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            LazyRow(
-                state = listState,
+            HorizontalPager(
+                state = pagerState,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 200.dp)
-                    .weight(1f),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                items(pages.size) { index ->
-                    OnboardingPageView(pageData = pages[index])
-                }
+                    .weight(1f)
+            ) { index ->
+                OnboardingPageView(pageData = pages[index])
             }
 
             DotsIndicator(
                 totalDots = pages.size,
-                selectedIndex = currentPage,
+                selectedIndex = pagerState.currentPage,
                 modifier = Modifier.padding(16.dp)
             )
         }
@@ -112,8 +104,9 @@ fun OnboardingScreen(
 fun OnboardingPageView(pageData: OnboardingPage) {
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 24.dp),
+            .fillMaxWidth()
+            .padding(horizontal = 24.dp)
+            .clipToBounds(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Top
     ) {
@@ -139,6 +132,7 @@ fun OnboardingPageView(pageData: OnboardingPage) {
             text = pageData.description,
             style = MaterialTheme.typography.body2,
             textAlign = TextAlign.Center,
+            maxLines = 3,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
     }

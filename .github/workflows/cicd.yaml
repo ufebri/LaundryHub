@@ -95,12 +95,21 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const { data: commits } = await github.rest.pulls.listCommits({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.payload.pull_request.number,
-            });
-            const notes = commits.map(c => `- ${c.commit.message.split('\n')[0]} (${c.commit.author.name})`).join('\n');
+            let notes = '';
+            if (context.payload.pull_request && context.payload.pull_request.number) {
+              // PR event (ada number)
+              const { data: commits } = await github.rest.pulls.listCommits({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.payload.pull_request.number,
+              });
+              notes = commits.map(c => `- ${c.commit.message.split('\n')[0]} (${c.commit.author.name})`).join('\n');
+            } else if (context.payload.commits) {
+              // Push event
+              notes = context.payload.commits.map(c => `- ${c.message.split('\n')[0]} (${c.author.name})`).join('\n');
+            } else {
+              notes = 'No commits found';
+            }
             require('fs').writeFileSync('release-notes.txt', notes);
 
       - name: Pull before push to avoid non-fast-forward error
