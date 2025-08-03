@@ -1,5 +1,9 @@
 package com.raylabs.laundryhub.ui
 
+import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -35,42 +39,91 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
+import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
+import com.raylabs.laundryhub.ui.onboarding.OnboardingScreen
+import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+
+@Composable
+fun AppRoot(
+    loginViewModel: LoginViewModel = hiltViewModel(),
+    googleSignInClient: GoogleSignInClient =
+        EntryPointAccessors.fromApplication(
+            LocalContext.current.applicationContext,
+            GoogleSignInClientEntryPoint::class.java
+        ).googleSignInClient()
+) {
+    val user by loginViewModel.userState.collectAsState()
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.result
+            val idToken = account?.idToken
+            if (!idToken.isNullOrEmpty()) {
+                loginViewModel.signInGoogle(idToken)
+            }
+        } catch (_: Exception) {
+            // handle error
+            Toast.makeText(context, "Failed to sign in", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (user != null) {
+        LaundryHubStarter(loginViewModel = loginViewModel)
+    } else {
+        OnboardingScreen(
+            pages = getListOnboardingPage,
+            onLoginClick = {
+                launcher.launch(googleSignInClient.signInIntent)
+            }
+        )
+    }
+}
+
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun LaundryHubStarter(
     modifier: Modifier = Modifier,
+    loginViewModel: LoginViewModel,
     navController: NavHostController = rememberNavController()
 ) {
     val orderViewModel: OrderViewModel = hiltViewModel()
     val homeViewModel: HomeViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
     val scaffoldState = rememberBottomSheetScaffoldState()
-    val showOrderSheet = remember { mutableStateOf(false) }
+    val showNewOrderSheet = remember { mutableStateOf(false) }
     val snackBarHostState = remember { SnackbarHostState() }
     val triggerOpenSheet = remember { mutableStateOf(false) }
-    val showDetailOrderSheet = remember { mutableStateOf(false) }
+    val showEditOrderSheet = remember { mutableStateOf(false) }
 
     fun dismissSheet() {
         scope.launch {
             scaffoldState.bottomSheetState.collapse()
-            showOrderSheet.value = false
-            showDetailOrderSheet.value = false
+            showNewOrderSheet.value = false
+            showEditOrderSheet.value = false
             orderViewModel.resetForm()
-            homeViewModel.clearSelectedOrder()
         }
     }
 
@@ -80,18 +133,19 @@ fun LaundryHubStarter(
         sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         sheetContent = {
             when {
-                showOrderSheet.value -> {
-                    ShowOrderBottomSheet(
-                        orderViewModel,
-                        homeViewModel,
-                        scope,
-                        snackBarHostState
-                    ) { dismissSheet() }
-                }
+                showNewOrderSheet.value -> ShowOrderBottomSheet(
+                    orderViewModel,
+                    homeViewModel,
+                    scope,
+                    snackBarHostState
+                ) { dismissSheet() }
 
-                showDetailOrderSheet.value -> {
-                    ShowDetailOrderBottomSheet(homeViewModel)
-                }
+                showEditOrderSheet.value -> ShowOrderBottomSheet(
+                    orderViewModel,
+                    homeViewModel,
+                    scope,
+                    snackBarHostState
+                ) { dismissSheet() }
 
                 else -> {
                     // Tetap render konten kosong agar sheet tidak null
@@ -102,10 +156,12 @@ fun LaundryHubStarter(
 
         LaunchedEffect(triggerOpenSheet.value) {
             if (triggerOpenSheet.value) {
+                delay(50)
                 scaffoldState.bottomSheetState.expand()
                 triggerOpenSheet.value = false
             }
         }
+
 
 
         Scaffold(
@@ -117,8 +173,9 @@ fun LaundryHubStarter(
             },
             bottomBar = {
                 BottomBar(navController, onOrderClick = {
-                    showOrderSheet.value = true
-                    showDetailOrderSheet.value = false // Pastikan hanya satu sheet aktif
+                    showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
+                    orderViewModel.resetForm() // Set mode new order
+                    showNewOrderSheet.value = true
                     triggerOpenSheet.value = true
                 })
             },
@@ -133,11 +190,11 @@ fun LaundryHubStarter(
                     HomeScreen(
                         viewModel = homeViewModel,
                         onOrderCardClick = { orderId ->
-                            homeViewModel.setSelectedOrderId(orderId)
-                            homeViewModel.getOrderById(orderId)
-                            showDetailOrderSheet.value = true
-                            showOrderSheet.value = false // Pastikan hanya satu sheet aktif
-                            triggerOpenSheet.value = true
+                            orderViewModel.resetForm()
+                            orderViewModel.onOrderEditClick(orderId) {
+                                showEditOrderSheet.value = true
+                                triggerOpenSheet.value = true
+                            }
                         }
                     )
                 }
@@ -148,7 +205,7 @@ fun LaundryHubStarter(
                     InventoryScreenView()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
-                    ProfileScreenView()
+                    ProfileScreenView(loginViewModel = loginViewModel)
                 }
             }
         }
@@ -156,61 +213,61 @@ fun LaundryHubStarter(
 }
 
 @Composable
-fun ShowDetailOrderBottomSheet(homeViewModel: HomeViewModel) {
-    val uiState by homeViewModel.uiState.collectAsState()
-    uiState.historyOrder.data?.let { } ?: Spacer(modifier = Modifier.height(1.dp))
-}
-
-@Composable
 fun ShowOrderBottomSheet(
-    state: OrderViewModel,
+    orderViewModel: OrderViewModel,
     homeViewModel: HomeViewModel,
     scope: CoroutineScope,
     snackBarHostState: SnackbarHostState,
     dismissSheet: () -> Unit,
 ) {
     val context = LocalContext.current
+    val uiState by orderViewModel.uiState.collectAsState()
+
+    Log.d(
+        "onOrderCardClick",
+        "DEBUG: Render Sheet — isEditMode=${uiState.isEditMode}, selectedPackage=${uiState.selectedPackage?.name}"
+    )
     OrderBottomSheet(
-        state = state.uiState,
-        onNameChanged = { state.updateField("name", it) },
-        onPhoneChanged = { state.onPhoneChanged(it) },
-        onPriceChanged = { state.onPriceChanged(it) },
-        onPackageSelected = { state.onPackageSelected(it) },
-        onPaymentMethodSelected = { state.updateField("paymentMethod", it) },
-        onNoteChanged = { state.updateField("note", it) },
+        state = uiState,
+        onNameChanged = { orderViewModel.updateField("name", it) },
+        onPhoneChanged = { orderViewModel.onPhoneChanged(it) },
+        onPriceChanged = { orderViewModel.onPriceChanged(it) },
+        onPackageSelected = { orderViewModel.onPackageSelected(it) },
+        onPaymentMethodSelected = { orderViewModel.updateField("paymentMethod", it) },
+        onNoteChanged = { orderViewModel.updateField("note", it) },
         onSubmit = {
-            state.uiState.lastOrderId?.let { id ->
+            uiState.lastOrderId?.let { id ->
                 scope.launch {
-                    state.submitOrder(state.uiState.toOrderData(id), onComplete = {
-                        // Refresh home view model data
+                    orderViewModel.submitOrder(uiState.toOrderData(id), onComplete = {
                         homeViewModel.fetchOrder()
-
-                        // Refresh income data
                         homeViewModel.fetchTodayIncome()
-
-                        // Refresh summary data
                         homeViewModel.fetchSummary()
-
-                        // Delay to ensure data is refreshed before dismissing
                         delay(500)
-
-                        // Dismiss the sheet and reset form
                         dismissSheet()
-
                         val message = WhatsAppHelper.buildOrderMessage(
-                            customerName = state.uiState.name,
-                            packageName = state.uiState.selectedPackage?.name.orEmpty(),
-                            total = state.uiState.price,
-                            paymentStatus = state.uiState.paymentMethod
+                            customerName = uiState.name,
+                            packageName = uiState.selectedPackage?.name.orEmpty(),
+                            total = uiState.price,
+                            paymentStatus = uiState.paymentMethod
                         )
-
-                        val phone = state.uiState.phone
-
-                        state.resetForm()
+                        val phone = uiState.phone
+                        orderViewModel.resetForm()
                         snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
                         WhatsAppHelper.sendWhatsApp(context, phone, message)
                     })
                 }
+            }
+        },
+        onUpdate = {
+            scope.launch {
+                orderViewModel.updateOrder(uiState.toOrderData(uiState.orderID), onComplete = {
+                    homeViewModel.fetchOrder()
+                    homeViewModel.fetchTodayIncome()
+                    homeViewModel.fetchSummary()
+                    delay(500)
+                    dismissSheet()
+                    snackBarHostState.showSnackbar("Order #${uiState.orderID} successfully updated!")
+                })
             }
         }
     )
@@ -279,5 +336,5 @@ fun BottomBar(
 @Preview(apiLevel = 33)
 @Composable
 fun BottomNavigationPreview() {
-    LaundryHubStarter()
+    LaundryHubStarter(loginViewModel = hiltViewModel<LoginViewModel>())
 }

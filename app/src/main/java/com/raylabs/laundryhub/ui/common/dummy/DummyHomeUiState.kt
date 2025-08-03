@@ -23,7 +23,7 @@ val dummyState = HomeUiState(
         )
     ),
     summary = SectionState(data = DUMMY_SUMMARY_ITEM),
-    orderStatus = SectionState(
+    unpaidOrder = SectionState(
         data = listOf(
             UnpaidOrderItem(
                 "1",

@@ -23,14 +23,14 @@ fun List<TransactionData>.toUI(): List<TransactionItem> {
             name = it.name,
             totalPrice = "${it.totalPrice.ifEmpty { "Rp 0" }},-",
             status = it.paidDescription(),
-            statusColor = getColor(it.paymentStatus),
+            statusColor = it.paymentStatus.toColor(),
             packageDuration = it.packageType
         )
     }.toList()
 }
 
-private fun getColor(paymentStatus: String): Color {
-    return when (paymentStatus) {
+fun String.toColor(): Color {
+    return when (this) {
         "" -> RedLaundryHub
         PAID -> PurpleLaundryHub
         else -> Color.Black

@@ -20,4 +20,5 @@ interface GoogleSheetRepository {
     suspend fun getLastOrderId(): Resource<String>
     suspend fun addOrder(order: OrderData): Resource<Boolean>
     suspend fun getOrderById(orderId: String): Resource<TransactionData>
+    suspend fun updateOrder(order: OrderData): Resource<Boolean>
 }
