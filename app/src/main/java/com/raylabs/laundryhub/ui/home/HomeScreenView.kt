@@ -43,13 +43,25 @@ import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
 
 @Composable
-fun HomeScreen(viewModel: HomeViewModel, onOrderCardClick: (String) -> Unit) {
+fun HomeScreen(
+    viewModel: HomeViewModel,
+    onOrderCardClick: (String) -> Unit,
+    onTodayActivityClick: (String) -> Unit
+) {
     val state by viewModel.uiState.collectAsState()
-    HomeScreenContent(state = state, onOrderCardClick = onOrderCardClick)
+    HomeScreenContent(
+        state = state,
+        onOrderCardClick = onOrderCardClick,
+        onTodayActivityClick = onTodayActivityClick
+    )
 }
 
 @Composable
-fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
+fun HomeScreenContent(
+    state: HomeUiState,
+    onOrderCardClick: (String) -> Unit,
+    onTodayActivityClick: (String) -> Unit
+) {
     val snackBarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state.orderUpdateKey) {
@@ -111,7 +123,7 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
                             modifier = Modifier.padding(horizontal = 16.dp)
                         )
                     } else {
-                        CardList(list)
+                        CardList(list, onItemClick = onTodayActivityClick)
                     }
                 }
             )
@@ -140,7 +152,6 @@ fun HomeScreenContent(state: HomeUiState, onOrderCardClick: (String) -> Unit) {
                 )
             } else {
                 val chunked = state.unpaidOrder.data.chunked(2)
-                val detailOrder = state.detailOrder.data
 
                 Column(
                     modifier = Modifier
@@ -205,7 +216,7 @@ fun InfoCardSection(summary: List<SummaryItem>, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun CardList(state: List<TransactionItem>) {
+fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -213,7 +224,7 @@ fun CardList(state: List<TransactionItem>) {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         state.forEach { mData ->
-            Transaction(mTransaction = mData)
+            Transaction(mTransaction = mData, onClick = { onItemClick(mData.id) })
         }
     }
 }
@@ -221,5 +232,5 @@ fun CardList(state: List<TransactionItem>) {
 @Preview
 @Composable
 fun PreviewHomeScreen() {
-    HomeScreenContent(dummyState, onOrderCardClick = {})
+    HomeScreenContent(dummyState, onOrderCardClick = {}, onTodayActivityClick = {})
 }

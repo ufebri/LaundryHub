@@ -3,11 +3,10 @@ name: Android CI/CD Workflow
 on:
   push:
     branches:
-      - '**' # Semua branch akan menjalankan CI/CD
+      - master
 
   pull_request:
     branches:
-      - development
       - master
 
 jobs:

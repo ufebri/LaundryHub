@@ -212,6 +212,13 @@ fun LaundryHubStarter(
                                 showEditOrderSheet.value = true
                                 triggerOpenSheet.value = true
                             }
+                        },
+                        onTodayActivityClick = { activityId ->
+                            orderViewModel.resetForm()
+                            orderViewModel.onOrderEditClick(activityId) {
+                                showEditOrderSheet.value = true
+                                triggerOpenSheet.value = true
+                            }
                         }
                     )
                 }
