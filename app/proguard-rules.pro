@@ -45,3 +45,29 @@
 -dontwarn com.google.android.gms.auth.api.credentials.CredentialsOptions
 -dontwarn com.google.android.gms.auth.api.credentials.HintRequest$Builder
 -dontwarn com.google.android.gms.auth.api.credentials.HintRequest
+
+# Firebase Auth (hindari error signInWithCredential dan parsing user)
+-keep class com.google.firebase.auth.** { *; }
+-dontwarn com.google.firebase.auth.**
+
+# Google Sign-In
+-keep class com.google.android.gms.auth.api.signin.** { *; }
+-dontwarn com.google.android.gms.auth.api.signin.**
+
+# Kotlin coroutines (untuk suspend lambda reflection)
+-keepclassmembers class kotlinx.coroutines.internal.MainDispatcherFactory { *; }
+-dontwarn kotlinx.coroutines.**
+
+# Lottie Animation
+-keep class com.airbnb.lottie.** { *; }
+-dontwarn com.airbnb.lottie.**
+
+# FIX untuk Firebase Auth - jangan obfuscate class internal Google Play Service yang sering error minify!
+# Firebase & Google Auth, aman semua versi:
+-keep class com.google.firebase.** { *; }
+-keep class com.google.android.gms.** { *; }
+-dontwarn com.google.firebase.**
+-dontwarn com.google.android.gms.**
+
+-keep class com.google.api.** { *; }
+-dontwarn com.google.api.**

@@ -46,8 +46,8 @@ object DateUtil {
         outputFormat: String = "dd MMMM yyyy"
     ): String {
         val date = parseDate(dateString, inputFormat)
-        val outputFormat = SimpleDateFormat(outputFormat, Locale.getDefault())
-        return date?.let { outputFormat.format(it) } ?: dateString
+        val outputFormats = SimpleDateFormat(outputFormat, Locale.getDefault())
+        return date?.let { outputFormats.format(it) } ?: dateString
     }
 
     /**

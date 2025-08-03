@@ -1,6 +1,9 @@
 package com.raylabs.laundryhub.ui
 
 import android.util.Log
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
@@ -36,19 +39,68 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.google.android.gms.auth.api.signin.GoogleSignIn
+import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.navigation.BottomNavItem
+import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
+import com.raylabs.laundryhub.ui.onboarding.OnboardingScreen
+import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+
+
+@Composable
+fun AppRoot(
+    loginViewModel: LoginViewModel = hiltViewModel(),
+    googleSignInClient: GoogleSignInClient =
+        EntryPointAccessors.fromApplication(
+            LocalContext.current.applicationContext,
+            GoogleSignInClientEntryPoint::class.java
+        ).googleSignInClient()
+) {
+    val user by loginViewModel.userState.collectAsState()
+    val context = LocalContext.current
+
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
+        try {
+            val account = task.result
+            val idToken = account?.idToken
+            if (!idToken.isNullOrEmpty()) {
+                loginViewModel.signInGoogle(idToken)
+            }
+        } catch (_: Exception) {
+            // handle error
+            Toast.makeText(context, "Failed to sign in", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    if (user != null) {
+        LaundryHubStarter()
+    } else {
+        OnboardingScreen(
+            pages = getListOnboardingPage,
+            onLoginClick = {
+                launcher.launch(googleSignInClient.signInIntent)
+            }
+        )
+    }
+}
+
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
