@@ -268,16 +268,20 @@ fun ShowOrderBottomSheet(
                         homeViewModel.fetchSummary()
                         delay(500)
                         dismissSheet()
-                        val message = WhatsAppHelper.buildOrderMessage(
-                            customerName = uiState.name,
-                            packageName = uiState.selectedPackage?.name.orEmpty(),
-                            total = uiState.price,
-                            paymentStatus = uiState.paymentMethod
-                        )
+
                         val phone = uiState.phone
+                        if (phone.isNotEmpty()) {
+                            val message = WhatsAppHelper.buildOrderMessage(
+                                customerName = uiState.name,
+                                packageName = uiState.selectedPackage?.name.orEmpty(),
+                                total = uiState.price,
+                                paymentStatus = uiState.paymentMethod
+                            )
+                            WhatsAppHelper.sendWhatsApp(context, phone, message)
+                        }
+
                         orderViewModel.resetForm()
                         snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
-                        WhatsAppHelper.sendWhatsApp(context, phone, message)
                     })
                 }
             }

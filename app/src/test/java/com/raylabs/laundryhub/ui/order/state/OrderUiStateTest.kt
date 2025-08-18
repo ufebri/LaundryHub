@@ -70,14 +70,13 @@ class OrderUiStateTest {
         val pkg = PackageItem(name = "Express", price = "10000", work = "6h")
         val valid = OrderUiState(
             name = "Sari",
-            phone = "0812",
             selectedPackage = pkg,
             price = "10000",
             paymentMethod = "Cash"
         )
         assertTrue(valid.isSubmitEnabled)
 
-        val invalid = valid.copy(phone = "")
+        val invalid = valid.copy(name = "")
         assertFalse(invalid.isSubmitEnabled)
     }
 

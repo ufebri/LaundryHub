@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.order
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -146,7 +147,7 @@ fun OrderBottomSheet(
             modifier = Modifier.fillMaxWidth()
         )
         LaunchedEffect(state.isEditMode, state.phone) {
-            android.util.Log.d(
+            Log.d(
                 "OrderBottomSheet",
                 "PhoneField Rendered: isEditMode=${state.isEditMode}, phone=${state.phone}"
             )
