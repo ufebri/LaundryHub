@@ -4,14 +4,18 @@ import android.content.Context
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import com.google.firebase.appdistribution.FirebaseAppDistribution
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import com.raylabs.laundryhub.BuildConfig
+import com.raylabs.laundryhub.core.data.firebase.AppDistributionUpdateChecker
 import com.raylabs.laundryhub.core.data.firebase.AuthRepositoryImpl
 import com.raylabs.laundryhub.core.data.firebase.FirebaseDataSource
 import com.raylabs.laundryhub.core.domain.repository.AuthRepository
+import com.raylabs.laundryhub.core.domain.repository.UpdateCheckerRepository
 import com.raylabs.laundryhub.core.domain.usecase.auth.CheckUserLoggedInUseCase
 import com.raylabs.laundryhub.core.domain.usecase.auth.SignInWithGoogleUseCase
+import com.raylabs.laundryhub.core.domain.usecase.update.CheckAppUpdateUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import dagger.Module
 import dagger.Provides
@@ -81,4 +85,21 @@ object FirebaseModule {
     fun provideCrashlytics(): FirebaseCrashlytics {
         return FirebaseCrashlytics.getInstance()
     }
+
+
+    @Provides
+    @Singleton
+    fun provideFirebaseAppDistribution(): FirebaseAppDistribution =
+        FirebaseAppDistribution.getInstance()
+
+    @Provides
+    @Singleton
+    fun provideUpdateChecker(fad: FirebaseAppDistribution): UpdateCheckerRepository =
+        AppDistributionUpdateChecker(fad)
+
+    @Provides
+    @Singleton
+    fun provideCheckAppUpdateUseCase(
+        repo: UpdateCheckerRepository
+    ): CheckAppUpdateUseCase = CheckAppUpdateUseCase(repo)
 }

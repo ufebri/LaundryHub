@@ -12,8 +12,7 @@ object WhatsAppHelper {
         customerName: String,
         packageName: String,
         total: String,
-        paymentStatus: String,
-        alamatLaundry: String = "[alamat laundry kamu]"
+        paymentStatus: String
     ): String {
         return """
             Halo, Kak $customerName!
@@ -26,8 +25,7 @@ object WhatsAppHelper {
             - Status Bayar: $paymentStatus
 
             Laundry siap diambil/akan dikabari jika selesai.
-            Alamat: $alamatLaundry
-
+            
             (Ray Labs Laundry)
         """.trimIndent()
     }

@@ -61,11 +61,11 @@ fun TransactionData.toUI(): OrderData {
         remark = remark,
         weight = weight,
         dueDate = dueDate
-    )}
+    )
+}
 
 val OrderUiState.isSubmitEnabled: Boolean
     get() = name.isNotBlank()
-            && phone.isNotBlank()
             && selectedPackage != null
             && price.isNotBlank()
             && paymentMethod.isNotBlank()

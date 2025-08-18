@@ -36,13 +36,11 @@ class WhatsAppHelperTest {
             packageName = "Reguler",
             total = "10.000",
             paymentStatus = "Cash",
-            alamatLaundry = "Jl. Pahlawan"
         )
         // Cek keyword/konten utama
         assert(result.contains("Halo, Kak Andi!"))
         assert(result.contains("- Paket: Reguler"))
         assert(result.contains("- Total: Rp 10.000"))
         assert(result.contains("- Status Bayar: Cash"))
-        assert(result.contains("Alamat: Jl. Pahlawan"))
     }
 }

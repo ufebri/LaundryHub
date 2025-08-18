@@ -180,6 +180,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.firebaseui:firebase-ui-auth:7.2.0")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
+    implementation("com.google.firebase:firebase-appdistribution:16.0.0-beta16")
 
 
     // Google API Client & Sheets
