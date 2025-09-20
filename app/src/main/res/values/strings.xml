@@ -11,4 +11,5 @@
     <string name="order_date_newest">Order Date (Newest)</string>
     <string name="no_data">No Data</string>"
     <string name="hello">Hello,</string>
+    <string name="order_date">Order Date</string>
 </resources>

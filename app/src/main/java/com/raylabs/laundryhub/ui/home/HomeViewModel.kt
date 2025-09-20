@@ -18,6 +18,8 @@ import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -185,6 +187,25 @@ class HomeViewModel @Inject constructor(
             }
 
             else -> Unit
+        }
+    }
+
+    fun refreshAllData() {
+        _uiState.update { it.copy(isRefreshing = true) }
+        viewModelScope.launch {
+            try {
+                // fetchUser() is not suspend, call directly
+                fetchUser()
+                // Launch suspend functions in parallel
+                val jobs = listOf(
+                    async { fetchTodayIncome() },
+                    async { fetchSummary() },
+                    async { fetchOrder() }
+                )
+                jobs.awaitAll() // Wait for all of them to complete
+            } finally {
+                _uiState.update { it.copy(isRefreshing = false) }
+            }
         }
     }
 }
