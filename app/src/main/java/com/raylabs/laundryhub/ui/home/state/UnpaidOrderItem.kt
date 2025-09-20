@@ -8,7 +8,8 @@ data class UnpaidOrderItem(
     val customerName: String,
     val packageType: String,
     val nowStatus: String,
-    val dueDate: String
+    val dueDate: String,
+    val orderDate: String // Added orderDate
 )
 
 fun List<TransactionData>.toUi(): List<UnpaidOrderItem> {
@@ -18,7 +19,8 @@ fun List<TransactionData>.toUi(): List<UnpaidOrderItem> {
             customerName = it.name,
             packageType = it.packageType,
             nowStatus = it.paidDescription(),
-            dueDate = it.dueDate
+            dueDate = it.dueDate,
+            orderDate = it.date // Mapped from TransactionData.date
         )
     }
 }

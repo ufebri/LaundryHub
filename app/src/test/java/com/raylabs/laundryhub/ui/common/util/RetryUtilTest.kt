@@ -36,21 +36,27 @@ class RetryUtilTest {
     @Test
     fun `retry should return null after max attempts`() = runTest {
         var attempts = 0
-        val result = retry(times = 3) {
-            attempts++
-            throw RuntimeException("Always fail")
-        }
-        assertNull(result)
+        assertNull(
+            retry<String>(times = 3) {
+                attempts++
+                throw RuntimeException("Always fail")
+            }
+        )
         assertEquals(3, attempts)
     }
 
     @Test
     fun `retry should call onRetry callback`() = runTest {
         val retryCalled = mutableListOf<Int>()
-        val result = retry(times = 3, onRetry = { retryCalled.add(it) }) {
-            throw RuntimeException("Failing always")
-        }
-        assertNull(result)
+
+        // Inline the call to avoid IDE warning "Value of 'result' is always null"
+        assertNull(
+            retry<String>(times = 3, onRetry = { retryCalled.add(it) }) {
+                throw RuntimeException("Failing always")
+            }
+        )
+
+        // Verify the onRetry callback was invoked for each retry attempt
         assertEquals(listOf(1, 2), retryCalled) // only 2 retries, then final fail
     }
 }

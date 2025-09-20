@@ -6,12 +6,15 @@ import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.SortOption
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -19,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Date
 import javax.inject.Inject
 
 @HiltViewModel
@@ -114,19 +118,56 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { fetchOrder() }
     }
 
+    private fun parseDateForSorting(dateString: String?): Date? {
+        return dateString?.let { DateUtil.parseDate(it, "dd/MM/yyyy") }
+    }
+
+    private fun applySort(orders: List<UnpaidOrderItem>?, sortOption: SortOption): List<UnpaidOrderItem> {
+        if (orders.isNullOrEmpty()) return emptyList()
+
+        return when (sortOption) {
+            SortOption.ORDER_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) { parseDateForSorting(it.orderDate) })
+            SortOption.ORDER_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) { parseDateForSorting(it.orderDate) })
+            SortOption.DUE_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) { parseDateForSorting(it.dueDate) })
+            SortOption.DUE_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) { parseDateForSorting(it.dueDate) })
+        }
+    }
+
+    fun changeSortOrder(newSortOption: SortOption) {
+        val currentUnpaidOrderSection = _uiState.value.unpaidOrder
+        _uiState.update {
+            it.copy(
+                currentSortOption = newSortOption,
+                unpaidOrder = currentUnpaidOrderSection.copy(isLoading = true, errorMessage = null),
+                orderUpdateKey = System.currentTimeMillis()
+            )
+        }
+
+        val sortedOrders = applySort(currentUnpaidOrderSection.data, newSortOption)
+
+        _uiState.update {
+            it.copy(
+                unpaidOrder = currentUnpaidOrderSection.success(sortedOrders),
+                orderUpdateKey = System.currentTimeMillis()
+            )
+        }
+    }
+
     suspend fun fetchOrder() {
         _uiState.update {
-            it.copy(unpaidOrder = SectionState(isLoading = true))
+            it.copy(unpaidOrder = it.unpaidOrder.loading())
         }
         when (val result =
             readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
             is Resource.Success -> {
-                val uiData = result.data.toUi()
+                val rawUiData = result.data.toUi()
+                val sortedUiData = applySort(rawUiData, _uiState.value.currentSortOption)
                 _uiState.update {
                     it.copy(
                         unpaidOrder = SectionState(
-                            data = uiData, isLoading = false, errorMessage = null
-                        ), orderUpdateKey = System.currentTimeMillis()
+                            data = sortedUiData, isLoading = false, errorMessage = null
+                        ),
+                        orderUpdateKey = System.currentTimeMillis()
                     )
                 }
             }
@@ -139,7 +180,7 @@ class HomeViewModel @Inject constructor(
 
             is Resource.Empty -> {
                 _uiState.update {
-                    it.copy(unpaidOrder = it.unpaidOrder.error("Data Kosong"))
+                    it.copy(unpaidOrder = it.unpaidOrder.success(emptyList()))
                 }
             }
 
