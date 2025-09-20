@@ -1,9 +1,11 @@
 package com.raylabs.laundryhub.ui.common.util
 
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
+import com.raylabs.laundryhub.ui.common.util.TextUtil.getDisplayName
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
+import com.raylabs.laundryhub.ui.home.state.SortOption
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -93,5 +95,25 @@ class TextUtilTest {
         assertEquals("2000", "Rp2,000".removeRupiahFormatWithComma())
         assertEquals("5000", "Rp5,000".removeRupiahFormatWithComma())
         assertEquals("1500", "1500".removeRupiahFormatWithComma()) // No Rp, comma, dot
+    }
+
+    @Test
+    fun `ORDER_DATE_DESC should be formatted correctly`() {
+        assertEquals("Order date desc", SortOption.ORDER_DATE_DESC.getDisplayName())
+    }
+
+    @Test
+    fun `ORDER_DATE_ASC should be formatted correctly`() {
+        assertEquals("Order date asc", SortOption.ORDER_DATE_ASC.getDisplayName())
+    }
+
+    @Test
+    fun `DUE_DATE_ASC should be formatted correctly`() {
+        assertEquals("Due date asc", SortOption.DUE_DATE_ASC.getDisplayName())
+    }
+
+    @Test
+    fun `DUE_DATE_DESC should be formatted correctly`() {
+        assertEquals("Due date desc", SortOption.DUE_DATE_DESC.getDisplayName())
     }
 }

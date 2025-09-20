@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.common.util
 
+import com.raylabs.laundryhub.ui.home.state.SortOption
 import java.text.NumberFormat
 import java.util.Locale
 
@@ -24,5 +25,12 @@ object TextUtil {
 
     fun String.removeRupiahFormatWithComma(): String {
         return this.replace("Rp", "").replace(".", "").replace(",", "")
+    }
+
+    fun SortOption.getDisplayName(): String {
+        return this.name
+            .replace("_", " ")
+            .lowercase()
+            .capitalizeFirstLetter() // Menggunakan fungsi ekstensi yang sudah ada
     }
 }

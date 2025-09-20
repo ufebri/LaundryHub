@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_EMY
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
 @Composable
@@ -91,12 +92,6 @@ fun OrderStatusCard(
 fun PreviewOrderStatusCard() {
     OrderStatusCard(
         Modifier,
-        UnpaidOrderItem(
-            "3",
-            "Arifin",
-            "Regular",
-            "Unpaid",
-            "17 Sep 25, 16.40 PM"
-        )
+        DUMMY_UNPAID_ORDER_ITEM_EMY
     )
 }
