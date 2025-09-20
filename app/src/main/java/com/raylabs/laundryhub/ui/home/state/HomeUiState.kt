@@ -18,5 +18,7 @@ data class HomeUiState(
     val unpaidOrder: SectionState<List<UnpaidOrderItem>> = SectionState(),
     val detailOrder: SectionState<TransactionItem> = SectionState(),
     val currentSortOption: SortOption = SortOption.ORDER_DATE_DESC, // Default sort option
-    val isRefreshing: Boolean = false // Added for swipe-to-refresh
+    val isRefreshing: Boolean = false, // Added for swipe-to-refresh
+    val searchQuery: String = "", // Added for search functionality
+    val isSearchActive: Boolean = false // Added for search functionality
 )

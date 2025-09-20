@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.order
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
@@ -52,11 +53,8 @@ class OrderViewModelTest {
         whenever(mockPackageListUseCase.invoke()).thenReturn(
             Resource.Success(
                 listOf(
-                    com.raylabs.laundryhub.core.domain.model.sheets.PackageData(
-                        "Reguler",
-                        "5000",
-                        "3d",
-                        unit = "kg"
+                    PackageData(
+                        "Reguler", "5000", "3d", unit = "kg"
                     )
                 )
             )
@@ -241,5 +239,222 @@ class OrderViewModelTest {
         val state = vm.uiState.value
         assertEquals("", state.name)
         assertFalse(state.isEditMode)
+    }
+
+    @Test
+    fun `fetchLastOrderId error sets fallback text`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Error("x"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Error, try again", vm.uiState.value.lastOrderId)
+    }
+
+    @Test
+    fun `getPackageList error sets errorMessage`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-1"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Error("pkg err"))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals("pkg err", vm.uiState.value.packageNameList.errorMessage)
+    }
+
+    @Test
+    fun `getPackageList selects matched package in edit mode`() = runTest {
+        // masuk edit mode
+        val trx = TransactionData(
+            orderID = "1",
+            name = "A",
+            phoneNumber = "08",
+            totalPrice = "10,000",
+            packageType = "Express",
+            date = "",
+            weight = "",
+            paymentMethod = "",
+            pricePerKg = "",
+            paymentStatus = "",
+            remark = "",
+            dueDate = ""
+        )
+        whenever(mockGetOrderByIdUseCase.invoke(orderID = "1")).thenReturn(Resource.Success(trx))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(
+            Resource.Success(
+                listOf(
+                    PackageData(
+                        "5000", "Express", "3d", "kg"
+                    ),
+                    PackageData(
+                        "10000", "Express", "6h", "kg"
+                    ),
+                )
+            )
+        )
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+        vm.onOrderEditClick("1") {}; testDispatcher.scheduler.advanceUntilIdle()
+        val st = vm.uiState.value
+        assertTrue(st.isEditMode)
+        assertEquals("Express", st.selectedPackage?.name)
+        assertEquals("1", st.orderID) // 10,000 / 10,000
+    }
+
+    @Test
+    fun `onOrderEditClick empty sets specific error`() = runTest {
+        whenever(mockGetOrderByIdUseCase.invoke(orderID = "X")).thenReturn(Resource.Empty)
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        vm.onOrderEditClick("X") {}; testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isEditMode)
+        assertEquals("No data found for order ID: X", vm.uiState.value.editOrder.errorMessage)
+    }
+
+    @Test
+    fun `onOrderEditClick loading keeps editOrder loading`() = runTest {
+        whenever(mockGetOrderByIdUseCase.invoke(orderID = "X")).thenReturn(Resource.Loading)
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        vm.onOrderEditClick("X") {} // no advance to keep at loading if needed
+        assertTrue(vm.uiState.value.editOrder.isLoading)
+        assertFalse(vm.uiState.value.isEditMode)
+    }
+
+    @Test
+    fun `submitOrder success updates state and calls onComplete`() = runTest {
+        val order =
+            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Success(true))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        var done = false
+        vm.submitOrder(order) { done = true }
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSubmitting)
+        assertTrue(done)
+        assertTrue(vm.uiState.value.submitNewOrder.data == true)
+    }
+
+    @Test
+    fun `submitOrder error sets error without calling onComplete`() = runTest {
+        val order =
+            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("submit err"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        var done = false
+        vm.submitOrder(order) { done = true }
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSubmitting)
+        assertEquals("submit err", vm.uiState.value.submitNewOrder.errorMessage)
+        assertFalse(done)
+    }
+
+    @Test
+    fun `submitOrder else branch clears isSubmitting`() = runTest {
+        val order =
+            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Loading)
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        var done = false
+        vm.submitOrder(order) { done = true }
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSubmitting)
+        assertFalse(done)
+    }
+
+    @Test
+    fun `updateOrder error sets error and stop submitting`() = runTest {
+        val order =
+            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        whenever(mockUpdateOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("upd err"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        var done = false
+        vm.updateOrder(order) { done = true }; testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.value.isSubmitting)
+        assertEquals("upd err", vm.uiState.value.updateOrder.errorMessage)
+        assertFalse(done)
+    }
+
+    @Test
+    fun `updateField unknown key does not change state`() {
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        val before = vm.uiState.value
+        vm.updateField("unknown", "x")
+        assertEquals(before, vm.uiState.value)
+    }
+
+    @Test
+    fun `recalculateWeight returns empty when minPrice is zero`() {
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        vm.onPackageSelected(PackageItem("Zero", "0", "6h"))
+        vm.onPriceChanged("10000")
+        assertEquals("", vm.uiState.value.weight)
     }
 }

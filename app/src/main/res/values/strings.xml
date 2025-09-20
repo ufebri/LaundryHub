@@ -12,4 +12,10 @@
     <string name="no_data">No Data</string>"
     <string name="hello">Hello,</string>
     <string name="order_date">Order Date</string>
+    <string name="open_search_view">Open Search</string>
+    <string name="close_search_view">Close Search</string>
+    <string name="clear_search">Clear Search</string>
+    <string name="search_icon">Search Icon</string>
+    <string name="search_customer_placeholder">Search Customer</string>
+    <string name="no_search_results">Data Not Found</string>
 </resources>

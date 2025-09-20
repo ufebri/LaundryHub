@@ -37,6 +37,8 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    private var originalUnpaidOrders: List<UnpaidOrderItem> = emptyList()
+
     init {
         fetchUser()
         fetchTodayIncomeFromInit()
@@ -74,13 +76,20 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
-            Resource.Empty -> {
+            is Resource.Empty -> {
                 _uiState.update {
-                    it.copy(todayIncome = it.todayIncome.error("Tidak ada data hari ini"))
+                    // Consider success with empty list or specific message for empty state
+                    it.copy(todayIncome = it.todayIncome.success(emptyList())) // Or error if preferred
                 }
             }
 
-            else -> Unit
+            is Resource.Loading -> {
+                _uiState.update {
+                    it.copy(todayIncome = it.todayIncome.loading())
+                }
+            }
+
+            // else -> Unit // Removed to ensure all branches are handled if Resource is sealed with more types
         }
     }
 
@@ -106,13 +115,18 @@ class HomeViewModel @Inject constructor(
                 }
             }
 
-            Resource.Empty -> {
+            is Resource.Empty -> {
                 _uiState.update {
-                    it.copy(summary = it.summary.error("Data Kosong"))
+                    // Consider success with empty list or specific message for empty state
+                    it.copy(summary = it.summary.success(emptyList())) // Or error if preferred
                 }
             }
 
-            else -> Unit
+            is Resource.Loading -> {
+                _uiState.update {
+                    it.copy(summary = it.summary.loading())
+                }
+            }
         }
     }
 
@@ -120,89 +134,132 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { fetchOrder() }
     }
 
-    private fun parseDateForSorting(dateString: String?): Date? {
-        return dateString?.let { DateUtil.parseDate(it, "dd/MM/yyyy") }
-    }
-
-    private fun applySort(orders: List<UnpaidOrderItem>?, sortOption: SortOption): List<UnpaidOrderItem> {
-        if (orders.isNullOrEmpty()) return emptyList()
-
-        return when (sortOption) {
-            SortOption.ORDER_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) { parseDateForSorting(it.orderDate) })
-            SortOption.ORDER_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) { parseDateForSorting(it.orderDate) })
-            SortOption.DUE_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) { parseDateForSorting(it.dueDate) })
-            SortOption.DUE_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) { parseDateForSorting(it.dueDate) })
-        }
-    }
-
-    fun changeSortOrder(newSortOption: SortOption) {
-        val currentUnpaidOrderSection = _uiState.value.unpaidOrder
-        _uiState.update {
-            it.copy(
-                currentSortOption = newSortOption,
-                unpaidOrder = currentUnpaidOrderSection.copy(isLoading = true, errorMessage = null),
-                orderUpdateKey = System.currentTimeMillis()
-            )
-        }
-
-        val sortedOrders = applySort(currentUnpaidOrderSection.data, newSortOption)
-
-        _uiState.update {
-            it.copy(
-                unpaidOrder = currentUnpaidOrderSection.success(sortedOrders),
-                orderUpdateKey = System.currentTimeMillis()
-            )
-        }
-    }
-
     suspend fun fetchOrder() {
         _uiState.update {
             it.copy(unpaidOrder = it.unpaidOrder.loading())
         }
-        when (val result =
-            readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
+        when (val result = readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
             is Resource.Success -> {
-                val rawUiData = result.data.toUi()
-                val sortedUiData = applySort(rawUiData, _uiState.value.currentSortOption)
-                _uiState.update {
-                    it.copy(
-                        unpaidOrder = SectionState(
-                            data = sortedUiData, isLoading = false, errorMessage = null
-                        ),
-                        orderUpdateKey = System.currentTimeMillis()
-                    )
-                }
+                originalUnpaidOrders = result.data.toUi() // Store original list
+                updateDisplayedUnpaidOrders()
             }
 
             is Resource.Error -> {
+                originalUnpaidOrders = emptyList()
                 _uiState.update {
                     it.copy(unpaidOrder = it.unpaidOrder.error(result.message))
                 }
             }
 
             is Resource.Empty -> {
+                originalUnpaidOrders = emptyList()
                 _uiState.update {
                     it.copy(unpaidOrder = it.unpaidOrder.success(emptyList()))
                 }
             }
 
-            else -> Unit
+            is Resource.Loading -> {
+                _uiState.update {
+                    it.copy(unpaidOrder = it.unpaidOrder.loading())
+                }
+            }
         }
     }
 
+
+    private fun parseDateForSorting(dateString: String?): Date? {
+        return dateString?.let { DateUtil.parseDate(it, "dd/MM/yyyy") }
+    }
+
+    private fun applySort(
+        orders: List<UnpaidOrderItem>, sortOption: SortOption
+    ): List<UnpaidOrderItem> {
+        // No need to check for nullOrEmpty here as it's handled by callers or originalUnpaidOrders
+        return when (sortOption) {
+            SortOption.ORDER_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) {
+                parseDateForSorting(
+                    it.orderDate
+                )
+            })
+
+            SortOption.ORDER_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) {
+                parseDateForSorting(
+                    it.orderDate
+                )
+            })
+
+            SortOption.DUE_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) {
+                parseDateForSorting(
+                    it.dueDate
+                )
+            })
+
+            SortOption.DUE_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) {
+                parseDateForSorting(
+                    it.dueDate
+                )
+            })
+        }
+    }
+
+    private fun updateDisplayedUnpaidOrders() {
+        val currentState = _uiState.value
+        val filteredOrders = if (currentState.searchQuery.isBlank()) {
+            originalUnpaidOrders
+        } else {
+            originalUnpaidOrders.filter {
+                it.customerName.contains(currentState.searchQuery, ignoreCase = true)
+            }
+        }
+        val sortedAndFilteredOrders = applySort(filteredOrders, currentState.currentSortOption)
+        _uiState.update {
+            it.copy(
+                unpaidOrder = SectionState(
+                    data = sortedAndFilteredOrders, isLoading = false, errorMessage = null
+                ), orderUpdateKey = System.currentTimeMillis()
+            )
+        }
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _uiState.update { it.copy(searchQuery = query, unpaidOrder = it.unpaidOrder.loading()) }
+        updateDisplayedUnpaidOrders()
+    }
+
+    fun toggleSearch() {
+        val newIsSearchActive = !_uiState.value.isSearchActive
+        _uiState.update { it.copy(isSearchActive = newIsSearchActive) }
+        if (!newIsSearchActive) {
+            // If search is deactivated, clear query and update list
+            onSearchQueryChanged("")
+        }
+    }
+
+    fun changeSortOrder(newSortOption: SortOption) {
+        _uiState.update {
+            it.copy(
+                currentSortOption = newSortOption,
+                unpaidOrder = it.unpaidOrder.loading() // Set loading true before re-processing
+            )
+        }
+        updateDisplayedUnpaidOrders() // This will apply new sort and existing search query
+    }
+
     fun refreshAllData() {
-        _uiState.update { it.copy(isRefreshing = true) }
+        _uiState.update {
+            it.copy(
+                isRefreshing = true, searchQuery = "", isSearchActive = false
+            )
+        } // Reset search on refresh
         viewModelScope.launch {
             try {
-                // fetchUser() is not suspend, call directly
                 fetchUser()
-                // Launch suspend functions in parallel
                 val jobs = listOf(
                     async { fetchTodayIncome() },
                     async { fetchSummary() },
-                    async { fetchOrder() }
+                    async { fetchOrder() } // fetchOrder will call updateDisplayedUnpaidOrders
                 )
-                jobs.awaitAll() // Wait for all of them to complete
+                jobs.awaitAll()
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
             }
