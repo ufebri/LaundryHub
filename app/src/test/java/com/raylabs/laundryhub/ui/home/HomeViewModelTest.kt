@@ -43,24 +43,23 @@ class HomeViewModelTest {
         UnpaidOrderItem("3", "Bob", "Express", "Unpaid", "01/08/2024", "02/08/2024")
     )
 
-    private fun List<UnpaidOrderItem>.toTransactionDataList(): List<TransactionData> {
-        return this.map {
+    private fun List<UnpaidOrderItem>.toTransactionDataList(): List<TransactionData> =
+        this.map {
             TransactionData(
-                it.orderID,
-                it.orderDate,
-                it.customerName,
-                "",
-                "",
-                "",
-                it.nowStatus,
-                it.packageType,
-                "",
-                "",
-                "",
-                it.dueDate
+                orderID = it.orderID,
+                name = it.customerName,
+                date = it.orderDate,
+                totalPrice = "",
+                packageType = it.packageType,
+                paymentStatus = it.nowStatus, // pastikan "UNPAID" kalau filtermu case-sensitive
+                paymentMethod = "",
+                weight = "",
+                pricePerKg = "",
+                remark = "",
+                phoneNumber = "",
+                dueDate = it.dueDate
             )
         }
-    }
 
     @Before
     fun setUp() {
@@ -166,16 +165,23 @@ class HomeViewModelTest {
 
     @Test
     fun `fetchTodayIncome handles Resource Empty`() = runTest {
-        doReturn(Resource.Empty).whenever(mockReadIncomeUseCase)
-            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        // GIVEN
+        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.TODAY_TRANSACTION_ONLY))
+            .thenReturn(Resource.Empty) // atau Empty()
+        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.SHOW_UNPAID_DATA))
+            .thenReturn(Resource.Empty)
+        whenever(mockSummaryUseCase.invoke())
+            .thenReturn(Resource.Empty)
 
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // THEN
         val state = vm.uiState.value
-        assertEquals("Tidak ada data hari ini", state.todayIncome.errorMessage)
         assertFalse(state.todayIncome.isLoading)
-        assertNull(state.todayIncome.data)
+        assertNull(state.todayIncome.errorMessage)
+        assertNotNull(state.todayIncome.data)
+        assertTrue((state.todayIncome.data as List<*>).isEmpty())
     }
 
     @Test
@@ -250,15 +256,19 @@ class HomeViewModelTest {
 
     @Test
     fun `fetchSummary handles Resource Empty`() = runTest {
-        doReturn(Resource.Empty).whenever(mockSummaryUseCase).invoke()
+        // GIVEN
+        whenever(mockSummaryUseCase.invoke()).thenReturn(Resource.Empty) // atau Empty() jika class
+        whenever(mockReadIncomeUseCase.invoke()).thenReturn(Resource.Empty)
 
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // THEN
         val state = vm.uiState.value
-        assertEquals("Data Kosong", state.summary.errorMessage)
         assertFalse(state.summary.isLoading)
-        assertNull(state.summary.data)
+        assertNull(state.summary.errorMessage)
+        assertNotNull(state.summary.data)
+        assertTrue((state.summary.data as List<*>).isEmpty())
     }
 
     @Test
@@ -444,5 +454,114 @@ class HomeViewModelTest {
         assertNull(state.summary.data)
         assertNotNull(state.user.data)
         assertNotNull(state.todayIncome.data)
+    }
+
+    @Test
+    fun `sort handles null or invalid dates with nullsFirst`() = runTest {
+        val arr = listOf(
+            UnpaidOrderItem("1", "A", "Reg", "Unpaid", "01/08/2024", "null"),
+            UnpaidOrderItem("2", "B", "Reg", "Unpaid", "01/08/2024", "xx/yy/zzzz"),
+            UnpaidOrderItem("3", "C", "Reg", "Unpaid", "01/08/2024", "02/08/2024"),
+        )
+        doReturn(Resource.Success(arr.toTransactionDataList()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.changeSortOrder(SortOption.DUE_DATE_ASC)
+        val names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
+        // null & invalid (parsed null) di depan
+        assertEquals(listOf("A", "B", "C"), names)
+    }
+
+    @Test
+    fun `search is case-insensitive and updates list`() = runTest {
+        val arr = listOf(
+            UnpaidOrderItem("1", "Alice", "Reg", "Unpaid", "01/08/2024", "02/08/2024"),
+            UnpaidOrderItem("2", "bob", "Reg", "Unpaid", "01/08/2024", "02/08/2024"),
+            UnpaidOrderItem("3", "CHARLIE", "Reg", "Unpaid", "01/08/2024", "02/08/2024"),
+        )
+        doReturn(Resource.Success(arr.toTransactionDataList()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.onSearchQueryChanged("BO")
+        val names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
+        assertEquals(listOf("bob"), names)
+    }
+
+    @Test
+    fun `toggleSearch ON keeps current query and filtered result`() = runTest {
+        // GIVEN: unpaid orders ada 3 item
+        doReturn(Resource.Success(unpaidOrderItemsForSort.toTransactionDataList()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+        doReturn(Resource.Success(emptyList<TransactionData>()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Success(emptyList<SpreadsheetData>()))
+            .whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // WHEN: user mencari "bo" (harusnya hanya "Bob")
+        vm.onSearchQueryChanged("bo")
+        var names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
+        assertEquals(listOf("Bob"), names)
+        assertFalse(vm.uiState.value.isSearchActive) // default-nya false
+
+        // AND: toggle sekali → ON, query tidak dihapus
+        vm.toggleSearch()
+
+        // THEN
+        assertTrue(vm.uiState.value.isSearchActive)
+        assertEquals("bo", vm.uiState.value.searchQuery)
+        names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
+        assertEquals(listOf("Bob"), names) // hasil filter tetap
+        assertFalse(vm.uiState.value.unpaidOrder.isLoading)
+    }
+
+    @Test
+    fun `toggleSearch OFF clears query and restores full list`() = runTest {
+        // GIVEN
+        doReturn(Resource.Success(unpaidOrderItemsForSort.toTransactionDataList()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+        doReturn(Resource.Success(emptyList<TransactionData>()))
+            .whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Success(emptyList<SpreadsheetData>()))
+            .whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Set query & aktifkan search
+        vm.onSearchQueryChanged("bo")
+        assertEquals(listOf("Bob"), vm.uiState.value.unpaidOrder.data!!.map { it.customerName })
+        vm.toggleSearch() // ON dulu
+        assertTrue(vm.uiState.value.isSearchActive)
+
+        val beforeKey = vm.uiState.value.orderUpdateKey
+
+        // WHEN: toggle lagi → OFF, harus clear query + update list
+        vm.toggleSearch()
+
+        // THEN
+        val state = vm.uiState.value
+        assertFalse(state.isSearchActive)
+        assertEquals("", state.searchQuery)
+        assertFalse(state.unpaidOrder.isLoading)
+        assertTrue(state.orderUpdateKey != beforeKey)
+
+        // Default sort = ORDER_DATE_DESC → 03/08 > 02/08 > 01/08
+        val names = state.unpaidOrder.data!!.map { it.customerName }
+        assertEquals(listOf("Bob", "Charlie", "Alice"), names)
     }
 }

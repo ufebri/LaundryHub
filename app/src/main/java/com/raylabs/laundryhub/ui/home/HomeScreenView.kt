@@ -12,21 +12,27 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.ContentAlpha
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -87,7 +93,7 @@ fun HomeScreenContent(
         onRefresh = { viewModel.refreshAllData() }
     )
 
-    LaunchedEffect(state.orderUpdateKey) {
+    LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.unpaidOrder.errorMessage) {
         listOf(state.user, state.todayIncome, state.summary, state.unpaidOrder).forEach {
             it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
@@ -122,10 +128,8 @@ fun HomeScreenContent(
                 }
             }
 
-            // Spacer to create space between header and next section
             item { Spacer(Modifier.height(120.dp)) }
 
-            // Today Activity Section
             item {
                 Text(
                     text = stringResource(R.string.today_activity),
@@ -136,7 +140,6 @@ fun HomeScreenContent(
                 )
             }
 
-            // Loading or Error Section for Today's Income
             item {
                 SectionOrLoading(
                     isLoading = state.todayIncome.isLoading,
@@ -155,24 +158,70 @@ fun HomeScreenContent(
                 )
             }
 
-            // Spacer to create space between sections
             item { Spacer(Modifier.height(24.dp)) }
 
-            // Pending Orders Section Title
+            // Pending Orders Section Title / Search Bar
             item {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.pending_orders),
-                        style = MaterialTheme.typography.h6,
-                        modifier = Modifier.weight(1f)
-                    )
-                    Box {
+                    if (state.isSearchActive) {
+                        OutlinedTextField(
+                            value = state.searchQuery,
+                            onValueChange = { viewModel.onSearchQueryChanged(it) },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { 
+                                Text(
+                                    stringResource(R.string.search_customer_placeholder),
+                                    color = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.medium) // Use onBackground
+                                )
+                             },
+                            leadingIcon = { 
+                                Icon( 
+                                    Icons.Filled.Search, 
+                                    contentDescription = stringResource(R.string.search_icon),
+                                    tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                )
+                            },
+                            trailingIcon = {
+                                if (state.searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                        Icon(
+                                            Icons.Filled.Close, 
+                                            contentDescription = stringResource(R.string.clear_search),
+                                            tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                textColor = MaterialTheme.colors.onBackground, // Use onBackground
+                                cursorColor = MaterialTheme.colors.primary,
+                                focusedBorderColor = MaterialTheme.colors.primary,
+                                unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled) // Use onBackground
+                            )
+                        )
+                        IconButton(onClick = { viewModel.toggleSearch() }) { 
+                            Icon(
+                                Icons.Filled.Close, 
+                                contentDescription = stringResource(R.string.close_search_view),
+                                tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = stringResource(R.string.pending_orders),
+                            style = MaterialTheme.typography.h6,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = { viewModel.toggleSearch() }) {
+                            Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.open_search_view))
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(
                                 imageVector = Icons.Filled.List,
@@ -214,7 +263,7 @@ fun HomeScreenContent(
 
             // Pending Orders List or Loading Indicator
             item {
-                if (state.unpaidOrder.isLoading && !state.isRefreshing) { // Show this loading only for sort, not for global refresh
+                if (state.unpaidOrder.isLoading && !state.isRefreshing) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -223,11 +272,12 @@ fun HomeScreenContent(
                     ) {
                         CircularProgressIndicator()
                     }
-                } else if (!state.isRefreshing) { // Don't show list if globally refreshing, indicator is at top
+                } else if (!state.isRefreshing) {
                     val ordersToDisplay = state.unpaidOrder.data
                     if (ordersToDisplay.isNullOrEmpty()) {
                         Text(
-                            text = stringResource(R.string.no_data),
+                            text = if (state.isSearchActive && state.searchQuery.isNotEmpty()) stringResource(R.string.no_search_results, state.searchQuery)
+                                   else stringResource(R.string.no_data),
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -259,15 +309,15 @@ fun HomeScreenContent(
                         }
                     }
                 }
-            } // End of Pending Orders List item
-        } // End of LazyColumn
+            }
+        } 
 
         PullRefreshIndicator(
             refreshing = state.isRefreshing,
             state = pullRefreshState,
             modifier = Modifier.align(Alignment.TopCenter)
         )
-    } // End of Box with pullRefresh
+    }
 }
 
 @Composable
@@ -300,13 +350,43 @@ fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
 }
 
 @OptIn(ExperimentalMaterialApi::class)
-@Preview
+@Preview(showBackground = true, name = "Default View")
 @Composable
-fun PreviewHomeScreen() {
-    HomeScreenContent(
-        state = dummyState.copy(isRefreshing = false), // Ensure isRefreshing is set for preview
-        viewModel = hiltViewModel(),
-        onOrderCardClick = {},
-        onTodayActivityClick = {}
-    )
+fun PreviewHomeScreenContent_Default() {
+    MaterialTheme {
+        HomeScreenContent(
+            state = dummyState.copy(isRefreshing = false, isSearchActive = false),
+            viewModel = hiltViewModel(), 
+            onOrderCardClick = {},
+            onTodayActivityClick = {}
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Preview(showBackground = true, name = "Search Active View - Dark Theme")
+@Composable
+fun PreviewHomeScreenContent_SearchActiveDark() {
+    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = false)) { // Force dark theme for preview
+        HomeScreenContent(
+            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
+            viewModel = hiltViewModel(), 
+            onOrderCardClick = {},
+            onTodayActivityClick = {}
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterialApi::class)
+@Preview(showBackground = true, name = "Search Active View - Light Theme")
+@Composable
+fun PreviewHomeScreenContent_SearchActiveLight() {
+    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = true)) { // Force light theme for preview
+        HomeScreenContent(
+            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
+            viewModel = hiltViewModel(), 
+            onOrderCardClick = {},
+            onTodayActivityClick = {}
+        )
+    }
 }

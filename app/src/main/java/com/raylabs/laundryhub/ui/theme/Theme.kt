@@ -15,8 +15,8 @@ private val DarkColorPalette = darkColors(
     surface = Color(0xFFF5F5F5), // abu-abu terang agar bottom sheet tidak putih polos di dark mode
     onPrimary = Color.White,
     onSecondary = Color.Black,
-    onBackground = Color.White,
-    onSurface = Color.Black
+    onBackground = Color.White, // Teks di atas background utama (gelap) adalah PUTIH
+    onSurface = Color.Black    // Teks di atas surface (bottom sheet terang) adalah HITAM
 )
 
 private val LightColorPalette = lightColors(
@@ -24,11 +24,11 @@ private val LightColorPalette = lightColors(
     primaryVariant = Purple700,
     secondary = Teal200,
     background = Color.White,
-    surface = Color.White, // tetap putih di light mode
+    surface = Color.White, 
     onPrimary = Color.White,
     onSecondary = Color.Black,
-    onBackground = Color.Black,
-    onSurface = Color.Black
+    onBackground = Color.Black, // Teks di atas background utama (terang) adalah HITAM
+    onSurface = Color.Black    // Teks di atas surface (terang) adalah HITAM
 )
 
 @Composable
