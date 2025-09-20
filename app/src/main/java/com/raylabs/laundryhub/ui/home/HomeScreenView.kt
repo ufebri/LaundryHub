@@ -19,6 +19,7 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
@@ -26,6 +27,9 @@ import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -67,6 +71,7 @@ fun HomeScreen(
     )
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun HomeScreenContent(
     state: HomeUiState,
@@ -77,179 +82,192 @@ fun HomeScreenContent(
     val snackBarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
 
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = state.isRefreshing,
+        onRefresh = { viewModel.refreshAllData() }
+    )
+
     LaunchedEffect(state.orderUpdateKey) {
         listOf(state.user, state.todayIncome, state.summary, state.unpaidOrder).forEach {
             it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(bottom = 80.dp)
-    ) {
-        // Header Section
-        item {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                GreetingWithImageBackground(
-                    username = state.user.data?.displayName ?: stringResource(R.string.guest)
-                )
+    Box(modifier = Modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(bottom = 80.dp)
+        ) {
+            // Header Section
+            item {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    GreetingWithImageBackground(
+                        username = state.user.data?.displayName ?: stringResource(R.string.guest)
+                    )
 
-                SectionOrLoading(
-                    isLoading = state.summary.isLoading,
-                    error = state.summary.errorMessage,
-                    content = {
-                        InfoCardSection(
-                            summary = state.summary.data.orEmpty(),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(max = 300.dp)
-                                .padding(horizontal = 16.dp)
-                                .offset(y = 90.dp)
-                        )
-                    }
-                )
-            }
-        }
-
-        // Spacer to create space between header and next section
-        item { Spacer(Modifier.height(120.dp)) }
-
-        // Today Activity Section
-        item {
-            Text(
-                text = stringResource(R.string.today_activity),
-                style = MaterialTheme.typography.h6,
-                modifier = Modifier
-                    .padding(horizontal = 16.dp)
-                    .fillMaxWidth()
-            )
-        }
-
-        // Loading or Error Section for Today's Income
-        item {
-            SectionOrLoading(
-                isLoading = state.todayIncome.isLoading,
-                error = state.todayIncome.errorMessage,
-                content = {
-                    val list = state.todayIncome.data.orEmpty()
-                    if (list.isEmpty()) {
-                        Text(
-                            text = stringResource(R.string.no_transactions_today),
-                            modifier = Modifier.padding(horizontal = 16.dp)
-                        )
-                    } else {
-                        CardList(list, onItemClick = onTodayActivityClick)
-                    }
+                    SectionOrLoading(
+                        isLoading = state.summary.isLoading,
+                        error = state.summary.errorMessage,
+                        content = {
+                            InfoCardSection(
+                                summary = state.summary.data.orEmpty(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(max = 300.dp)
+                                    .padding(horizontal = 16.dp)
+                                    .offset(y = 90.dp)
+                            )
+                        }
+                    )
                 }
-            )
-        }
+            }
 
-        // Spacer to create space between sections
-        item { Spacer(Modifier.height(24.dp)) }
+            // Spacer to create space between header and next section
+            item { Spacer(Modifier.height(120.dp)) }
 
-        // Pending Orders Section Title
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
+            // Today Activity Section
+            item {
                 Text(
-                    text = stringResource(R.string.pending_orders),
+                    text = stringResource(R.string.today_activity),
                     style = MaterialTheme.typography.h6,
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .padding(horizontal = 16.dp)
+                        .fillMaxWidth()
                 )
-                Box {
-                    IconButton(onClick = { showMenu = !showMenu }) {
-                        Icon(
-                            imageVector = Icons.Filled.List,
-                            contentDescription = stringResource(R.string.sort_orders)
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(onClick = {
-                            viewModel.changeSortOrder(SortOption.DUE_DATE_ASC)
-                            showMenu = false
-                        }) {
-                            Text(stringResource(R.string.due_date_earliest))
-                        }
-                        DropdownMenuItem(onClick = {
-                            viewModel.changeSortOrder(SortOption.DUE_DATE_DESC)
-                            showMenu = false
-                        }) {
-                            Text(stringResource(R.string.due_date_latest))
-                        }
-                        DropdownMenuItem(onClick = {
-                            viewModel.changeSortOrder(SortOption.ORDER_DATE_ASC)
-                            showMenu = false
-                        }) {
-                            Text(stringResource(R.string.order_date_oldest))
-                        }
-                        DropdownMenuItem(onClick = {
-                            viewModel.changeSortOrder(SortOption.ORDER_DATE_DESC)
-                            showMenu = false
-                        }) {
-                            Text(stringResource(R.string.order_date_newest))
-                        }
-                    }
-                }
             }
-        }
 
-        // Pending Orders List or Loading Indicator
-        item {
-            if (state.unpaidOrder.isLoading) {
-                Box(
+            // Loading or Error Section for Today's Income
+            item {
+                SectionOrLoading(
+                    isLoading = state.todayIncome.isLoading,
+                    error = state.todayIncome.errorMessage,
+                    content = {
+                        val list = state.todayIncome.data.orEmpty()
+                        if (list.isEmpty()) {
+                            Text(
+                                text = stringResource(R.string.no_transactions_today),
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                        } else {
+                            CardList(list, onItemClick = onTodayActivityClick)
+                        }
+                    }
+                )
+            }
+
+            // Spacer to create space between sections
+            item { Spacer(Modifier.height(24.dp)) }
+
+            // Pending Orders Section Title
+            item {
+                Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    CircularProgressIndicator()
-                }
-            } else {
-                val ordersToDisplay = state.unpaidOrder.data
-                if (ordersToDisplay.isNullOrEmpty()) {
                     Text(
-                        text = stringResource(R.string.no_data),
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp)
+                        text = stringResource(R.string.pending_orders),
+                        style = MaterialTheme.typography.h6,
+                        modifier = Modifier.weight(1f)
                     )
-                } else {
-                    val chunked = ordersToDisplay.chunked(2)
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        chunked.forEach { rowItems ->
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
-                            ) {
-                                rowItems.forEach { item ->
-                                    OrderStatusCard(
-                                        item = item, onClick = { onOrderCardClick(item.orderID) },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                                if (rowItems.size == 1) {
-                                    Spacer(modifier = Modifier.weight(1f))
-                                }
+                    Box {
+                        IconButton(onClick = { showMenu = !showMenu }) {
+                            Icon(
+                                imageVector = Icons.Filled.List,
+                                contentDescription = stringResource(R.string.sort_orders)
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(onClick = {
+                                viewModel.changeSortOrder(SortOption.DUE_DATE_ASC)
+                                showMenu = false
+                            }) {
+                                Text(stringResource(R.string.due_date_earliest))
+                            }
+                            DropdownMenuItem(onClick = {
+                                viewModel.changeSortOrder(SortOption.DUE_DATE_DESC)
+                                showMenu = false
+                            }) {
+                                Text(stringResource(R.string.due_date_latest))
+                            }
+                            DropdownMenuItem(onClick = {
+                                viewModel.changeSortOrder(SortOption.ORDER_DATE_ASC)
+                                showMenu = false
+                            }) {
+                                Text(stringResource(R.string.order_date_oldest))
+                            }
+                            DropdownMenuItem(onClick = {
+                                viewModel.changeSortOrder(SortOption.ORDER_DATE_DESC)
+                                showMenu = false
+                            }) {
+                                Text(stringResource(R.string.order_date_newest))
                             }
                         }
                     }
                 }
             }
-        }
-    }
+
+            // Pending Orders List or Loading Indicator
+            item {
+                if (state.unpaidOrder.isLoading && !state.isRefreshing) { // Show this loading only for sort, not for global refresh
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator()
+                    }
+                } else if (!state.isRefreshing) { // Don't show list if globally refreshing, indicator is at top
+                    val ordersToDisplay = state.unpaidOrder.data
+                    if (ordersToDisplay.isNullOrEmpty()) {
+                        Text(
+                            text = stringResource(R.string.no_data),
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp)
+                        )
+                    } else {
+                        val chunked = ordersToDisplay.chunked(2)
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            chunked.forEach { rowItems ->
+                                Row(
+                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                ) {
+                                    rowItems.forEach { item ->
+                                        OrderStatusCard(
+                                            item = item, onClick = { onOrderCardClick(item.orderID) },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    if (rowItems.size == 1) {
+                                        Spacer(modifier = Modifier.weight(1f))
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } // End of Pending Orders List item
+        } // End of LazyColumn
+
+        PullRefreshIndicator(
+            refreshing = state.isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+    } // End of Box with pullRefresh
 }
 
 @Composable
@@ -281,11 +299,12 @@ fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Preview
 @Composable
 fun PreviewHomeScreen() {
     HomeScreenContent(
-        state = dummyState, 
+        state = dummyState.copy(isRefreshing = false), // Ensure isRefreshing is set for preview
         viewModel = hiltViewModel(),
         onOrderCardClick = {},
         onTodayActivityClick = {}

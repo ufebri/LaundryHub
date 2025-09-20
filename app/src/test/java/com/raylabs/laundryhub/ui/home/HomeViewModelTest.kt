@@ -8,11 +8,12 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUs
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.ui.home.state.SortOption
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
-import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
@@ -20,8 +21,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
@@ -34,9 +37,50 @@ class HomeViewModelTest {
     private val mockReadIncomeUseCase: ReadIncomeTransactionUseCase = mock()
     private val mockUserUseCase: UserUseCase = mock()
 
+    private val unpaidOrderItemsForSort = listOf(
+        UnpaidOrderItem("1", "Charlie", "Kilat", "Unpaid", "03/08/2024", "01/08/2024"),
+        UnpaidOrderItem("2", "Alice", "Reguler", "Unpaid", "02/08/2024", "01/08/2024"),
+        UnpaidOrderItem("3", "Bob", "Express", "Unpaid", "01/08/2024", "02/08/2024")
+    )
+
+    private fun List<UnpaidOrderItem>.toTransactionDataList(): List<TransactionData> {
+        return this.map {
+            TransactionData(
+                it.orderID,
+                it.orderDate,
+                it.customerName,
+                "",
+                "",
+                "",
+                it.nowStatus,
+                it.packageType,
+                "",
+                "",
+                "",
+                it.dueDate
+            )
+        }
+    }
+
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        runTest { // runTest scope for doReturn on suspend functions
+            whenever(mockUserUseCase.getCurrentUser()).thenReturn(
+                User(
+                    "defaultUser",
+                    "Default",
+                    "default@email.com",
+                    "url"
+                )
+            )
+            doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+                .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+            doReturn(Resource.Success(emptyList<SpreadsheetData>())).whenever(mockSummaryUseCase)
+                .invoke()
+            doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+                .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+        }
     }
 
     @After
@@ -46,29 +90,24 @@ class HomeViewModelTest {
 
     @Test
     fun `init fetches all sections and updates uiState`() = runTest {
-        // Mock user
-        whenever(mockUserUseCase.getCurrentUser()).thenReturn(
-            User(
-                uid = "1",
-                displayName = "Raihan",
-                email = "rai@labs.com",
-                urlPhoto = "http://img.com/pp.jpg"
-            )
+        val testUser = User(
+            uid = "1",
+            displayName = "Raihan",
+            email = "rai@labs.com",
+            urlPhoto = "http://img.com/pp.jpg"
         )
-        // Mock today income
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.TODAY_TRANSACTION_ONLY))
-            .thenReturn(Resource.Success(emptyList()))
-        // Mock summary
-        whenever(mockSummaryUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
-        // Mock unpaid order
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.SHOW_UNPAID_DATA))
-            .thenReturn(Resource.Success(emptyList()))
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(testUser)
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Success(emptyList<SpreadsheetData>())).whenever(mockSummaryUseCase)
+            .invoke()
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
-
         assertNotNull(state.user.data)
         assertEquals("Raihan", state.user.data?.displayName)
         assertNotNull(state.todayIncome.data)
@@ -81,119 +120,329 @@ class HomeViewModelTest {
 
     @Test
     fun `fetchTodayIncome updates state on success`() = runTest {
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.TODAY_TRANSACTION_ONLY))
-            .thenReturn(
-                Resource.Success(
-                    listOf(
-                        TransactionData(
-                            orderID = "1",
-                            name = "A",
-                            date = "2024-08-03",
-                            totalPrice = "1000",
-                            packageType = "Reguler",
-                            paymentStatus = "PAID",
-                            paymentMethod = "Cash",
-                            weight = "1",
-                            pricePerKg = "1000",
-                            remark = "",
-                            phoneNumber = "08",
-                            dueDate = "2024-08-05"
-                        )
-                    )
-                )
+        val transactionList = listOf(
+            TransactionData(
+                orderID = "1",
+                name = "A",
+                date = "03/08/2024",
+                totalPrice = "1000",
+                packageType = "Reguler",
+                paymentStatus = "PAID",
+                paymentMethod = "Cash",
+                weight = "1",
+                pricePerKg = "1000",
+                remark = "",
+                phoneNumber = "08",
+                dueDate = "05/08/2024"
             )
+        )
+        doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
-        vm.fetchTodayIncome()
-        runCurrent() // <-- tanpa lambda
 
         val state = vm.uiState.value
         assertNotNull(state.todayIncome.data)
+        assertEquals(1, state.todayIncome.data?.size)
         assertFalse(state.todayIncome.isLoading)
         assertNull(state.todayIncome.errorMessage)
     }
 
     @Test
     fun `fetchTodayIncome handles Resource Error`() = runTest {
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.TODAY_TRANSACTION_ONLY))
-            .thenReturn(Resource.Error("error"))
+        val errorMessage = "Today income error"
+        doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
-        vm.fetchTodayIncome()
-        runCurrent()
 
         val state = vm.uiState.value
-        assertEquals("error", state.todayIncome.errorMessage)
+        assertEquals(errorMessage, state.todayIncome.errorMessage)
         assertFalse(state.todayIncome.isLoading)
+        assertNull(state.todayIncome.data)
     }
 
     @Test
     fun `fetchTodayIncome handles Resource Empty`() = runTest {
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.TODAY_TRANSACTION_ONLY))
-            .thenReturn(Resource.Empty)
+        doReturn(Resource.Empty).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
-        vm.fetchTodayIncome()
-        runCurrent()
 
         val state = vm.uiState.value
         assertEquals("Tidak ada data hari ini", state.todayIncome.errorMessage)
         assertFalse(state.todayIncome.isLoading)
+        assertNull(state.todayIncome.data)
     }
 
     @Test
     fun `fetchSummary updates state on success`() = runTest {
-        whenever(mockSummaryUseCase.invoke())
-            .thenReturn(
-                Resource.Success(
-                    listOf(
-                        SpreadsheetData(key = "a", value = "b")
-                    )
-                )
-            )
+        val summaryList = listOf(SpreadsheetData(key = "a", value = "b"))
+        doReturn(Resource.Success(summaryList)).whenever(mockSummaryUseCase).invoke()
+
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
-        vm.fetchSummary()
-        runCurrent()
 
         val state = vm.uiState.value
         assertNotNull(state.summary.data)
+        assertEquals(1, state.summary.data?.size)
         assertFalse(state.summary.isLoading)
         assertNull(state.summary.errorMessage)
     }
 
     @Test
     fun `fetchOrder updates unpaidOrder on success`() = runTest {
-        whenever(mockReadIncomeUseCase.invoke(filter = FILTER.SHOW_UNPAID_DATA))
-            .thenReturn(
-                Resource.Success(
-                    listOf(
-                        TransactionData(
-                            orderID = "1",
-                            name = "A",
-                            date = "2024-08-03",
-                            totalPrice = "1000",
-                            packageType = "Reguler",
-                            paymentStatus = "UNPAID",
-                            paymentMethod = "Cash",
-                            weight = "1",
-                            pricePerKg = "1000",
-                            remark = "",
-                            phoneNumber = "08",
-                            dueDate = "2024-08-05"
-                        )
-                    )
-                )
+        val transactionList = listOf(
+            TransactionData(
+                orderID = "1",
+                name = "A",
+                date = "03/08/2024",
+                totalPrice = "1000",
+                packageType = "Reguler",
+                paymentStatus = "UNPAID",
+                paymentMethod = "Cash",
+                weight = "1",
+                pricePerKg = "1000",
+                remark = "",
+                phoneNumber = "08",
+                dueDate = "05/08/2024"
             )
+        )
+        doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
-        vm.fetchOrder()
-        runCurrent()
 
         val state = vm.uiState.value
         assertNotNull(state.unpaidOrder.data)
+        assertEquals(1, state.unpaidOrder.data?.size)
         assertFalse(state.unpaidOrder.isLoading)
         assertNull(state.unpaidOrder.errorMessage)
+    }
+
+    @Test
+    fun `init sets user to null when getCurrentUser returns null`() = runTest {
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(null)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.uiState.value.user.data)
+    }
+
+    @Test
+    fun `fetchSummary handles Resource Error`() = runTest {
+        val errorMessage = "Summary fetch error"
+        doReturn(Resource.Error(errorMessage)).whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(errorMessage, state.summary.errorMessage)
+        assertFalse(state.summary.isLoading)
+        assertNull(state.summary.data)
+    }
+
+    @Test
+    fun `fetchSummary handles Resource Empty`() = runTest {
+        doReturn(Resource.Empty).whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals("Data Kosong", state.summary.errorMessage)
+        assertFalse(state.summary.isLoading)
+        assertNull(state.summary.data)
+    }
+
+    @Test
+    fun `fetchOrder handles Resource Error`() = runTest {
+        val errorMessage = "Order fetch error"
+        doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertEquals(errorMessage, state.unpaidOrder.errorMessage)
+        assertFalse(state.unpaidOrder.isLoading)
+        assertNull(state.unpaidOrder.data)
+    }
+
+    @Test
+    fun `fetchOrder handles Resource Empty and sets empty list to data`() = runTest {
+        doReturn(Resource.Empty).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertNotNull(state.unpaidOrder.data)
+        assertTrue(state.unpaidOrder.data!!.isEmpty())
+        assertFalse(state.unpaidOrder.isLoading)
+        assertNull(state.unpaidOrder.errorMessage)
+    }
+
+    @Test
+    fun `changeSortOrder updates sort option and sorts data by ORDER_DATE_ASC`() = runTest {
+        doReturn(Resource.Success(unpaidOrderItemsForSort.toTransactionDataList())).whenever(
+            mockReadIncomeUseCase
+        ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val initialOrderUpdateKey = vm.uiState.value.orderUpdateKey
+        vm.changeSortOrder(SortOption.ORDER_DATE_ASC)
+
+        val state = vm.uiState.value
+        assertEquals(SortOption.ORDER_DATE_ASC, state.currentSortOption)
+        assertFalse(state.unpaidOrder.isLoading)
+        assertNotNull(state.unpaidOrder.data)
+        assertTrue(state.orderUpdateKey != initialOrderUpdateKey)
+
+        val sortedData = state.unpaidOrder.data!!
+        assertEquals("Charlie", sortedData[0].customerName)
+        assertEquals("Alice", sortedData[1].customerName)
+        assertEquals("Bob", sortedData[2].customerName)
+    }
+
+    @Test
+    fun `changeSortOrder sorts data by DUE_DATE_ASC`() = runTest {
+        doReturn(Resource.Success(unpaidOrderItemsForSort.toTransactionDataList())).whenever(
+            mockReadIncomeUseCase
+        ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.changeSortOrder(SortOption.DUE_DATE_ASC)
+
+        val state = vm.uiState.value
+        assertEquals(SortOption.DUE_DATE_ASC, state.currentSortOption)
+        val sortedData = state.unpaidOrder.data!!
+        assertEquals("Bob", sortedData[0].customerName)
+        assertEquals("Alice", sortedData[1].customerName)
+        assertEquals("Charlie", sortedData[2].customerName)
+    }
+
+    @Test
+    fun `changeSortOrder with empty list updates option and keeps list empty`() = runTest {
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.changeSortOrder(SortOption.DUE_DATE_DESC)
+
+        val state = vm.uiState.value
+        assertEquals(SortOption.DUE_DATE_DESC, state.currentSortOption)
+        assertTrue(state.unpaidOrder.data!!.isEmpty())
+        assertFalse(state.unpaidOrder.isLoading)
+    }
+
+    @Test
+    fun `refreshAllData calls all fetch methods and updates refreshing state`() = runTest {
+        val user = User("uid", "User", "email", "url")
+        val todayIncomeData = listOf(
+            TransactionData(
+                "td1",
+                "01/01/2024",
+                "Income Name",
+                "",
+                "",
+                "100",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "02/01/2024"
+            )
+        )
+        val summaryData = listOf(SpreadsheetData("Monthly Target", "v1"))
+        val unpaidOrderData = listOf(
+            TransactionData(
+                "uo1",
+                "03/01/2024",
+                "Unpaid Name",
+                "",
+                "",
+                "200",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "04/01/2024"
+            )
+        )
+
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(user)
+        doReturn(Resource.Success(todayIncomeData)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Success(summaryData)).whenever(mockSummaryUseCase).invoke()
+        doReturn(Resource.Success(unpaidOrderData)).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.refreshAllData()
+        assertTrue(
+            "isRefreshing should be true immediately after refreshAllData()",
+            vm.uiState.value.isRefreshing
+        )
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse("isRefreshing should be false after all fetches complete", state.isRefreshing)
+        assertNotNull(state.user.data)
+        assertEquals(user.displayName, state.user.data?.displayName)
+
+        assertNotNull(state.todayIncome.data)
+        assertEquals(todayIncomeData.first().orderID, state.todayIncome.data?.first()?.id)
+
+        assertNotNull(state.summary.data)
+        assertEquals(summaryData.first().key, state.summary.data?.first()?.title)
+
+        assertNotNull(state.unpaidOrder.data)
+        assertEquals(unpaidOrderData.first().orderID, state.unpaidOrder.data?.first()?.orderID)
+    }
+
+    @Test
+    fun `refreshAllData sets refreshing false even if a fetch fails`() = runTest {
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(User("uid", "User", "email", "url"))
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Error("Network Error during refresh")).whenever(mockSummaryUseCase)
+            .invoke()
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.refreshAllData()
+        assertTrue(vm.uiState.value.isRefreshing)
+
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.isRefreshing)
+        assertEquals("Network Error during refresh", state.summary.errorMessage)
+        assertNull(state.summary.data)
+        assertNotNull(state.user.data)
+        assertNotNull(state.todayIncome.data)
     }
 }

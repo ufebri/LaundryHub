@@ -7,7 +7,6 @@ plugins {
     id 'com.google.firebase.crashlytics'
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.12.0'
-    id 'io.gitlab.arturbosch.detekt' version '1.23.8'
 }
 
 def apikeyPropertiesFile = rootProject.file("config.properties")
@@ -23,11 +22,11 @@ versionProps.load(new FileInputStream(versionPropsFile))
 
 android {
     namespace 'com.raylabs.laundryhub'
-    compileSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
+    compileSdk 36
     defaultConfig {
         applicationId "com.raylabs.laundryhub"
         minSdkVersion 23
-        targetSdk 35 //Need To Upgrade Gradle Plugin if we need to update the library
+        targetSdk 36
         versionCode versionProps['VERSION_CODE'].toInteger()
         versionName versionProps['VERSION_NAME']
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
@@ -161,7 +160,7 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.firebaseui:firebase-ui-auth:7.2.0")
     implementation("com.google.firebase:firebase-crashlytics-ktx")
-    implementation("com.google.firebase:firebase-appdistribution:16.0.0-beta16")
+    implementation("com.google.firebase:firebase-appdistribution-api:16.0.0-beta17")
 
 
     // Google API Client & Sheets

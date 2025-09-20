@@ -14,9 +14,11 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_EMY
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
@@ -37,8 +39,8 @@ fun OrderStatusCard(
             modifier = Modifier
                 .padding(16.dp)
                 .fillMaxWidth()
-                .fillMaxHeight(), // pastikan konten memenuhi tinggi card
-            verticalArrangement = Arrangement.SpaceBetween // ratakan konten atas-bawah
+                .fillMaxHeight(),
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
             // Header
             Text(
@@ -71,14 +73,14 @@ fun OrderStatusCard(
 
             // Due Date
             Text(
-                "Due Date",
+                stringResource(R.string.order_date),
                 fontWeight = FontWeight.Bold,
                 color = Color.White,
                 style = MaterialTheme.typography.subtitle2,
                 modifier = Modifier.padding(top = 12.dp)
             )
             Text(
-                item.dueDate,
+                item.orderDate,
                 color = Color.White,
                 fontWeight = FontWeight.Light,
                 style = MaterialTheme.typography.body2
