@@ -51,4 +51,4 @@ fun getDisplayPaidStatus(paidStatus: String): String {
     }
 }
 
-val paymentMethodList = listOf(PAID_BY_CASH, PAID_BY_QRIS, UNPAID)
+val paymentMethodList = listOf(UNPAID, PAID_BY_CASH, PAID_BY_QRIS)
