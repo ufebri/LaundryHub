@@ -240,6 +240,7 @@ class OrderViewModel @Inject constructor(
     }
 
     fun resetForm() {
+        fetchLastOrderId() // Ditambahkan di sini
         _uiState.value = _uiState.value.copy(
             isEditMode = false,
             name = "",
