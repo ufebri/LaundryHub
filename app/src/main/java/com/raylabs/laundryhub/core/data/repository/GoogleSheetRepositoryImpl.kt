@@ -215,20 +215,21 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             retry {
                 try {
+                    val orderDate = order.orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
                     val values = listOf(
                         listOf(
                             order.orderId,
-                            DateUtil.getTodayDate("dd/MM/yyyy"),
+                            orderDate,
                             order.name,
                             order.weight,
                             order.priceKg,
-                            order.totalPrice, // total price, bisa hitung nanti
-                            order.getSpreadSheetPaidStatus, // status lunas/belum
+                            order.totalPrice,
+                            order.getSpreadSheetPaidStatus,
                             order.packageName,
                             order.remark,
                             order.getSpreadSheetPaymentMethod,
                             order.phoneNumber,
-                            order.dueDate
+                            order.getSpreadSheetDueDate
                         )
                     )
 
@@ -318,9 +319,13 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     val existingDate =
                         dataRows[rowIndex].getOrNull(1) ?: DateUtil.getTodayDate("dd/MM/yyyy")
 
+                    val fallbackDate = existingDate?.toString()?.takeIf { it.isNotBlank() }
+                        ?: DateUtil.getTodayDate("dd/MM/yyyy")
+                    val updatedDate = order.orderDate.ifBlank { fallbackDate }
+
                     val updatedRow = listOf(
                         order.orderId,
-                        existingDate,
+                        updatedDate,
                         order.name,
                         order.weight,
                         order.priceKg,
@@ -330,7 +335,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         order.remark,
                         order.getSpreadSheetPaymentMethod,
                         order.phoneNumber,
-                        order.dueDate
+                        order.getSpreadSheetDueDate
                     )
 
                     val body = ValueRange().setValues(listOf(updatedRow))

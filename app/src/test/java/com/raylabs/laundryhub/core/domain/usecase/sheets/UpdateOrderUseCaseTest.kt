@@ -9,7 +9,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.mockito.kotlin.*
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class UpdateOrderUseCaseTest {
@@ -35,6 +36,7 @@ class UpdateOrderUseCaseTest {
             paymentMethod = "Cash",
             remark = "Edited",
             weight = "3",
+            orderDate = "20/07/2025",
             dueDate = "25/07/2025"
         )
         whenever(repository.updateOrder(order)).thenReturn(Resource.Success(true))
@@ -57,6 +59,7 @@ class UpdateOrderUseCaseTest {
             paymentMethod = "Cash",
             remark = "Edited",
             weight = "3",
+            orderDate = "20/07/2025",
             dueDate = "25/07/2025"
         )
         whenever(repository.updateOrder(order)).thenReturn(Resource.Error("Failed"))
@@ -79,6 +82,7 @@ class UpdateOrderUseCaseTest {
             paymentMethod = "Cash",
             remark = "Edited",
             weight = "3",
+            orderDate = "20/07/2025",
             dueDate = "25/07/2025"
         )
         var retryCount = 0

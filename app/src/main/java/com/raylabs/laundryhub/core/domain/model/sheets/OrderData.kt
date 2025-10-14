@@ -13,6 +13,7 @@ data class OrderData(
     val paymentMethod: String,
     val remark: String,
     val weight: String,
+    val orderDate: String,
     val dueDate: String,
 ) {
     val getSpreadSheetPaymentMethod: String
@@ -22,7 +23,20 @@ data class OrderData(
         get() = getDisplayPaidStatus(paidStatus)
 
     val getSpreadSheetDueDate: String
-        get() = DateUtil.getDueDate(dueDate)
+        get() {
+            val normalized = dueDate.trim()
+            if (normalized.isBlank()) {
+                return normalized
+            }
+
+            if (normalized.contains("/") || normalized.contains("-")) {
+                return normalized
+            }
+
+            val sanitizedOrderDate = orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
+            val startDate = "${sanitizedOrderDate.replace('/', '-')} 08:00"
+            return DateUtil.getDueDate(normalized, startDate)
+        }
 }
 
 const val PAID_BY_CASH: String = "Paid by Cash"

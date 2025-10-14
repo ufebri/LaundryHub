@@ -259,6 +259,7 @@ fun ShowOrderBottomSheet(
         onPackageSelected = { orderViewModel.onPackageSelected(it) },
         onPaymentMethodSelected = { orderViewModel.updateField("paymentMethod", it) },
         onNoteChanged = { orderViewModel.updateField("note", it) },
+        onOrderDateSelected = { orderViewModel.onOrderDateSelected(it) },
         onSubmit = {
             uiState.lastOrderId?.let { id ->
                 scope.launch {

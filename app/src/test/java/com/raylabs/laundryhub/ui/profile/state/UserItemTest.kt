@@ -1,8 +1,6 @@
 package com.raylabs.laundryhub.ui.profile.state
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
-import com.raylabs.laundryhub.ui.profile.state.UserItem
-import com.raylabs.laundryhub.ui.profile.state.toUI
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

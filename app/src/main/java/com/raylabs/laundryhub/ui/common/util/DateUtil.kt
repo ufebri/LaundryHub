@@ -59,6 +59,7 @@ object DateUtil {
         startDate: String = getTodayDate("dd-MM-yyyy") + " 08:00"
     ): String {
         val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
         return try {
             val start = dateFormat.parse(startDate) ?: return startDate
             val cal = Calendar.getInstance().apply { time = start }
@@ -77,7 +78,7 @@ object DateUtil {
                 else -> return startDate
             }
 
-            dateFormat.format(cal.time)
+            outputFormat.format(cal.time)
         } catch (_: Exception) {
             startDate
         }

@@ -1,9 +1,11 @@
 package com.raylabs.laundryhub.ui.history.state
 
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.history.state.HistoryUiItem
-import com.raylabs.laundryhub.ui.history.state.HistoryUiState
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HistoryUiStateTest {

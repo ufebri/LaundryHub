@@ -1,4 +1,10 @@
 [![Coverage Status](https://coveralls.io/repos/github/ufebri/LaundryHub/badge.svg?branch=master)](https://coveralls.io/github/ufebri/LaundryHub?branch=master)[![Join Firebase Testing](https://img.shields.io/badge/Firebase-Join%20Testing-orange?logo=firebase)](https://appdistribution.firebase.dev/i/72723a77d8e322da)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
+
 
 # LaundryHub
 <img src="./assets/ic_branding.png" height="500px" />

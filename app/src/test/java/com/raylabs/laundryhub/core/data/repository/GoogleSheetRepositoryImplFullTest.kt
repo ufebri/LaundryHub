@@ -127,7 +127,18 @@ class GoogleSheetRepositoryImplFullTest {
         whenever(append.setValueInputOption(any())).thenReturn(append)
         whenever(append.execute()).thenReturn(mock())
         val order = OrderData(
-            "3", "Bob", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025"
+            orderId = "3",
+            name = "Bob",
+            phoneNumber = "0812",
+            packageName = "Reguler",
+            priceKg = "5000",
+            totalPrice = "5000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/06/2025",
+            dueDate = "23/06/2025"
         )
         val result = repo.addOrder(order)
         assertTrue(result is Resource.Success)
@@ -146,11 +157,21 @@ class GoogleSheetRepositoryImplFullTest {
         whenever(append.setValueInputOption(any())).thenReturn(append)
         whenever(append.execute()).thenThrow(RuntimeException("fail"))
         val order = OrderData(
-            "3", "Bob", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025"
+            orderId = "3",
+            name = "Bob",
+            phoneNumber = "0812",
+            packageName = "Reguler",
+            priceKg = "5000",
+            totalPrice = "5000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/06/2025",
+            dueDate = "23/06/2025"
         )
         val result = repo.addOrder(order)
         assertTrue(result is Resource.Error)
         assertTrue((result as Resource.Error).message.contains("fail"))
     }
 }
-

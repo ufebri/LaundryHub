@@ -38,6 +38,7 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = _uiState
 
     private var originalUnpaidOrders: List<UnpaidOrderItem> = emptyList()
+    private var orderUpdateCounter: Long = 0
 
     init {
         fetchUser()
@@ -168,7 +169,19 @@ class HomeViewModel @Inject constructor(
 
 
     private fun parseDateForSorting(dateString: String?): Date? {
-        return dateString?.let { DateUtil.parseDate(it, "dd/MM/yyyy") }
+        if (dateString.isNullOrBlank()) return null
+        val patterns = listOf(
+            "dd/MM/yyyy",
+            "dd-MM-yyyy",
+            "dd-MM-yyyy HH:mm",
+            "yyyy-MM-dd",
+            "yyyy-MM-dd HH:mm"
+        )
+
+        for (pattern in patterns) {
+            DateUtil.parseDate(dateString, pattern)?.let { return it }
+        }
+        return null
     }
 
     private fun applySort(
@@ -216,7 +229,7 @@ class HomeViewModel @Inject constructor(
             it.copy(
                 unpaidOrder = SectionState(
                     data = sortedAndFilteredOrders, isLoading = false, errorMessage = null
-                ), orderUpdateKey = System.currentTimeMillis()
+                ), orderUpdateKey = ++orderUpdateCounter
             )
         }
     }

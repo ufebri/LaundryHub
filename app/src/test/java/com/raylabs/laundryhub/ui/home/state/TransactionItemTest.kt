@@ -6,7 +6,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 import com.raylabs.laundryhub.ui.theme.RedLaundryHub
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class TransactionItemTest {
