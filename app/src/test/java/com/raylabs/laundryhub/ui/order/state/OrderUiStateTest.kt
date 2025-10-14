@@ -20,7 +20,8 @@ class OrderUiStateTest {
             paymentMethod = "Cash",
             note = "Segera",
             weight = "2",
-            dueDate = "10/08/2025"
+            dueDate = "10/08/2025",
+            orderDate = "21/08/2025"
         )
         val order = state.toOrderData("ORDER99")
         assertEquals("ORDER99", order.orderId)
@@ -33,6 +34,7 @@ class OrderUiStateTest {
         assertEquals("Segera", order.remark)
         assertEquals("2", order.weight)
         assertEquals("10/08/2025", order.dueDate)
+        assertEquals("21/08/2025", order.orderDate)
     }
 
     @Test
@@ -63,6 +65,7 @@ class OrderUiStateTest {
         assertEquals("Ok", order.remark)
         assertEquals("3", order.weight)
         assertEquals("2025-08-05", order.dueDate)
+        assertEquals("2025-08-01", order.orderDate)
     }
 
     @Test

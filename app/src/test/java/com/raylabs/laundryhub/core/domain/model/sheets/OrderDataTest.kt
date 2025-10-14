@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
-import com.raylabs.laundryhub.ui.common.util.DateUtil
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.text.SimpleDateFormat
@@ -14,7 +13,8 @@ class OrderDataTest {
         val cash = OrderData(
             orderId = "1", name = "", phoneNumber = "", packageName = "",
             priceKg = "", totalPrice = "", paidStatus = PAID_BY_CASH,
-            paymentMethod = PAID_BY_CASH, remark = "", weight = "", dueDate = "3d"
+            paymentMethod = PAID_BY_CASH, remark = "", weight = "",
+            orderDate = "01/01/2025", dueDate = "3d"
         )
         assertEquals("cash", cash.getSpreadSheetPaymentMethod)
 
@@ -30,7 +30,8 @@ class OrderDataTest {
         val cash = OrderData(
             orderId = "1", name = "", phoneNumber = "", packageName = "",
             priceKg = "", totalPrice = "", paidStatus = PAID_BY_CASH,
-            paymentMethod = "", remark = "", weight = "", dueDate = "3d"
+            paymentMethod = "", remark = "", weight = "",
+            orderDate = "01/01/2025", dueDate = "3d"
         )
         assertEquals("lunas", cash.getSpreadSheetPaidStatus)
 
@@ -43,18 +44,19 @@ class OrderDataTest {
 
     @Test
     fun `getSpreadSheetDueDate should calculate correct due date from duration`() {
-        val today = DateUtil.getTodayDate("dd-MM-yyyy") + " 08:00"
+        val today = "01-01-2025 08:00"
         val expected = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).parse(today)
         val cal = Calendar.getInstance().apply {
             time = expected!!
             add(Calendar.DAY_OF_MONTH, 3)
         }
-        val expectedDue = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault()).format(cal.time)
+        val expectedDue = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(cal.time)
 
         val data = OrderData(
             orderId = "1", name = "", phoneNumber = "", packageName = "",
             priceKg = "", totalPrice = "", paidStatus = "", paymentMethod = "",
-            remark = "", weight = "", dueDate = "3d"
+            remark = "", weight = "",
+            orderDate = "01/01/2025", dueDate = "3d"
         )
 
         assertEquals(expectedDue, data.getSpreadSheetDueDate)

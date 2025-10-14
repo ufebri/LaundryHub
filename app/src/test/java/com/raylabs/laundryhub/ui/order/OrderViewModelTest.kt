@@ -8,6 +8,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateOrderUseCase
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 import kotlinx.coroutines.Dispatchers
@@ -132,17 +133,18 @@ class OrderViewModelTest {
     @Test
     fun `updateOrder success triggers onComplete and updates state`() = runTest {
         val order = OrderData(
-            "ORD2",
-            "Ayu",
-            "0821",
-            "Express",
-            "10000",
-            "20000",
-            "Paid",
-            "QR",
-            "Ok",
-            "2",
-            "2025-08-05"
+            orderId = "ORD2",
+            name = "Ayu",
+            phoneNumber = "0821",
+            packageName = "Express",
+            priceKg = "10000",
+            totalPrice = "20000",
+            paidStatus = "Paid",
+            paymentMethod = "QR",
+            remark = "Ok",
+            weight = "2",
+            orderDate = "2025-08-01",
+            dueDate = "2025-08-05"
         )
         whenever(mockUpdateOrderUseCase.invoke(order = order)).thenReturn(Resource.Success(true))
         vm = OrderViewModel(
@@ -350,8 +352,20 @@ class OrderViewModelTest {
 
     @Test
     fun `submitOrder success updates state and calls onComplete`() = runTest {
-        val order =
-            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "8",
+            packageName = "Express",
+            priceKg = "10000",
+            totalPrice = "10000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/08/2025",
+            dueDate = ""
+        )
         whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Success(true))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
@@ -371,8 +385,20 @@ class OrderViewModelTest {
 
     @Test
     fun `submitOrder error sets error without calling onComplete`() = runTest {
-        val order =
-            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "8",
+            packageName = "Express",
+            priceKg = "10000",
+            totalPrice = "10000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/08/2025",
+            dueDate = ""
+        )
         whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("submit err"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
@@ -392,8 +418,20 @@ class OrderViewModelTest {
 
     @Test
     fun `submitOrder else branch clears isSubmitting`() = runTest {
-        val order =
-            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "8",
+            packageName = "Express",
+            priceKg = "10000",
+            totalPrice = "10000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/08/2025",
+            dueDate = ""
+        )
         whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Loading)
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
@@ -412,8 +450,20 @@ class OrderViewModelTest {
 
     @Test
     fun `updateOrder error sets error and stop submitting`() = runTest {
-        val order =
-            OrderData("1", "A", "8", "Express", "10000", "10000", "Paid", "Cash", "-", "1", "")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "8",
+            packageName = "Express",
+            priceKg = "10000",
+            totalPrice = "10000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/08/2025",
+            dueDate = ""
+        )
         whenever(mockUpdateOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("upd err"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
@@ -456,5 +506,32 @@ class OrderViewModelTest {
         vm.onPackageSelected(PackageItem("Zero", "0", "6h"))
         vm.onPriceChanged("10000")
         assertEquals("", vm.uiState.value.weight)
+    }
+
+    @Test
+    fun `onOrderDateSelected updates date and recalculates due date`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-10"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(
+            Resource.Success(
+                listOf(PackageData(name = "Express", price = "10000", duration = "3d", unit = "kg"))
+            )
+        )
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val packageItem = PackageItem(name = "Express", price = "10000", work = "3d")
+        vm.onPackageSelected(packageItem)
+
+        vm.onOrderDateSelected("02/09/2025")
+        val state = vm.uiState.value
+        assertEquals("02/09/2025", state.orderDate)
+        val expectedDue = DateUtil.getDueDate("3d", "02-09-2025 08:00")
+        assertEquals(expectedDue, state.dueDate)
     }
 }

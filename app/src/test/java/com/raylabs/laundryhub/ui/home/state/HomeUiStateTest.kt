@@ -2,7 +2,10 @@ package com.raylabs.laundryhub.ui.home.state
 
 import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class HomeUiStateTest {

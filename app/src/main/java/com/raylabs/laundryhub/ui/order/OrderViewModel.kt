@@ -10,6 +10,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateOrderUseCase
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
@@ -24,6 +25,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import java.text.SimpleDateFormat
+import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -91,7 +94,9 @@ class OrderViewModel @Inject constructor(
             weight = order.weight,
             isEditMode = true,
             selectedPackage = null,            // SINKRON nanti!
-            tempSelectedPackageName = order.packageType // atau .packageName
+            tempSelectedPackageName = order.packageType, // atau .packageName
+            orderDate = normalizeOrderDate(order.date),
+            dueDate = order.dueDate
         )
     }
 
@@ -128,11 +133,18 @@ class OrderViewModel @Inject constructor(
 
                     val selected = match ?: firstItem
                     val weight = recalculateWeight(_uiState.value.price.removeRupiahFormatWithComma(), selected)
+                    val dueDate = when {
+                        selected == null -> _uiState.value.dueDate
+                        _uiState.value.isEditMode && !_uiState.value.dueDate.isNullOrBlank() ->
+                            _uiState.value.dueDate
+                        else -> recalculateDueDate(_uiState.value.orderDate, selected)
+                    }
 
                     _uiState.value = _uiState.value.copy(
                         packageNameList = _uiState.value.packageNameList.success(mData),
                         selectedPackage = selected,
                         weight = weight,
+                        dueDate = dueDate
                     )
                 }
 
@@ -222,7 +234,8 @@ class OrderViewModel @Inject constructor(
     fun onPackageSelected(packageItem: PackageItem) {
         _uiState.value = _uiState.value.copy(
             selectedPackage = packageItem,
-            weight = recalculateWeight(_uiState.value.price, packageItem)
+            weight = recalculateWeight(_uiState.value.price, packageItem),
+            dueDate = recalculateDueDate(_uiState.value.orderDate, packageItem)
         )
     }
 
@@ -233,10 +246,40 @@ class OrderViewModel @Inject constructor(
         )
     }
 
+    fun onOrderDateSelected(date: String) {
+        val sanitized = normalizeOrderDate(date)
+        _uiState.value = _uiState.value.copy(
+            orderDate = sanitized,
+            dueDate = recalculateDueDate(sanitized, _uiState.value.selectedPackage)
+        )
+    }
+
     private fun recalculateWeight(price: String, packageItem: PackageItem?): String {
         val priceInt = price.filter { it.isDigit() }.toIntOrNull() ?: 0
         val minPrice = packageItem?.price?.filter { it.isDigit() }?.toIntOrNull() ?: 1
         return if (minPrice > 0) (priceInt / minPrice).toString() else ""
+    }
+
+    private fun recalculateDueDate(orderDate: String, packageItem: PackageItem?): String {
+        val duration = packageItem?.work ?: return _uiState.value.dueDate ?: ""
+        val baseDate = orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
+        return DateUtil.getDueDate(duration, "${baseDate.replace('/', '-')} 08:00")
+    }
+
+    private fun normalizeOrderDate(raw: String): String {
+        val sanitized = raw.trim()
+        if (sanitized.isEmpty()) return DateUtil.getTodayDate("dd/MM/yyyy")
+
+        val formats = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd")
+        val parser = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        formats.forEach { pattern ->
+            val parsed = DateUtil.parseDate(sanitized, pattern)
+            if (parsed != null) {
+                return parser.format(parsed)
+            }
+        }
+
+        return sanitized
     }
 
     fun resetForm() {
@@ -247,7 +290,9 @@ class OrderViewModel @Inject constructor(
             phone = "",
             price = "",
             note = "",
-            weight = ""
+            weight = "",
+            orderDate = DateUtil.getTodayDate("dd/MM/yyyy"),
+            dueDate = ""
         )
     }
 }

@@ -25,7 +25,20 @@ class SubmitOrderUseCaseTest {
 
     @Test
     fun `returns success when repository returns success`() = runTest {
-        val order = OrderData("1", "A", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "0812",
+            packageName = "Reguler",
+            priceKg = "5000",
+            totalPrice = "5000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/06/2025",
+            dueDate = "24/06/2025"
+        )
         whenever(repository.addOrder(order)).thenReturn(Resource.Success(true))
         val result = useCase.invoke(order = order)
         assertTrue(result is Resource.Success)
@@ -34,7 +47,20 @@ class SubmitOrderUseCaseTest {
 
     @Test
     fun `returns error when repository returns null`() = runTest {
-        val order = OrderData("1", "A", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "0812",
+            packageName = "Reguler",
+            priceKg = "5000",
+            totalPrice = "5000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/06/2025",
+            dueDate = "24/06/2025"
+        )
         whenever(repository.addOrder(order)).thenReturn(null)
         val result = useCase.invoke(order = order)
         assertTrue(result is Resource.Error)
@@ -43,11 +69,23 @@ class SubmitOrderUseCaseTest {
 
     @Test
     fun `returns error when repository returns error`() = runTest {
-        val order = OrderData("1", "A", "0812", "Reguler", "5000", "Cash", "-", "5000", "Paid", "1", "21/06/2025")
+        val order = OrderData(
+            orderId = "1",
+            name = "A",
+            phoneNumber = "0812",
+            packageName = "Reguler",
+            priceKg = "5000",
+            totalPrice = "5000",
+            paidStatus = "Paid",
+            paymentMethod = "Cash",
+            remark = "-",
+            weight = "1",
+            orderDate = "21/06/2025",
+            dueDate = "24/06/2025"
+        )
         whenever(repository.addOrder(order)).thenReturn(Resource.Error("fail"))
         val result = useCase.invoke(order = order)
         assertTrue(result is Resource.Error)
         assertEquals("fail", (result as Resource.Error).message)
     }
 }
-

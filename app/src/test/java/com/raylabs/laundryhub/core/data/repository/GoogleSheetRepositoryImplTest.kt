@@ -14,7 +14,6 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argThat
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -155,6 +154,7 @@ class GoogleSheetRepositoryImplTest {
             paymentMethod = "Cash",
             remark = "Edited",
             weight = "3",
+            orderDate = "15/07/2025",
             dueDate = "25/07/2025"
         )
 
@@ -179,4 +179,3 @@ class GoogleSheetRepositoryImplTest {
         )
     }
 }
-

@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.order.state
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodList
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 
@@ -28,11 +29,23 @@ data class OrderUiState(
     val weight: String = "",
     val paymentMethod: String = "",
     val note: String = "",
+    val orderDate: String = DateUtil.getTodayDate("dd/MM/yyyy"),
     val dueDate: String? = "",
     val isSubmitting: Boolean = false,
 )
 
 fun OrderUiState.toOrderData(orderId: String): OrderData {
+    val normalizedOrderDate = orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
+    val packageDuration = selectedPackage?.work
+    val computedDueDate = when {
+        !dueDate.isNullOrBlank() -> dueDate
+        packageDuration.isNullOrBlank() -> ""
+        else -> DateUtil.getDueDate(
+            packageDuration,
+            "${normalizedOrderDate.replace('/', '-')} 08:00"
+        )
+    }
+
     return OrderData(
         orderId = orderId,
         name = name,
@@ -44,7 +57,8 @@ fun OrderUiState.toOrderData(orderId: String): OrderData {
         totalPrice = price,
         paidStatus = paymentMethod,
         weight = weight,
-        dueDate = dueDate ?: selectedPackage?.work.orEmpty()
+        orderDate = normalizedOrderDate,
+        dueDate = computedDueDate
     )
 }
 
@@ -60,6 +74,7 @@ fun TransactionData.toUI(): OrderData {
         paymentMethod = paymentMethod,
         remark = remark,
         weight = weight,
+        orderDate = date,
         dueDate = dueDate
     )
 }

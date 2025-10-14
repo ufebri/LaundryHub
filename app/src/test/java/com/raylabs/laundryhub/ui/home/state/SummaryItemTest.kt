@@ -2,7 +2,7 @@ package com.raylabs.laundryhub.ui.home.state
 
 import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
-import org.junit.Assert.*
+import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class SummaryItemTest {

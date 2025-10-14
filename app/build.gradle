@@ -190,4 +190,5 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
+    implementation "androidx.compose.material3:material3:1.4.0"
 }

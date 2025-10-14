@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.order
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.Button
 import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.ContentAlpha
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
@@ -27,7 +29,15 @@ import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Send
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,6 +52,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
@@ -49,7 +60,14 @@ import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 import com.raylabs.laundryhub.ui.order.state.OrderUiState
 import com.raylabs.laundryhub.ui.order.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.order.state.isUpdateEnabled
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import androidx.compose.material3.MaterialTheme as MaterialTheme3
+import androidx.compose.material3.Text as M3Text
+import androidx.compose.material3.TextButton as M3TextButton
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OrderBottomSheet(
     state: OrderUiState,
@@ -59,6 +77,7 @@ fun OrderBottomSheet(
     onPackageSelected: (PackageItem) -> Unit,
     onPaymentMethodSelected: (String) -> Unit,
     onNoteChanged: (String) -> Unit,
+    onOrderDateSelected: (String) -> Unit,
     onSubmit: () -> Unit,
     onUpdate: () -> Unit,
     modifier: Modifier = Modifier
@@ -158,6 +177,156 @@ fun OrderBottomSheet(
             style = MaterialTheme.typography.caption,
             modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
         )
+
+        val context = LocalContext.current
+        val orderDate = state.orderDate.ifBlank { "" }
+        val dateFormatter = remember { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) }
+        val parsedInitialDate = remember(orderDate) {
+            runCatching { if (orderDate.isNotBlank()) dateFormatter.parse(orderDate)?.time else null }
+                .getOrNull()
+        }
+        var showDatePicker by remember { mutableStateOf(false) }
+        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = parsedInitialDate)
+        val material2Colors = MaterialTheme.colors
+        val isLightTheme = material2Colors.isLight
+        val surfaceColor = if (isLightTheme) material2Colors.surface else material2Colors.background
+        val onSurfaceColor = if (isLightTheme) material2Colors.onSurface else material2Colors.onBackground
+        val primaryColor = material2Colors.primary
+        val onPrimaryColor = material2Colors.onPrimary
+        val secondaryColor = material2Colors.secondary
+        val onSecondaryColor = material2Colors.onSecondary
+        val backgroundColor = material2Colors.background
+        val outlineColor = onSurfaceColor.copy(alpha = 0.3f)
+        val dialogColorScheme = if (isLightTheme) {
+            lightColorScheme(
+                primary = primaryColor,
+                onPrimary = onPrimaryColor,
+                secondary = secondaryColor,
+                onSecondary = onSecondaryColor,
+                surface = surfaceColor,
+                onSurface = onSurfaceColor,
+                background = backgroundColor,
+                onBackground = material2Colors.onBackground,
+                outline = outlineColor
+            )
+        } else {
+            darkColorScheme(
+                primary = primaryColor,
+                onPrimary = onPrimaryColor,
+                secondary = secondaryColor,
+                onSecondary = onSecondaryColor,
+                surface = surfaceColor,
+                onSurface = onSurfaceColor,
+                background = backgroundColor,
+                onBackground = material2Colors.onBackground,
+                outline = outlineColor
+            )
+        }
+
+        LaunchedEffect(state.orderDate) {
+            parseDateMillis(state.orderDate, dateFormatter)?.let { millis ->
+                if (datePickerState.selectedDateMillis != millis) {
+                    datePickerState.selectedDateMillis = millis
+                }
+            }
+        }
+
+        if (showDatePicker) {
+            MaterialTheme3(colorScheme = dialogColorScheme) {
+                val headlineFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+                val headlineText = datePickerState.selectedDateMillis?.let { millis ->
+                    headlineFormatter.format(Date(millis))
+                }
+                DatePickerDialog(
+                    onDismissRequest = { showDatePicker = false },
+                    confirmButton = {
+                        M3TextButton(onClick = {
+                            datePickerState.selectedDateMillis?.let {
+                                onOrderDateSelected(dateFormatter.format(Date(it)))
+                            }
+                            showDatePicker = false
+                        }) {
+                            M3Text(text = context.getString(android.R.string.ok))
+                        }
+                    },
+                    dismissButton = {
+                        M3TextButton(onClick = { showDatePicker = false }) {
+                            M3Text(text = context.getString(android.R.string.cancel))
+                        }
+                    }
+                ) {
+                    val mediumOnSurface = MaterialTheme3.colorScheme.onSurface.copy(alpha = 0.7f)
+                    DatePicker(
+                        state = datePickerState,
+                        title = {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                M3Text(
+                                    text = context.getString(R.string.order_date),
+                                    style = MaterialTheme3.typography.titleMedium,
+                                    color = MaterialTheme3.colorScheme.onSurface
+                                )
+                            }
+                        },
+                        headline = {
+                            Box(
+                                modifier = Modifier.fillMaxWidth(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                M3Text(
+                                    text = headlineText ?: context.getString(R.string.order_date),
+                                    style = MaterialTheme3.typography.headlineMedium,
+                                    color = MaterialTheme3.colorScheme.onSurface
+                                )
+                            }
+                        },
+                        colors = DatePickerDefaults.colors(
+                            containerColor = MaterialTheme3.colorScheme.surface,
+                            titleContentColor = MaterialTheme3.colorScheme.onSurface,
+                            headlineContentColor = MaterialTheme3.colorScheme.onSurface,
+                            weekdayContentColor = mediumOnSurface,
+                            subheadContentColor = mediumOnSurface,
+                            yearContentColor = MaterialTheme3.colorScheme.onSurface,
+                            currentYearContentColor = MaterialTheme3.colorScheme.primary,
+                            selectedYearContentColor = MaterialTheme3.colorScheme.onPrimary,
+                            selectedYearContainerColor = MaterialTheme3.colorScheme.primary,
+                            dayContentColor = MaterialTheme3.colorScheme.onSurface,
+                            disabledDayContentColor = MaterialTheme3.colorScheme.onSurface.copy(alpha = ContentAlpha.disabled),
+                            selectedDayContentColor = MaterialTheme3.colorScheme.onPrimary,
+                            selectedDayContainerColor = MaterialTheme3.colorScheme.primary,
+                            todayContentColor = MaterialTheme3.colorScheme.primary,
+                            todayDateBorderColor = MaterialTheme3.colorScheme.primary
+                        )
+                    )
+                }
+            }
+        }
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = orderDate,
+                onValueChange = {},
+                readOnly = true,
+                label = { Text("Order Date") },
+                trailingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(
+                modifier = Modifier
+                    .matchParentSize()
+                    .clickable(
+                        indication = null,
+                        interactionSource = remember { MutableInteractionSource() }
+                    ) {
+                        showDatePicker = true
+                    }
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
 
         PackageDropdownMenuField(
             label = "Package",
@@ -358,7 +527,13 @@ fun PreviewOrderBottomSheet() {
         onPackageSelected = {},
         onPaymentMethodSelected = {},
         onNoteChanged = {},
+        onOrderDateSelected = {},
         onSubmit = {},
         onUpdate = {}
     )
+}
+
+private fun parseDateMillis(value: String?, formatter: SimpleDateFormat): Long? {
+    if (value.isNullOrBlank()) return null
+    return runCatching { formatter.parse(value)?.time }.getOrNull()
 }

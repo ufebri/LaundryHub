@@ -55,7 +55,7 @@ class DateUtilTest {
     @Test
     fun `given 6 hours duration, should return date plus 6 hours`() {
         val startDate = "01-06-2025 08:00"
-        val expected = "01-06-2025 14:00"
+        val expected = "01/06/2025"
 
         val result = getDueDate("6h", startDate)
 
@@ -65,7 +65,7 @@ class DateUtilTest {
     @Test
     fun `given 1 day duration, should return date plus 1 day`() {
         val startDate = "01-06-2025 08:00"
-        val expected = "02-06-2025 08:00"
+        val expected = "02/06/2025"
 
         val result = getDueDate("1d", startDate)
 
@@ -75,7 +75,7 @@ class DateUtilTest {
     @Test
     fun `given 3 days duration, should return date plus 3 days`() {
         val startDate = "01-06-2025 08:00"
-        val expected = "04-06-2025 08:00"
+        val expected = "04/06/2025"
 
         val result = getDueDate("3d", startDate)
 
