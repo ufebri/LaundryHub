@@ -45,6 +45,8 @@ jobs:
           echo "MYAPP_RELEASE_KEYSTORE_PASSWORD=${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}" >> config.properties
           echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}" >> config.properties
           echo "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}" >> config.properties
+          echo "SONAR_PROJECT_KEY"=${{ secrets.SONAR_PROJECT_KEY }}" >> config.properties
+          echo "SONAR_ORGANIZATION"=${{ secrets.SONAR_ORGANIZATION }}" >> config.properties
 
       # Step 4: Upload environment files as artifact
       - name: Upload environment files
@@ -111,14 +113,14 @@ jobs:
             }
             require('fs').writeFileSync('release-notes.txt', notes);
 
-#      - name: Pull before push to avoid non-fast-forward error
-#        if: github.event.pull_request.base.ref != ''
-#        run: |
-#          git config --global user.email "github-actions@users.noreply.github.com"
-#          git config --global user.name "github-actions"
-#          git config pull.rebase false
-#          git pull origin ${{ github.event.pull_request.base.ref }} --allow-unrelated-histories
-#          git push origin HEAD:${{ github.event.pull_request.base.ref }}
+      #      - name: Pull before push to avoid non-fast-forward error
+      #        if: github.event.pull_request.base.ref != ''
+      #        run: |
+      #          git config --global user.email "github-actions@users.noreply.github.com"
+      #          git config --global user.name "github-actions"
+      #          git config pull.rebase false
+      #          git pull origin ${{ github.event.pull_request.base.ref }} --allow-unrelated-histories
+      #          git push origin HEAD:${{ github.event.pull_request.base.ref }}
 
       - name: Bump version
         run: |
@@ -228,6 +230,25 @@ jobs:
 
       - name: Check if coverage report exists
         run: ls -lh app/build/reports/jacoco/jacocoTestReport/
+
+      - name: Cache SonarQube packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
+      - name: Cache Gradle packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.gradle/caches
+          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
+          restore-keys: ${{ runner.os }}-gradle
+
+      - name: Build and analyze
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew build sonar --info
 
       - name: Upload Coverage to Coveralls
         env:

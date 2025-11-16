@@ -18,4 +18,5 @@
     <string name="search_icon">Search Icon</string>
     <string name="search_customer_placeholder">Search Customer</string>
     <string name="no_search_results">Data Not Found</string>
+    <string name="failed_sign_in_message">Failed to sign in</string>
 </resources>

@@ -7,6 +7,7 @@ plugins {
     id 'com.google.firebase.crashlytics'
     id 'jacoco'
     id 'com.github.kt3k.coveralls' version '2.12.0'
+    id "org.sonarqube" version "7.0.1.6134"
 }
 
 def apikeyPropertiesFile = rootProject.file("config.properties")
@@ -122,10 +123,18 @@ tasks.register("jacocoTestReport", JacocoReport) {
     executionData.setFrom fileTree(dir: buildDir, includes: ["jacoco/testDebugUnitTest.exec"])
 }
 
+sonarqube {
+    properties {
+        property "sonar.coverage.jacoco.xmlReportPaths", "$buildDir/reports/jacoco/test/jacocoTestReport.xml"
+        property "sonar.projectKey", apikeyProperties["SONAR_PROJECT_KEY"]
+        property "sonar.organization", apikeyProperties["SONAR_ORGANIZATION"]
+    }
+}
+
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     //Need To Upgrade Gradle Plugin if we need to update the library
-    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.core:core-ktx:1.17.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

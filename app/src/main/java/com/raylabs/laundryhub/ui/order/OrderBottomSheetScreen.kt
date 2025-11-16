@@ -99,14 +99,6 @@ fun OrderBottomSheet(
             )
             .padding(16.dp)
     ) {
-        // Drag Handle
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(bottom = 16.dp)
-                .size(width = 40.dp, height = 4.dp)
-                .background(Color.Gray, shape = RoundedCornerShape(2.dp))
-        )
 
         Text(
             text = if (state.isEditMode) "Update Order" else "New Order",
@@ -190,7 +182,8 @@ fun OrderBottomSheet(
         val material2Colors = MaterialTheme.colors
         val isLightTheme = material2Colors.isLight
         val surfaceColor = if (isLightTheme) material2Colors.surface else material2Colors.background
-        val onSurfaceColor = if (isLightTheme) material2Colors.onSurface else material2Colors.onBackground
+        val onSurfaceColor =
+            if (isLightTheme) material2Colors.onSurface else material2Colors.onBackground
         val primaryColor = material2Colors.primary
         val onPrimaryColor = material2Colors.onPrimary
         val secondaryColor = material2Colors.secondary
@@ -233,7 +226,8 @@ fun OrderBottomSheet(
 
         if (showDatePicker) {
             MaterialTheme3(colorScheme = dialogColorScheme) {
-                val headlineFormatter = remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
+                val headlineFormatter =
+                    remember { SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()) }
                 val headlineText = datePickerState.selectedDateMillis?.let { millis ->
                     headlineFormatter.format(Date(millis))
                 }
@@ -293,7 +287,9 @@ fun OrderBottomSheet(
                             selectedYearContentColor = MaterialTheme3.colorScheme.onPrimary,
                             selectedYearContainerColor = MaterialTheme3.colorScheme.primary,
                             dayContentColor = MaterialTheme3.colorScheme.onSurface,
-                            disabledDayContentColor = MaterialTheme3.colorScheme.onSurface.copy(alpha = ContentAlpha.disabled),
+                            disabledDayContentColor = MaterialTheme3.colorScheme.onSurface.copy(
+                                alpha = ContentAlpha.disabled
+                            ),
                             selectedDayContentColor = MaterialTheme3.colorScheme.onPrimary,
                             selectedDayContainerColor = MaterialTheme3.colorScheme.primary,
                             todayContentColor = MaterialTheme3.colorScheme.primary,

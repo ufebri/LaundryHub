@@ -1,42 +1,45 @@
 package com.raylabs.laundryhub.ui
 
-import android.util.Log
+import android.app.Activity
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.BottomNavigation
-import androidx.compose.material.BottomNavigationItem
-import androidx.compose.material.BottomSheetScaffold
-import androidx.compose.material.CircularProgressIndicator
-import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material.Icon
-import androidx.compose.material.Scaffold
-import androidx.compose.material.SnackbarHost
-import androidx.compose.material.SnackbarHostState
-import androidx.compose.material.Text
-import androidx.compose.material.rememberBottomSheetScaffoldState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -45,6 +48,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
@@ -57,12 +61,18 @@ import com.raylabs.laundryhub.ui.onboarding.OnboardingScreen
 import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
+import com.raylabs.laundryhub.ui.order.state.OrderSheetUiState
+import com.raylabs.laundryhub.ui.order.state.dismissSheet
+import com.raylabs.laundryhub.ui.order.state.openEditSheet
+import com.raylabs.laundryhub.ui.order.state.openNewSheet
 import com.raylabs.laundryhub.ui.order.state.toOrderData
+import com.raylabs.laundryhub.ui.outcome.OutcomeScreen
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import androidx.compose.material.MaterialTheme as Material2Theme
 
 
 @Composable
@@ -90,7 +100,11 @@ fun AppRoot(
             }
         } catch (_: Exception) {
             // handle error
-            Toast.makeText(context, "Failed to sign in", Toast.LENGTH_SHORT).show()
+            Toast.makeText(
+                context,
+                context.getString(R.string.failed_sign_in_message),
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -119,7 +133,7 @@ fun AppRoot(
 }
 
 
-@OptIn(ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LaundryHubStarter(
     modifier: Modifier = Modifier,
@@ -129,79 +143,85 @@ fun LaundryHubStarter(
     val orderViewModel: OrderViewModel = hiltViewModel()
     val homeViewModel: HomeViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
-    val scaffoldState = rememberBottomSheetScaffoldState()
-    val showNewOrderSheet = remember { mutableStateOf(false) }
+    var orderSheetUiState by remember { mutableStateOf(OrderSheetUiState()) }
     val snackBarHostState = remember { SnackbarHostState() }
-    val triggerOpenSheet = remember { mutableStateOf(false) }
-    val showEditOrderSheet = remember { mutableStateOf(false) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val view = LocalView.current
+    val colors = Material2Theme.colors
+    val scaffoldColor = colors.background
+    val surfaceColor = colors.background
+    val sheetColor = colors.surface
+
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as? Activity)?.window
+            window?.statusBarColor = scaffoldColor.toArgb()
+            window?.let {
+                WindowCompat.getInsetsController(it, view).isAppearanceLightStatusBars = false
+            }
+        }
+    }
 
     fun dismissSheet() {
         scope.launch {
-            scaffoldState.bottomSheetState.collapse()
-            showNewOrderSheet.value = false
-            showEditOrderSheet.value = false
+            sheetState.hide()
+            orderSheetUiState = orderSheetUiState.dismissSheet()
             orderViewModel.resetForm()
         }
     }
 
-    BottomSheetScaffold(
-        scaffoldState = scaffoldState,
-        sheetPeekHeight = 0.dp,
-        sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
-        sheetContent = {
-            when {
-                showNewOrderSheet.value -> ShowOrderBottomSheet(
-                    orderViewModel,
-                    homeViewModel,
-                    scope,
-                    snackBarHostState
-                ) { dismissSheet() }
+    fun openNewSheet() {
+        orderSheetUiState = orderSheetUiState.openNewSheet()
+        scope.launch { sheetState.show() }
+    }
 
-                showEditOrderSheet.value -> ShowOrderBottomSheet(
-                    orderViewModel,
-                    homeViewModel,
-                    scope,
-                    snackBarHostState
-                ) { dismissSheet() }
+    fun openEditSheet() {
+        orderSheetUiState = orderSheetUiState.openEditSheet()
+        scope.launch { sheetState.show() }
+    }
 
-                else -> {
-                    // Tetap render konten kosong agar sheet tidak null
-                    Spacer(Modifier.height(1.dp))
-                }
-            }
-        }) {
-
-        LaunchedEffect(triggerOpenSheet.value) {
-            if (triggerOpenSheet.value) {
-                delay(50)
-                scaffoldState.bottomSheetState.expand()
-                triggerOpenSheet.value = false
-            }
+    if (orderSheetUiState.isSheetVisible) {
+        ModalBottomSheet(
+            onDismissRequest = { dismissSheet() },
+            sheetState = sheetState,
+            containerColor = sheetColor,
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+        ) {
+            ShowOrderBottomSheet(
+                orderViewModel,
+                homeViewModel,
+                scope,
+                snackBarHostState
+            ) { dismissSheet() }
         }
+    }
 
-
-
-        Scaffold(
-            snackbarHost = {
-                SnackbarHost(
-                    hostState = snackBarHostState,
-                    modifier = Modifier.padding(top = 48.dp)
-                )
-            },
-            bottomBar = {
-                BottomBar(navController, onOrderClick = {
-                    showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
-                    orderViewModel.resetForm() // Set mode new order
-                    showNewOrderSheet.value = true
-                    triggerOpenSheet.value = true
-                })
-            },
-            modifier = modifier
-        ) { innerPadding ->
+    Scaffold(
+        snackbarHost = {
+            SnackbarHost(
+                hostState = snackBarHostState,
+                modifier = Modifier.padding(top = 48.dp)
+            )
+        },
+        bottomBar = {
+            BottomBar(navController, onOrderClick = {
+                orderViewModel.resetForm() // Set mode new order
+                openNewSheet()
+            })
+        },
+        containerColor = scaffoldColor,
+        modifier = modifier
+    ) { innerPadding ->
+        Surface(
+            modifier = Modifier
+                .padding(innerPadding)
+                .fillMaxSize(),
+            color = surfaceColor
+        ) {
             NavHost(
                 navController = navController,
                 startDestination = BottomNavItem.Home.screenRoute,
-                modifier = Modifier.padding(innerPadding)
+                modifier = Modifier.fillMaxSize()
             ) {
                 composable(BottomNavItem.Home.screenRoute) {
                     HomeScreen(
@@ -209,15 +229,13 @@ fun LaundryHubStarter(
                         onOrderCardClick = { orderId ->
                             orderViewModel.resetForm()
                             orderViewModel.onOrderEditClick(orderId) {
-                                showEditOrderSheet.value = true
-                                triggerOpenSheet.value = true
+                                openEditSheet()
                             }
                         },
                         onTodayActivityClick = { activityId ->
                             orderViewModel.resetForm()
                             orderViewModel.onOrderEditClick(activityId) {
-                                showEditOrderSheet.value = true
-                                triggerOpenSheet.value = true
+                                openEditSheet()
                             }
                         }
                     )
@@ -225,11 +243,19 @@ fun LaundryHubStarter(
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
                 }
-                composable(BottomNavItem.Inventory.screenRoute) {
-                    InventoryScreenView()
+                composable(BottomNavItem.Outcome.screenRoute) {
+                    OutcomeScreen()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
-                    ProfileScreenView(loginViewModel = loginViewModel)
+                    ProfileScreenView(
+                        loginViewModel = loginViewModel,
+                        onInventoryClick = {
+                            navController.navigate(BottomNavItem.Inventory.screenRoute)
+                        }
+                    )
+                }
+                composable(BottomNavItem.Inventory.screenRoute) {
+                    InventoryScreenView()
                 }
             }
         }
@@ -247,10 +273,6 @@ fun ShowOrderBottomSheet(
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
 
-    Log.d(
-        "onOrderCardClick",
-        "DEBUG: Render Sheet — isEditMode=${uiState.isEditMode}, selectedPackage=${uiState.selectedPackage?.name}"
-    )
     OrderBottomSheet(
         state = uiState,
         onNameChanged = { orderViewModel.updateField("name", it) },
@@ -308,24 +330,26 @@ fun BottomBar(
     onOrderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    BottomNavigation(
-        modifier = modifier.background(Color.White),
-        backgroundColor = Color.White,
-        contentColor = Color.Black,
-        elevation = 0.dp
+    val colors = Material2Theme.colors
+    val unselectedColor = colors.onSurface.copy(alpha = 0.6f)
+    NavigationBar(
+        modifier = modifier,
+        containerColor = colors.surface,
+        contentColor = colors.onSurface,
+        tonalElevation = 0.dp
     ) {
         val items = listOf(
             BottomNavItem.Home,
             BottomNavItem.History,
             BottomNavItem.Order,
-            BottomNavItem.Inventory,
+            BottomNavItem.Outcome,
             BottomNavItem.Profile
         )
         val navBackStackEntry by navController.currentBackStackEntryAsState()
         val currentRoute = navBackStackEntry?.destination?.route
 
         items.forEach { item ->
-            BottomNavigationItem(
+            NavigationBarItem(
                 icon = {
                     Icon(
                         painterResource(id = item.icon),
@@ -338,9 +362,14 @@ fun BottomBar(
                         fontSize = 9.sp
                     )
                 },
-                selectedContentColor = Color.Black,
-                unselectedContentColor = Color.Black.copy(0.4f),
                 alwaysShowLabel = true,
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = colors.onSurface,
+                    selectedTextColor = colors.onSurface,
+                    unselectedIconColor = unselectedColor,
+                    unselectedTextColor = unselectedColor,
+                    indicatorColor = Color.Transparent
+                ),
                 selected = currentRoute == item.screenRoute,
                 onClick = {
                     if (item.screenRoute == BottomNavItem.Order.screenRoute) {

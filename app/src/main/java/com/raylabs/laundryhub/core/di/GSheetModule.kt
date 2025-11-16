@@ -7,9 +7,11 @@ import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadOutcomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateOrderUseCase
 import dagger.Module
 import dagger.Provides
@@ -51,6 +53,12 @@ object GSheetModule {
 
     @Provides
     @ViewModelScoped
+    fun provideReadOutcomeTransactionUseCase(
+        repository: GoogleSheetRepository
+    ): ReadOutcomeTransactionUseCase = ReadOutcomeTransactionUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
     fun provideGetOtherPackageUseCase(repository: GoogleSheetRepository): GetOtherPackageUseCase =
         GetOtherPackageUseCase(repository)
 
@@ -66,6 +74,11 @@ object GSheetModule {
 
     @Provides
     @ViewModelScoped
+    fun provideSubmitOutcomeUseCase(repository: GoogleSheetRepository): SubmitOutcomeUseCase =
+        SubmitOutcomeUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
     fun provideGoogleSheetService(@ApplicationContext context: Context): GoogleSheetService {
         // Inject aplikasi context langsung ke GoogleSheetService
         return GoogleSheetService(context)
@@ -76,4 +89,5 @@ object GSheetModule {
     fun provideUpdateOrderUseCase(repository: GoogleSheetRepository): UpdateOrderUseCase {
         return UpdateOrderUseCase(repository)
     }
+
 }
