@@ -100,19 +100,12 @@ fun AddOutcomeSheet(
             .background(Color.White)
             .padding(horizontal = 20.dp, vertical = 16.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterHorizontally)
-                .padding(top = 8.dp)
-                .size(width = 48.dp, height = 4.dp)
-                .background(Color.Black, shape = RoundedCornerShape(50))
-        )
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceAround
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
                 text = "Add Outcome",

@@ -24,7 +24,6 @@ import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
@@ -36,6 +35,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -93,13 +93,23 @@ fun HomeScreenContent(
         onRefresh = { viewModel.refreshAllData() }
     )
 
-    LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.unpaidOrder.errorMessage) {
+    LaunchedEffect(
+        state.orderUpdateKey,
+        state.user.errorMessage,
+        state.todayIncome.errorMessage,
+        state.summary.errorMessage,
+        state.unpaidOrder.errorMessage
+    ) {
         listOf(state.user, state.todayIncome, state.summary, state.unpaidOrder).forEach {
             it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
 
-    Box(modifier = Modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(bottom = 80.dp)
@@ -133,7 +143,8 @@ fun HomeScreenContent(
             item {
                 Text(
                     text = stringResource(R.string.today_activity),
-                    style = MaterialTheme.typography.h6,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = MaterialTheme.colorScheme.onBackground,
                     modifier = Modifier
                         .padding(horizontal = 16.dp)
                         .fillMaxWidth()
@@ -149,7 +160,8 @@ fun HomeScreenContent(
                         if (list.isEmpty()) {
                             Text(
                                 text = stringResource(R.string.no_transactions_today),
-                                modifier = Modifier.padding(horizontal = 16.dp)
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                         } else {
                             CardList(list, onItemClick = onTodayActivityClick)
@@ -173,59 +185,67 @@ fun HomeScreenContent(
                             value = state.searchQuery,
                             onValueChange = { viewModel.onSearchQueryChanged(it) },
                             modifier = Modifier.weight(1f),
-                            placeholder = { 
+                            placeholder = {
                                 Text(
                                     stringResource(R.string.search_customer_placeholder),
-                                    color = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.medium) // Use onBackground
+                                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.medium) // Use onBackground
                                 )
-                             },
-                            leadingIcon = { 
-                                Icon( 
-                                    Icons.Filled.Search, 
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Search,
                                     contentDescription = stringResource(R.string.search_icon),
-                                    tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                    tint = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
                                 )
                             },
                             trailingIcon = {
                                 if (state.searchQuery.isNotEmpty()) {
                                     IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
                                         Icon(
-                                            Icons.Filled.Close, 
+                                            Icons.Filled.Close,
                                             contentDescription = stringResource(R.string.clear_search),
-                                            tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                            tint = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
                                         )
                                     }
                                 }
                             },
                             singleLine = true,
                             colors = TextFieldDefaults.outlinedTextFieldColors(
-                                textColor = MaterialTheme.colors.onBackground, // Use onBackground
-                                cursorColor = MaterialTheme.colors.primary,
-                                focusedBorderColor = MaterialTheme.colors.primary,
-                                unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled) // Use onBackground
+                                textColor = MaterialTheme.colorScheme.onBackground, // Use onBackground
+                                cursorColor = MaterialTheme.colorScheme.primary,
+                                focusedBorderColor = MaterialTheme.colorScheme.primary,
+                                unfocusedBorderColor = MaterialTheme.colorScheme.onBackground.copy(
+                                    alpha = ContentAlpha.disabled
+                                ) // Use onBackground
                             )
                         )
-                        IconButton(onClick = { viewModel.toggleSearch() }) { 
+                        IconButton(onClick = { viewModel.toggleSearch() }) {
                             Icon(
-                                Icons.Filled.Close, 
+                                Icons.Filled.Close,
                                 contentDescription = stringResource(R.string.close_search_view),
-                                tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
                             )
                         }
                     } else {
                         Text(
                             text = stringResource(R.string.pending_orders),
-                            style = MaterialTheme.typography.h6,
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onBackground,
                             modifier = Modifier.weight(1f)
                         )
                         IconButton(onClick = { viewModel.toggleSearch() }) {
-                            Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.open_search_view))
+                            Icon(
+                                Icons.Filled.Search,
+                                contentDescription = stringResource(R.string.open_search_view),
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.high)
+                            )
                         }
                         Spacer(modifier = Modifier.width(4.dp))
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(
                                 imageVector = Icons.Filled.List,
-                                contentDescription = stringResource(R.string.sort_orders)
+                                contentDescription = stringResource(R.string.sort_orders),
+                                tint = MaterialTheme.colorScheme.onBackground.copy(alpha = ContentAlpha.high)
                             )
                         }
                         DropdownMenu(
@@ -276,8 +296,11 @@ fun HomeScreenContent(
                     val ordersToDisplay = state.unpaidOrder.data
                     if (ordersToDisplay.isNullOrEmpty()) {
                         Text(
-                            text = if (state.isSearchActive && state.searchQuery.isNotEmpty()) stringResource(R.string.no_search_results, state.searchQuery)
-                                   else stringResource(R.string.no_data),
+                            text = if (state.isSearchActive && state.searchQuery.isNotEmpty()) stringResource(
+                                R.string.no_search_results,
+                                state.searchQuery
+                            )
+                            else stringResource(R.string.no_data),
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -297,7 +320,8 @@ fun HomeScreenContent(
                                 ) {
                                     rowItems.forEach { item ->
                                         OrderStatusCard(
-                                            item = item, onClick = { onOrderCardClick(item.orderID) },
+                                            item = item,
+                                            onClick = { onOrderCardClick(item.orderID) },
                                             modifier = Modifier.weight(1f)
                                         )
                                     }
@@ -310,7 +334,7 @@ fun HomeScreenContent(
                     }
                 }
             }
-        } 
+        }
 
         PullRefreshIndicator(
             refreshing = state.isRefreshing,
@@ -356,7 +380,7 @@ fun PreviewHomeScreenContent_Default() {
     MaterialTheme {
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = false),
-            viewModel = hiltViewModel(), 
+            viewModel = hiltViewModel(),
             onOrderCardClick = {},
             onTodayActivityClick = {}
         )
@@ -367,10 +391,14 @@ fun PreviewHomeScreenContent_Default() {
 @Preview(showBackground = true, name = "Search Active View - Dark Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveDark() {
-    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = false)) { // Force dark theme for preview
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme) { // Force dark theme for preview
         HomeScreenContent(
-            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            viewModel = hiltViewModel(), 
+            state = dummyState.copy(
+                isRefreshing = false,
+                isSearchActive = true,
+                searchQuery = "Test Query"
+            ),
+            viewModel = hiltViewModel(),
             onOrderCardClick = {},
             onTodayActivityClick = {}
         )
@@ -381,10 +409,14 @@ fun PreviewHomeScreenContent_SearchActiveDark() {
 @Preview(showBackground = true, name = "Search Active View - Light Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveLight() {
-    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = true)) { // Force light theme for preview
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme) { // Force light theme for preview
         HomeScreenContent(
-            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            viewModel = hiltViewModel(), 
+            state = dummyState.copy(
+                isRefreshing = false,
+                isSearchActive = true,
+                searchQuery = "Test Query"
+            ),
+            viewModel = hiltViewModel(),
             onOrderCardClick = {},
             onTodayActivityClick = {}
         )
