@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
@@ -19,6 +20,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
+import com.raylabs.laundryhub.core.domain.model.sheets.toOutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.ui.common.util.DateUtil
@@ -39,6 +41,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
         private const val ORDER_ID_RANGE = "income!A2:A"
+        private const val OUTCOME_RANGE = "outcome!A1:F"
     }
 
     override suspend fun readSummaryTransaction(
@@ -319,7 +322,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     val existingDate =
                         dataRows[rowIndex].getOrNull(1) ?: DateUtil.getTodayDate("dd/MM/yyyy")
 
-                    val fallbackDate = existingDate?.toString()?.takeIf { it.isNotBlank() }
+                    val fallbackDate = existingDate.toString().takeIf { it.isNotBlank() }
                         ?: DateUtil.getTodayDate("dd/MM/yyyy")
                     val updatedDate = order.orderDate.ifBlank { fallbackDate }
 
@@ -351,5 +354,72 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                 }
             } ?: Resource.Error("Gagal memperbarui order setelah 3 kali coba.")
         }
+    }
+
+    override suspend fun readOutcomeTransactions(): Resource<List<OutcomeData>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService()
+                        .spreadsheets()
+                        .values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, OUTCOME_RANGE)
+                        .execute()
+
+                    val headers = response.getValues().firstOrNull()
+                    val dataRows = response.getValues().drop(1)
+
+                    if (headers == null || dataRows.isEmpty()) {
+                        return@retry Resource.Empty
+                    }
+
+                    val data = dataRows.map { row ->
+                        val mapped = headers.mapIndexed { index, header ->
+                            header.toString() to row.getOrNull(index)?.toString().orEmpty()
+                        }.associate { it.first to it.second }
+                        mapped.toOutcomeData()
+                    }
+                    Resource.Success(data)
+                } catch (e: GoogleJsonResponseException) {
+                    val statusCode = e.statusCode
+                    val statusMessage = e.statusMessage
+                    val details = e.details?.message ?: "Unknown Error"
+                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Unexpected Error")
+                }
+            }
+        } ?: Resource.Error("Failed after 3 attempts.")
+    }
+
+    override suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val values = listOf(
+                        listOf(
+                            outcome.id,
+                            outcome.date,
+                            outcome.purpose,
+                            outcome.price,
+                            outcome.remark,
+                            outcome.payment
+                        )
+                    )
+
+                    val body = ValueRange().setValues(values)
+                    googleSheetService.getSheetsService()
+                        .spreadsheets()
+                        .values()
+                        .append(BuildConfig.SPREAD_SHEET_ID, OUTCOME_RANGE, body)
+                        .setValueInputOption("USER_ENTERED")
+                        .execute()
+
+                    Resource.Success(true)
+                } catch (e: Exception) {
+                    Resource.Error(e.message ?: "Failed to append outcome.")
+                }
+            }
+        } ?: Resource.Error("Gagal menambahkan outcome setelah 3 kali coba.")
     }
 }

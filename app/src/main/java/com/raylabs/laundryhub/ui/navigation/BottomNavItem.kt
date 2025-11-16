@@ -8,6 +8,7 @@ sealed class BottomNavItem(var title: String, var icon: Int, var screenRoute: St
     object Home : BottomNavItem("Home", R.drawable.ic_home, "home")
     object History : BottomNavItem("History", R.drawable.ic_history, "history")
     object Order : BottomNavItem("Order", R.drawable.ic_order, "order")
+    object Outcome : BottomNavItem("Outcome", R.drawable.ic_outcome, "outcome")
     object Inventory : BottomNavItem("Inventory", R.drawable.ic_assignment, "inventory")
     object Profile : BottomNavItem("Profile", R.drawable.ic_admin, "profile")
 }

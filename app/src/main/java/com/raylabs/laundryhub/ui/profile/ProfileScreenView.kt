@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +16,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
@@ -42,7 +44,8 @@ import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
 @Composable
 fun ProfileScreenView(
     viewModel: ProfileViewModel = hiltViewModel(),
-    loginViewModel: LoginViewModel
+    loginViewModel: LoginViewModel,
+    onInventoryClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -57,7 +60,8 @@ fun ProfileScreenView(
                     // Handle successful logout, e.g., navigate to login screen
                     loginViewModel.clearUser()
                 })
-            }
+            },
+            onInventoryClick = onInventoryClick
         )
     }
 }
@@ -66,7 +70,8 @@ fun ProfileScreenView(
 fun ProfileScreenContent(
     state: ProfileUiState,
     modifier: Modifier = Modifier,
-    onLoggedOut: () -> Unit = {}
+    onLoggedOut: () -> Unit = {},
+    onInventoryClick: () -> Unit = {}
 ) {
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
@@ -78,7 +83,7 @@ fun ProfileScreenContent(
         modifier = modifier
             .fillMaxSize()
             .padding(16.dp),
-        verticalArrangement = Arrangement.SpaceBetween
+        verticalArrangement = Arrangement.Top
     ) {
         // Top - User Info Card
         Column {
@@ -110,6 +115,44 @@ fun ProfileScreenContent(
                 }
             }
         }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Card(
+            backgroundColor = Color(0xFF443C56),
+            shape = RoundedCornerShape(12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onInventoryClick() }
+        ) {
+            Row(
+                modifier = Modifier
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    painter = painterResource(id = R.drawable.ic_assignment),
+                    contentDescription = null,
+                    tint = Color.White
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Inventory",
+                        color = Color.White,
+                        style = MaterialTheme.typography.body1,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = "Setup Order Package",
+                        color = Color.White.copy(alpha = 0.8f),
+                        style = MaterialTheme.typography.body2
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.weight(1f))
 
         // Bottom - Version & Sign Out
         Column {
@@ -158,6 +201,9 @@ fun PreviewProfileScreen() {
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
-        ProfileScreenContent(dummyProfileUiState, modifier = Modifier.padding(padding))
+        ProfileScreenContent(
+            dummyProfileUiState,
+            modifier = Modifier.padding(padding)
+        )
     }
 }

@@ -58,6 +58,7 @@ import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toOrderData
+import com.raylabs.laundryhub.ui.outcome.OutcomeScreen
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
@@ -225,11 +226,19 @@ fun LaundryHubStarter(
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
                 }
-                composable(BottomNavItem.Inventory.screenRoute) {
-                    InventoryScreenView()
+                composable(BottomNavItem.Outcome.screenRoute) {
+                    OutcomeScreen()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
-                    ProfileScreenView(loginViewModel = loginViewModel)
+                    ProfileScreenView(
+                        loginViewModel = loginViewModel,
+                        onInventoryClick = {
+                            navController.navigate(BottomNavItem.Inventory.screenRoute)
+                        }
+                    )
+                }
+                composable(BottomNavItem.Inventory.screenRoute) {
+                    InventoryScreenView()
                 }
             }
         }
@@ -318,7 +327,7 @@ fun BottomBar(
             BottomNavItem.Home,
             BottomNavItem.History,
             BottomNavItem.Order,
-            BottomNavItem.Inventory,
+            BottomNavItem.Outcome,
             BottomNavItem.Profile
         )
         val navBackStackEntry by navController.currentBackStackEntryAsState()

@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.core.domain.repository
 
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
@@ -21,4 +22,6 @@ interface GoogleSheetRepository {
     suspend fun addOrder(order: OrderData): Resource<Boolean>
     suspend fun getOrderById(orderId: String): Resource<TransactionData>
     suspend fun updateOrder(order: OrderData): Resource<Boolean>
+    suspend fun readOutcomeTransactions(): Resource<List<OutcomeData>>
+    suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean>
 }
