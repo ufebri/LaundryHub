@@ -9,11 +9,8 @@ import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
-import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeFormState
-import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiItem
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
-import com.raylabs.laundryhub.ui.outcome.state.paymentOptions
 import com.raylabs.laundryhub.ui.outcome.state.toUiItems
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,17 +32,14 @@ class OutcomeViewModel @Inject constructor(
         refreshHistory()
     }
 
-    fun refreshAll() {
-        refreshHistory()
-    }
-
     private fun refreshHistory() {
         viewModelScope.launch {
             _uiState.update { it.copy(history = it.history.loading()) }
             when (val result = readOutcomeTransactionUseCase()) {
                 is Resource.Success -> {
                     val mapped = result.data.toUiItems()
-                    val nextId = ((result.data.maxOfOrNull { it.id.toIntOrNull() ?: 0 } ?: 0) + 1).toString()
+                    val nextId =
+                        ((result.data.maxOfOrNull { it.id.toIntOrNull() ?: 0 } ?: 0) + 1).toString()
                     _uiState.update {
                         it.copy(
                             history = SectionState(data = mapped),

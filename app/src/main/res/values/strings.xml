@@ -19,4 +19,23 @@
     <string name="search_customer_placeholder">Search Customer</string>
     <string name="no_search_results">Data Not Found</string>
     <string name="failed_sign_in_message">Failed to sign in</string>
+    <string name="outcome_screen_title">Outcome</string>
+    <string name="outcome_screen_add_button">Add outcome</string>
+    <string name="outcome_history_empty">Outcome history is empty.</string>
+    <string name="outcome_card_title">Outcome #%1$s</string>
+    <string name="outcome_card_remark_placeholder">-</string>
+    <string name="outcome_sheet_title">Add Outcome</string>
+    <string name="outcome_sheet_date_label">Outcome Date</string>
+    <string name="outcome_sheet_date_icon">Select outcome date</string>
+    <string name="outcome_sheet_select">Select</string>
+    <string name="outcome_sheet_cancel">Cancel</string>
+    <string name="outcome_sheet_purpose_label">Purpose</string>
+    <string name="outcome_sheet_clear_purpose">Clear purpose</string>
+    <string name="outcome_sheet_price_label">Price</string>
+    <string name="outcome_sheet_price_prefix">Rp</string>
+    <string name="outcome_sheet_payment_label">Payment</string>
+    <string name="outcome_sheet_payment_dropdown_icon">Open payment options</string>
+    <string name="outcome_sheet_remark_label">Remark</string>
+    <string name="outcome_sheet_clear_remark">Clear remark</string>
+    <string name="outcome_sheet_submit">Submit</string>
 </resources>
