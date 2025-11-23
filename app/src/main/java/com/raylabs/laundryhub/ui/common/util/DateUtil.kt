@@ -11,6 +11,9 @@ import java.util.Locale
 
 object DateUtil {
 
+    const val STANDARD_DATE_FORMATED = "dd/MM/yyyy" //ex: 22/10/2025
+    const val DISPLAY_DATE_FORMATED = "dd MMMM yyyy" //ex 22 Nov 2025
+
     // Mendapatkan tanggal hari ini dalam format yang sesuai
     fun getTodayDate(dateFormat: String = "yyyy-MM-dd"): String {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -43,7 +46,7 @@ object DateUtil {
     fun formatToLongDate(
         dateString: String,
         inputFormat: String = "yyyy-MM-dd",
-        outputFormat: String = "dd MMMM yyyy"
+        outputFormat: String = DISPLAY_DATE_FORMATED
     ): String {
         val date = parseDate(dateString, inputFormat)
         val outputFormats = SimpleDateFormat(outputFormat, Locale.getDefault())
@@ -59,7 +62,7 @@ object DateUtil {
         startDate: String = getTodayDate("dd-MM-yyyy") + " 08:00"
     ): String {
         val dateFormat = SimpleDateFormat("dd-MM-yyyy HH:mm", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val outputFormat = SimpleDateFormat(STANDARD_DATE_FORMATED, Locale.getDefault())
         return try {
             val start = dateFormat.parse(startDate) ?: return startDate
             val cal = Calendar.getInstance().apply { time = start }

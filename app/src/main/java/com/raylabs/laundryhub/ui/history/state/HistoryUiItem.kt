@@ -1,42 +1,29 @@
 package com.raylabs.laundryhub.ui.history.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
+import com.raylabs.laundryhub.ui.outcome.state.EntryItem
+import com.raylabs.laundryhub.ui.outcome.state.TypeCard
 
-data class HistoryItem(
-    val orderId: String,
-    val name: String,
-    val formattedDate: String,
-    val totalPrice: String,
-    val packageType: String,
-    val paymentStatus: String,
-    val isPaid: Boolean
-)
-
-sealed interface HistoryUiItem {
-    data class Header(val date: String) : HistoryUiItem
-    data class Entry(val item: HistoryItem) : HistoryUiItem
-}
-
-fun TransactionData.toUiItem(): HistoryItem {
-    return HistoryItem(
-        orderId = orderID,
+fun TransactionData.toUiItem(): EntryItem {
+    return EntryItem(
+        id = orderID,
         name = name,
-        formattedDate = date, // bisa diformat nanti
-        totalPrice = totalPrice,
-        packageType = packageType,
+        date = date, // bisa diformat nanti
+        price = totalPrice,
+        remark = packageType,
         paymentStatus = paidDescription(),
-        isPaid = isPaidData()
+        typeCard = TypeCard.INCOME
     )
 }
 
-fun List<TransactionData>.toUiItems(): List<HistoryUiItem> {
+fun List<TransactionData>.toUiItems(): List<DateListItemUI> {
     return this
         .groupBy { it.date }
         .flatMap { (date, items) ->
-            listOf(HistoryUiItem.Header(date)) +
-                    items.map { HistoryUiItem.Entry(it.toUiItem()) }
-                        .sortedByDescending { it.item.orderId }
+            listOf(DateListItemUI.Header(date)) +
+                    items.map { DateListItemUI.Entry(it.toUiItem()) }
+                        .sortedByDescending { it.item.id }
         }
 }

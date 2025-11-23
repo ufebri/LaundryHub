@@ -39,14 +39,60 @@ data class OrderData(
         }
 }
 
+fun OrderData.toSheetValues(): List<List<String>> {
+    return listOf(
+        listOf(
+            this.orderId,
+            this.orderDate.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) },
+            this.name,
+            this.weight,
+            this.priceKg,
+            this.totalPrice,
+            this.getSpreadSheetPaidStatus,
+            this.packageName,
+            this.remark,
+            this.getSpreadSheetPaymentMethod,
+            this.phoneNumber,
+            this.getSpreadSheetDueDate
+        )
+    )
+}
+
+fun OrderData.toUpdateSheetValues(existingDate: String): List<List<String>> {
+    val fallbackDate =
+        existingDate.takeIf { it.isNotBlank() } ?: DateUtil.getTodayDate(
+            DateUtil.STANDARD_DATE_FORMATED
+        )
+    val updatedDate = this.orderDate.ifBlank { fallbackDate }
+
+    return listOf(
+        listOf(
+            this.orderId,
+            updatedDate,
+            this.name,
+            this.weight,
+            this.priceKg,
+            this.totalPrice,
+            this.getSpreadSheetPaidStatus,
+            this.packageName,
+            this.remark,
+            this.getSpreadSheetPaymentMethod,
+            this.phoneNumber,
+            this.getSpreadSheetDueDate
+        )
+    )
+}
+
 const val PAID_BY_CASH: String = "Paid by Cash"
 const val PAID_BY_QRIS: String = "Paid by QRIS"
+const val PAID_BY_PERSONAL: String = "Paid by Personal"
 const val UNPAID: String = "Unpaid"
 
 const val PAID = "lunas"
 const val UNPAID_ID = "belum"
 const val QRIS = "qris"
 const val CASH = "cash"
+const val PERSONAL = "personal"
 
 fun getDisplayPaymentMethod(paymentMethod: String): String {
     return when (paymentMethod) {

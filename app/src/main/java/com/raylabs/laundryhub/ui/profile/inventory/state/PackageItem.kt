@@ -1,4 +1,4 @@
-package com.raylabs.laundryhub.ui.inventory.state
+package com.raylabs.laundryhub.ui.profile.inventory.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 

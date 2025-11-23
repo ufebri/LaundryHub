@@ -56,10 +56,10 @@ import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
-import com.raylabs.laundryhub.ui.inventory.state.PackageItem
 import com.raylabs.laundryhub.ui.order.state.OrderUiState
 import com.raylabs.laundryhub.ui.order.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.order.state.isUpdateEnabled
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale

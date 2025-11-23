@@ -4,13 +4,19 @@ import android.content.Context
 import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitOrderUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdateOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -75,5 +81,41 @@ object GSheetModule {
     @ViewModelScoped
     fun provideUpdateOrderUseCase(repository: GoogleSheetRepository): UpdateOrderUseCase {
         return UpdateOrderUseCase(repository)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideGetOrderUseCase(repository: GoogleSheetRepository): GetOrderUseCase {
+        return GetOrderUseCase(repository)
+    }
+
+
+    //Outcome
+    @Provides
+    @ViewModelScoped
+    fun provideGetLastOutcomeIdUseCase(repository: GoogleSheetRepository): GetLastOutcomeIdUseCase =
+        GetLastOutcomeIdUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideUpdateOutcomeUseCase(repository: GoogleSheetRepository): UpdateOutcomeUseCase {
+        return UpdateOutcomeUseCase(repository)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideSubmitOutcomeUseCase(repository: GoogleSheetRepository): SubmitOutcomeUseCase =
+        SubmitOutcomeUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideReadOutcomeDataUseCase(
+        repository: GoogleSheetRepository
+    ): ReadOutcomeTransactionUseCase = ReadOutcomeTransactionUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideGetOutcomeUseCase(repository: GoogleSheetRepository): GetOutcomeUseCase {
+        return GetOutcomeUseCase(repository)
     }
 }

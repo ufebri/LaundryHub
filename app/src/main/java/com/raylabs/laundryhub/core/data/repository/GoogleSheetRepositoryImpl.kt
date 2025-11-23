@@ -1,12 +1,12 @@
 package com.raylabs.laundryhub.core.data.repository
 
-import android.util.Log
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
@@ -19,7 +19,10 @@ import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
+import com.raylabs.laundryhub.core.domain.model.sheets.toOutcomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
+import com.raylabs.laundryhub.core.domain.model.sheets.toUpdateSheetValues
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
@@ -39,6 +42,9 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
         private const val ORDER_ID_RANGE = "income!A2:A"
+        private const val OUTCOME_RANGE = "outcome!A1:F"
+
+        private const val SHEET_APPEND_DATA = "USER_ENTERED"
     }
 
     override suspend fun readSummaryTransaction(
@@ -72,8 +78,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
 
     override suspend fun readIncomeTransaction(
-        filter: FILTER,
-        rangeDate: RangeDate?
+        filter: FILTER, rangeDate: RangeDate?
     ): Resource<List<TransactionData>> {
         return withContext(Dispatchers.IO) {
             retry {
@@ -109,16 +114,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)
                 } catch (e: GoogleJsonResponseException) {
-                    // Tangkap error detail dari Google API
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
-            } ?: Resource.Error("Failed after 3 attempts.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
     }
 
@@ -141,17 +141,12 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)
                 } catch (e: GoogleJsonResponseException) {
-                    // Tangkap error detail dari Google API
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
             }
-        } ?: Resource.Error("Failed after 3 attempts.")
+        } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
     }
 
     override suspend fun readOtherPackage(): Resource<List<String>> {
@@ -159,8 +154,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
             retry {
                 try {
                     val response = googleSheetService.getSheetsService().spreadsheets().values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_REMARKS_RANGE)
-                        .execute()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_REMARKS_RANGE).execute()
 
                     val rawData = response.getValues() ?: emptyList()
                     val cleanedData = rawData.mapNotNull { row ->
@@ -170,14 +164,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     if (cleanedData.isEmpty()) Resource.Empty
                     else Resource.Success(cleanedData)
                 } catch (e: GoogleJsonResponseException) {
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
-            } ?: Resource.Error("Failed after 3 attempts.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
     }
 
@@ -185,29 +176,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             retry {
                 try {
-                    val response = googleSheetService.getSheetsService()
-                        .spreadsheets()
-                        .values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, ORDER_ID_RANGE)
-                        .execute()
-
-                    val rows = response.getValues() ?: emptyList()
-
-                    // Ambil baris terakhir yang berisi ID di kolom paling kiri
-                    val lastRow = rows.drop(1).lastOrNull() // skip header
-                    val lastId = lastRow?.getOrNull(0)?.toString()
-
-                    if (lastId != null) {
-                        val mLastGenerateID = "${lastId.toInt() + 1}"
-                        Resource.Success(mLastGenerateID)
-                    } else {
-                        Resource.Success("0") // jika belum ada data, mulai dari 0
-                    }
-
+                    handlingGetLastId(ORDER_ID_RANGE)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unknown Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
-            } ?: Resource.Error("Failed after 3 attempts.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
     }
 
@@ -215,36 +188,12 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             retry {
                 try {
-                    val orderDate = order.orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
-                    val values = listOf(
-                        listOf(
-                            order.orderId,
-                            orderDate,
-                            order.name,
-                            order.weight,
-                            order.priceKg,
-                            order.totalPrice,
-                            order.getSpreadSheetPaidStatus,
-                            order.packageName,
-                            order.remark,
-                            order.getSpreadSheetPaymentMethod,
-                            order.phoneNumber,
-                            order.getSpreadSheetDueDate
-                        )
-                    )
-
-                    val body = ValueRange().setValues(values)
-                    googleSheetService.getSheetsService().spreadsheets().values()
-                        .append(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE, body)
-                        .setValueInputOption("USER_ENTERED")
-                        .execute()
-
-                    Resource.Success(true)
-
+                    val body = ValueRange().setValues(order.toSheetValues())
+                    handlingSuccessAppendSheet(body, INCOME_RANGE)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Failed to append order.")
+                    GSheetRepositoryErrorHandling.handleFailedAddOrder(e)
                 }
-            } ?: Resource.Error("Gagal menambahkan order setelah 3 kali coba.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
     }
 
@@ -252,12 +201,8 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         return withContext(Dispatchers.IO) {
             retry {
                 try {
-                    val response = googleSheetService
-                        .getSheetsService()
-                        .spreadsheets()
-                        .values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE)
-                        .execute()
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE).execute()
 
                     val headers = response.getValues().firstOrNull()
                     val dataRows = response.getValues().drop(1)
@@ -266,13 +211,9 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         return@retry Resource.Empty
                     }
 
-                    val mapped = dataRows.mapIndexed { idx, row ->
+                    val mapped = dataRows.mapIndexed { _, row ->
                         val assoc = headers.zip(row)
                             .associate { (key, value) -> key.toString() to value.toString() }
-                        Log.d(
-                            "OrderLookup",
-                            "idx=$idx, assoc[order_id]=${assoc["order_id"]}, orderIdParam=$orderId, assoc=$assoc"
-                        )
                         assoc
                     }.firstOrNull { it["orderID"]?.trim() == orderId.trim() }
 
@@ -283,27 +224,20 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         Resource.Empty
                     }
                 } catch (e: GoogleJsonResponseException) {
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
             }
-        } ?: Resource.Error("Failed after 3 attempts.")
+        } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
     }
 
     override suspend fun updateOrder(order: OrderData): Resource<Boolean> {
         return withContext(Dispatchers.IO) {
             retry {
                 try {
-                    val response = googleSheetService.getSheetsService()
-                        .spreadsheets()
-                        .values()
-                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE)
-                        .execute()
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE).execute()
 
                     val dataRows = response.getValues().drop(1)
 
@@ -312,44 +246,183 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                     }
 
                     if (rowIndex == -1) {
-                        return@retry Resource.Error("Order ID not found.")
+                        return@retry GSheetRepositoryErrorHandling.handleIDNotFound()
                     }
 
                     // Ambil existing date dari dataRows
                     val existingDate =
                         dataRows[rowIndex].getOrNull(1) ?: DateUtil.getTodayDate("dd/MM/yyyy")
 
-                    val fallbackDate = existingDate?.toString()?.takeIf { it.isNotBlank() }
-                        ?: DateUtil.getTodayDate("dd/MM/yyyy")
-                    val updatedDate = order.orderDate.ifBlank { fallbackDate }
+                    val body =
+                        ValueRange().setValues(order.toUpdateSheetValues(existingDate.toString()))
+                    handlingSuccessUpdateSheet(body, "income!A${rowIndex + 2}:L")
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleFailedUpdate(e)
+                }
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+        }
+    }
 
-                    val updatedRow = listOf(
-                        order.orderId,
-                        updatedDate,
-                        order.name,
-                        order.weight,
-                        order.priceKg,
-                        order.totalPrice,
-                        order.getSpreadSheetPaidStatus,
-                        order.packageName,
-                        order.remark,
-                        order.getSpreadSheetPaymentMethod,
-                        order.phoneNumber,
-                        order.getSpreadSheetDueDate
-                    )
+    //    Outcome
+    override suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, OUTCOME_RANGE).execute()
 
-                    val body = ValueRange().setValues(listOf(updatedRow))
-                    googleSheetService.getSheetsService().spreadsheets().values()
-                        .update(BuildConfig.SPREAD_SHEET_ID, "income!A${rowIndex + 2}:L", body)
-                        .setValueInputOption("USER_ENTERED")
-                        .execute()
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val dataRows = response.getValues().drop(1)
 
-                    Resource.Success(true)
+                    val data = dataRows.map { row ->
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toOutcomeList()
+                    }.sortedByDescending { outcomeData ->
+                        parseDate(outcomeData.date, formatedDate = DateUtil.STANDARD_DATE_FORMATED)
+                    }
+
+                    if (data.isEmpty()) Resource.Empty else Resource.Success(data)
+                } catch (e: GoogleJsonResponseException) {
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
+                }
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+        }
+    }
+
+    override suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val body = ValueRange().setValues(outcome.toSheetValues())
+                    handlingSuccessAppendSheet(body, OUTCOME_RANGE)
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleFailedAddOrder(e)
+                }
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+        }
+    }
+
+    override suspend fun getLastOutcomeId(): Resource<String> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    handlingGetLastId(OUTCOME_RANGE)
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
+                }
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+        }
+    }
+
+    override suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, INCOME_RANGE).execute()
+
+                    val dataRows = response.getValues().drop(1)
+
+                    val rowIndex = dataRows.indexOfFirst { row ->
+                        row.firstOrNull()?.toString() == outcome.id
+                    }
+
+                    if (rowIndex == -1) {
+                        return@retry GSheetRepositoryErrorHandling.handleIDNotFound()
+                    }
+
+                    // Ambil existing date dari dataRows
+                    val existingDate =
+                        dataRows[rowIndex].getOrNull(1) ?: DateUtil.getTodayDate("dd/MM/yyyy")
+
+                    val body =
+                        ValueRange().setValues(outcome.toUpdateSheetValues(existingDate.toString()))
+                    handlingSuccessUpdateSheet(body, "outcome!A${rowIndex + 2}:F")
 
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Failed to update order.")
+                    GSheetRepositoryErrorHandling.handleFailedUpdate(e)
                 }
-            } ?: Resource.Error("Gagal memperbarui order setelah 3 kali coba.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
+    }
+
+    override suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, OUTCOME_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull()
+                    val dataRows = response.getValues().drop(1)
+
+                    if (headers == null || dataRows.isEmpty()) {
+                        return@retry Resource.Empty
+                    }
+
+                    val mapped = dataRows.mapIndexed { _, row ->
+                        val assoc = headers.zip(row)
+                            .associate { (key, value) -> key.toString() to value.toString() }
+                        assoc
+                    }.firstOrNull { it["id"]?.trim() == outcomeId.trim() }
+
+                    if (mapped != null) {
+                        val history = mapped.toOutcomeList()
+                        Resource.Success(history)
+                    } else {
+                        Resource.Empty
+                    }
+                } catch (e: GoogleJsonResponseException) {
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
+                }
+            }
+        } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+    }
+
+    //Common Success Handling Response
+
+    private fun handlingGetLastId(range: String): Resource.Success<String> {
+        val response = googleSheetService.getSheetsService().spreadsheets().values()
+            .get(BuildConfig.SPREAD_SHEET_ID, range).execute()
+
+        val rows = response.getValues() ?: emptyList()
+
+        val lastRow = rows.drop(1).lastOrNull()
+        val lastId = lastRow?.getOrNull(0)?.toString()
+
+        return if (lastId != null) {
+            val mLastGenerateID = "${lastId.toInt() + 1}"
+            Resource.Success(mLastGenerateID)
+        } else {
+            Resource.Success("0") // jika belum ada data, mulai dari 0
+        }
+    }
+
+    private fun handlingSuccessAppendSheet(
+        valueRange: ValueRange, range: String
+    ): Resource<Boolean> {
+        googleSheetService.getSheetsService().spreadsheets().values()
+            .append(BuildConfig.SPREAD_SHEET_ID, range, valueRange)
+            .setValueInputOption(SHEET_APPEND_DATA).execute()
+
+        return Resource.Success(true)
+    }
+
+    private fun handlingSuccessUpdateSheet(
+        valueRange: ValueRange,
+        range: String
+    ): Resource<Boolean> {
+        googleSheetService.getSheetsService().spreadsheets().values()
+            .update(BuildConfig.SPREAD_SHEET_ID, range, valueRange)
+            .setValueInputOption(SHEET_APPEND_DATA)
+            .execute()
+
+        return Resource.Success(true)
     }
 }

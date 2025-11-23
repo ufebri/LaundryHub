@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.ui
 
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +33,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -46,18 +46,18 @@ import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
+import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
-import com.raylabs.laundryhub.ui.inventory.InventoryScreenView
-import com.raylabs.laundryhub.ui.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.onboarding.OnboardingScreen
 import com.raylabs.laundryhub.ui.onboarding.state.getListOnboardingPage
 import com.raylabs.laundryhub.ui.order.OrderBottomSheet
 import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toOrderData
+import com.raylabs.laundryhub.ui.outcome.OutcomeScreenView
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
@@ -225,8 +225,8 @@ fun LaundryHubStarter(
                 composable(BottomNavItem.History.screenRoute) {
                     HistoryScreenView()
                 }
-                composable(BottomNavItem.Inventory.screenRoute) {
-                    InventoryScreenView()
+                composable(BottomNavItem.Outcome.screenRoute) {
+                    OutcomeScreenView()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
                     ProfileScreenView(loginViewModel = loginViewModel)
@@ -247,10 +247,6 @@ fun ShowOrderBottomSheet(
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
 
-    Log.d(
-        "onOrderCardClick",
-        "DEBUG: Render Sheet — isEditMode=${uiState.isEditMode}, selectedPackage=${uiState.selectedPackage?.name}"
-    )
     OrderBottomSheet(
         state = uiState,
         onNameChanged = { orderViewModel.updateField("name", it) },
@@ -318,7 +314,7 @@ fun BottomBar(
             BottomNavItem.Home,
             BottomNavItem.History,
             BottomNavItem.Order,
-            BottomNavItem.Inventory,
+            BottomNavItem.Outcome,
             BottomNavItem.Profile
         )
         val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -328,13 +324,13 @@ fun BottomBar(
             BottomNavigationItem(
                 icon = {
                     Icon(
-                        painterResource(id = item.icon),
-                        contentDescription = item.title
+                        painter = painterResource(id = item.icon),
+                        contentDescription = stringResource(item.title)
                     )
                 },
                 label = {
                     Text(
-                        text = item.title,
+                        text = stringResource(item.title),
                         fontSize = 9.sp
                     )
                 },

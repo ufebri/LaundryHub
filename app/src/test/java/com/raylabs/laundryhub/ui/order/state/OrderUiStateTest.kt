@@ -1,7 +1,7 @@
 package com.raylabs.laundryhub.ui.order.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.ui.inventory.state.PackageItem
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.history.state
 
 import com.raylabs.laundryhub.ui.common.util.SectionState
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -19,10 +20,10 @@ class HistoryUiStateTest {
 
     @Test
     fun `state with loaded data returns correct items`() {
-        val items = listOf<HistoryUiItem>(
-            HistoryUiItem.Header("2025-08-01")
+        val items = listOf<DateListItemUI>(
+            DateListItemUI.Header("2025-08-01")
         )
-        val loadedSection = SectionState<List<HistoryUiItem>>(
+        val loadedSection = SectionState(
             data = items,
             isLoading = false,
             errorMessage = null
@@ -35,7 +36,7 @@ class HistoryUiStateTest {
 
     @Test
     fun `state with error returns error message`() {
-        val section = SectionState<List<HistoryUiItem>>(
+        val section = SectionState<List<DateListItemUI>>(
             errorMessage = "Network error",
             isLoading = false,
             data = null
@@ -48,7 +49,7 @@ class HistoryUiStateTest {
 
     @Test
     fun `state with loading returns loading true`() {
-        val section = SectionState<List<HistoryUiItem>>(
+        val section = SectionState<List<DateListItemUI>>(
             isLoading = true,
             errorMessage = null,
             data = null

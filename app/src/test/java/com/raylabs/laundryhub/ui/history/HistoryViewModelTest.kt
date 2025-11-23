@@ -3,10 +3,10 @@ package com.raylabs.laundryhub.ui.history
 
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
-import com.raylabs.laundryhub.ui.history.state.HistoryUiItem
 import com.raylabs.laundryhub.ui.history.state.HistoryUiState
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -43,8 +43,34 @@ class HistoryViewModelTest {
     @Test
     fun `init triggers fetchHistory and updates uiState with data`() = runTest {
         val transactions = listOf(
-            TransactionData(orderID = "1", name = "Raihan", date = "2024-08-03", totalPrice = "2000", packageType = "Express", paymentStatus = "PAID", paymentMethod = "Cash", weight = "2", pricePerKg = "1000", remark = "", phoneNumber = "0812", dueDate = "2024-08-04"),
-            TransactionData(orderID = "2", name = "Agus", date = "2024-08-03", totalPrice = "3000", packageType = "Reguler", paymentStatus = "UNPAID", paymentMethod = "QR", weight = "3", pricePerKg = "1000", remark = "", phoneNumber = "0813", dueDate = "2024-08-05")
+            TransactionData(
+                orderID = "1",
+                name = "Raihan",
+                date = "2024-08-03",
+                totalPrice = "2000",
+                packageType = "Express",
+                paymentStatus = "PAID",
+                paymentMethod = "Cash",
+                weight = "2",
+                pricePerKg = "1000",
+                remark = "",
+                phoneNumber = "0812",
+                dueDate = "2024-08-04"
+            ),
+            TransactionData(
+                orderID = "2",
+                name = "Agus",
+                date = "2024-08-03",
+                totalPrice = "3000",
+                packageType = "Reguler",
+                paymentStatus = "UNPAID",
+                paymentMethod = "QR",
+                weight = "3",
+                pricePerKg = "1000",
+                remark = "",
+                phoneNumber = "0813",
+                dueDate = "2024-08-05"
+            )
         )
         whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
             .thenReturn(Resource.Success(transactions))
@@ -56,8 +82,8 @@ class HistoryViewModelTest {
         assertFalse(state.history.isLoading)
         assertNull(state.history.errorMessage)
         assertNotNull(state.history.data)
-        assertTrue(state.history.data!!.any { it is HistoryUiItem.Header })
-        assertTrue(state.history.data!!.any { it is HistoryUiItem.Entry })
+        assertTrue(state.history.data!!.any { it is DateListItemUI.Header })
+        assertTrue(state.history.data!!.any { it is DateListItemUI.Entry })
     }
 
     @Test

@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.ui.inventory.state
 
 import com.raylabs.laundryhub.ui.common.util.SectionState
+import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

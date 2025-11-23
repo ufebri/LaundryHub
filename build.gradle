@@ -1,7 +1,7 @@
 // Top-level build file where you can add configuration options common to all sub-projects/modules.
 
 buildscript {
-    
+
     ext {
         kotlin_version = '1.9.23'
         nav_version = "2.7.1"
@@ -25,10 +25,36 @@ buildscript {
     }
 }
 
+plugins {
+    id "org.sonarqube" version "7.1.0.6387"
+}
+
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+}
+
+apply plugin: "org.sonarqube"
+
+def sonarProps = new Properties()
+def sonarFile = rootProject.file("config.properties")
+if (sonarFile.exists()) {
+    sonarProps.load(new FileInputStream(sonarFile))
+}
+
+def localSonarLogin = sonarProps.getProperty("SONAR_TOKEN")
+
+sonar {
+    properties {
+        property "sonar.projectKey", sonarProps.getProperty("SONAR_PROJECT_KEY")
+        property "sonar.organization", sonarProps.getProperty("SONAR_ORGANIZATION")
+        property "sonar.host.url", "https://sonarcloud.io"
+
+        if (localSonarLogin) {
+            property "sonar.token", localSonarLogin  // ← ini String
+        }
     }
 }
 

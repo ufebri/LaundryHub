@@ -4,8 +4,8 @@ import com.raylabs.laundryhub.core.domain.model.auth.User
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.home.state.SortOption

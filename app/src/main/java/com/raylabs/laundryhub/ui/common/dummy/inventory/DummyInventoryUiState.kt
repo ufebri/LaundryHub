@@ -1,8 +1,8 @@
 package com.raylabs.laundryhub.ui.common.dummy.inventory
 
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.inventory.state.InventoryUiState
-import com.raylabs.laundryhub.ui.inventory.state.PackageItem
+import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 
 val dummyInventoryUiState = InventoryUiState(
     packages = SectionState(
