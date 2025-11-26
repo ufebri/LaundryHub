@@ -349,7 +349,6 @@ fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Preview(showBackground = true, name = "Default View")
 @Composable
 fun PreviewHomeScreenContent_Default() {
@@ -363,7 +362,6 @@ fun PreviewHomeScreenContent_Default() {
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Preview(showBackground = true, name = "Search Active View - Dark Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveDark() {
@@ -377,7 +375,6 @@ fun PreviewHomeScreenContent_SearchActiveDark() {
     }
 }
 
-@OptIn(ExperimentalMaterialApi::class)
 @Preview(showBackground = true, name = "Search Active View - Light Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveLight() {

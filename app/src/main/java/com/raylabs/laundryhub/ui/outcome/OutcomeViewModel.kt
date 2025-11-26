@@ -4,12 +4,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
+import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
@@ -94,6 +98,8 @@ class OutcomeViewModel @Inject constructor(
                     submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
                     isSubmitting = false
                 )
+                fetchOutcomeList()
+                fetchLastOutcomeId()
                 onComplete()
             }
 
@@ -110,88 +116,152 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    suspend fun onOutcomeEditClick(outcomeID: String, onSuccess: () -> Unit) {
+    suspend fun onOutcomeEditClick(outcomeID: String): Boolean {
         _uiState.value = _uiState.value.copy(
             editOutcome = _uiState.value.editOutcome.loading(),
             isEditMode = false
         )
 
-        viewModelScope.launch {
-            when (val result = getOutcomeUseCase(outcomeID = outcomeID)) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        editOutcome = _uiState.value.editOutcome.success(result.data),
-                        isEditMode = true
-                    )
-                    onSuccess()
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        editOutcome = _uiState.value.editOutcome.error(result.message),
-                        isEditMode = false
-                    )
-                }
-
-                is Resource.Empty -> {
-                    _uiState.value = _uiState.value.copy(
-                        editOutcome = _uiState.value.editOutcome.error("No data found for outcome ID: $outcomeID"),
-                        isEditMode = false
-                    )
-                }
-
-                else -> Unit
+        when (val result = getOutcomeUseCase(outcomeID = outcomeID)) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    editOutcome = _uiState.value.editOutcome.success(result.data),
+                    isEditMode = true,
+                    outcomeID = result.data.id,
+                    name = result.data.purpose,
+                    date = result.data.date,
+                    price = sanitizePrice(result.data.price),
+                    remark = result.data.remark,
+                    paymentStatus = result.data.paidDescription()
+                )
+                return true
             }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    editOutcome = _uiState.value.editOutcome.error(result.message),
+                    isEditMode = false
+                )
+                return false
+            }
+
+            is Resource.Empty -> {
+                _uiState.value = _uiState.value.copy(
+                    editOutcome = _uiState.value.editOutcome.error("No data found for outcome ID: $outcomeID"),
+                    isEditMode = false
+                )
+                return false
+            }
+
+            else -> return false
         }
     }
 
-    suspend fun updateOrder(outcome: OutcomeData, onComplete: suspend () -> Unit) {
+    suspend fun updateOutcome(outcome: OutcomeData, onComplete: suspend () -> Unit) {
         _uiState.value = _uiState.value.copy(
             updateOutcome = _uiState.value.updateOutcome.loading(),
             isSubmitting = true
         )
 
-        viewModelScope.launch {
-            when (val result = updateOutcomeUseCase(order = outcome)) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        updateOutcome = _uiState.value.updateOutcome.success(result.data),
-                        isSubmitting = false
-                    )
-                    onComplete()
-                }
+        when (val result = updateOutcomeUseCase(order = outcome)) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    updateOutcome = _uiState.value.updateOutcome.success(result.data),
+                    isSubmitting = false
+                )
+                fetchOutcomeList()
+                onComplete()
+            }
 
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        updateOutcome = _uiState.value.updateOutcome.error(result.message),
-                        isSubmitting = false
-                    )
-                }
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    updateOutcome = _uiState.value.updateOutcome.error(result.message),
+                    isSubmitting = false
+                )
+            }
 
-                else -> {
-                    _uiState.value = _uiState.value.copy(isSubmitting = false)
-                }
+            else -> {
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
             }
         }
     }
 
-    fun updateField(field: String, value: String) {
-        _uiState.value = when (field) {
-            "name" -> _uiState.value.copy(name = value)
-            "remark" -> _uiState.value.copy(remark = value)
-            else -> _uiState.value
-        }
+    fun onPurposeChanged(value: String) {
+        _uiState.value = _uiState.value.copy(name = value)
+    }
+
+    fun onPriceChanged(value: String) {
+        _uiState.value = _uiState.value.copy(price = sanitizePrice(value))
+    }
+
+    fun onDateChanged(value: String) {
+        _uiState.value = _uiState.value.copy(date = value)
+    }
+
+    fun onPaymentMethodSelected(value: String) {
+        _uiState.value = _uiState.value.copy(paymentStatus = value)
+    }
+
+    fun onRemarkChanged(value: String) {
+        _uiState.value = _uiState.value.copy(remark = value)
+    }
+
+    fun prepareNewOutcome() {
+        _uiState.value = _uiState.value.copy(
+            isEditMode = false,
+            outcomeID = "",
+            name = "",
+            price = "",
+            remark = "",
+            paymentStatus = "",
+            date = DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED)
+        )
+    }
+
+    fun buildOutcomeDataForSubmit(): OutcomeData? {
+        val id =
+            _uiState.value.lastOutcomeId?.takeIf { it.all { ch -> ch.isDigit() } } ?: return null
+        val date =
+            _uiState.value.date.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) }
+
+        return OutcomeData(
+            id = id,
+            date = date,
+            purpose = _uiState.value.name,
+            price = sanitizePrice(_uiState.value.price),
+            remark = _uiState.value.remark,
+            payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
+        )
+    }
+
+    fun buildOutcomeDataForUpdate(): OutcomeData? {
+        val id = _uiState.value.outcomeID.takeIf { it.isNotBlank() } ?: return null
+        val date =
+            _uiState.value.date.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) }
+        return OutcomeData(
+            id = id,
+            date = date,
+            purpose = _uiState.value.name,
+            price = sanitizePrice(_uiState.value.price),
+            remark = _uiState.value.remark,
+            payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
+        )
     }
 
     fun resetForm() {
         fetchLastOutcomeId()
         _uiState.value = _uiState.value.copy(
             isEditMode = false,
+            outcomeID = "",
             name = "",
             date = "",
             price = "",
             remark = "",
             paymentStatus = ""
         )
+    }
+
+    private fun sanitizePrice(value: String): String {
+        return value.removeRupiahFormatWithComma()
     }
 }

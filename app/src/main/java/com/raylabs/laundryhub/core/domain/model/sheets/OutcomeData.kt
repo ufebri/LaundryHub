@@ -54,11 +54,27 @@ fun OutcomeData.toUpdateSheetValues(existingDate: String): List<List<String>> {
     )
 }
 
-fun OutcomeData.paidDescription(): String {
-    return when (payment) {
-        QRIS -> PAID_BY_QRIS
-        CASH -> PAID_BY_CASH
-        PERSONAL -> PAID_BY_PERSONAL
-        else -> ""
+enum class PaymentType(val value: String, val description: String) {
+    QRIS("qris", PAID_BY_QRIS),
+    CASH("cash", PAID_BY_CASH),
+    PERSONAL("personal", PAID_BY_PERSONAL);
+
+
+    // Fungsi untuk mendapatkan enum dari nilai string (kebalikannya)
+    companion object {
+        fun fromValue(value: String): PaymentType? {
+            // entries adalah fungsi baru di Kotlin yang lebih efisien dari values()
+            return entries.find { it.value == value }
+        }
+
+        fun fromDescription(description: String): PaymentType? {
+            return entries.find { it.description == description }
+        }
     }
 }
+
+
+fun OutcomeData.paidDescription(): String = PaymentType.fromValue(this.payment)?.description ?: ""
+
+fun getPaymentValueFromDescription(description: String): String =
+    PaymentType.fromDescription(description)?.value ?: ""

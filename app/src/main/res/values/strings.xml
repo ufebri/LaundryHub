@@ -28,4 +28,11 @@
 
     <string name="order_id">Order #%s</string>
     <string name="outcome_id">Outcome #%s</string>
+    <string name="add_outcome">Add Outcome</string>
+    <string name="update_outcome">Update Outcome</string>
+    <string name="Date">Date</string>
+    <string name="purpose">Purpose</string>
+    <string name="price">Price</string>
+    <string name="remark">Remark</string>
+    <string name="payment_method">Payment Method</string>
 </resources>

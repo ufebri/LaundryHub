@@ -92,7 +92,6 @@ const val PAID = "lunas"
 const val UNPAID_ID = "belum"
 const val QRIS = "qris"
 const val CASH = "cash"
-const val PERSONAL = "personal"
 
 fun getDisplayPaymentMethod(paymentMethod: String): String {
     return when (paymentMethod) {
@@ -112,3 +111,6 @@ fun getDisplayPaidStatus(paidStatus: String): String {
 }
 
 val paymentMethodList = listOf(UNPAID, PAID_BY_CASH, PAID_BY_QRIS)
+val paymentMethodOutcomeList = listOf(PAID_BY_CASH, PAID_BY_QRIS, PAID_BY_PERSONAL)
+
+

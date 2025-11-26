@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.component
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,13 +26,24 @@ import com.raylabs.laundryhub.ui.outcome.state.TypeCard
 import com.raylabs.laundryhub.ui.theme.Purple300
 
 @Composable
-fun EntryItemCard(item: EntryItem, modifier: Modifier = Modifier) {
+fun EntryItemCard(
+    item: EntryItem,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
     Card(
         shape = RoundedCornerShape(12.dp),
         backgroundColor = Purple300,
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp)
+            .let {
+                if (onClick != null) {
+                    it.clickable { onClick() }
+                } else {
+                    it
+                }
+            }
     ) {
 
         val formattedId = when (item.typeCard) {

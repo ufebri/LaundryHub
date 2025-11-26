@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.outcome.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodOutcomeList
 import com.raylabs.laundryhub.ui.common.util.SectionState
 
 data class OutcomeUiState(
@@ -8,12 +9,13 @@ data class OutcomeUiState(
     val outcome: SectionState<List<DateListItemUI>> = SectionState(),
     val submitNewOutcome: SectionState<Boolean> = SectionState(),
     val updateOutcome: SectionState<Boolean> = SectionState(),
-    val isEditMode: Boolean = false,
 
     //For Edit
     val outcomeID: String = "",
     val editOutcome: SectionState<OutcomeData> = SectionState(),
 
+    //Flag form
+    val paymentOption: List<String> = paymentMethodOutcomeList,
 
     //Form
     val name: String = "",
@@ -23,5 +25,19 @@ data class OutcomeUiState(
     val paymentStatus: String = "",
 
     //flag
-    val isSubmitting: Boolean = false
+    val isSubmitting: Boolean = false,
+    val isEditMode: Boolean = false,
 )
+
+val OutcomeUiState.isSubmitEnabled: Boolean
+    get() = name.isNotBlank()
+            && date.isNotBlank()
+            && price.isNotBlank()
+            && paymentStatus.isNotBlank()
+
+val OutcomeUiState.isUpdateEnabled: Boolean
+    get() = outcomeID.isNotBlank()
+            && name.isNotBlank()
+            && date.isNotBlank()
+            && price.isNotBlank()
+            && paymentStatus.isNotBlank()

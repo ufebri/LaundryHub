@@ -2,9 +2,9 @@ package com.raylabs.laundryhub.ui.component
 
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,7 +25,7 @@ fun DateHeader(date: String) {
                 dateString = date,
                 inputFormat = DateUtil.STANDARD_DATE_FORMATED
             ),
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.body1,
             color = Color.White,
             modifier = Modifier
                 .padding(8.dp)

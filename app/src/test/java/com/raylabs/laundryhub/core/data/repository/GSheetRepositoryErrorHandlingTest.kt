@@ -4,7 +4,6 @@ import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.raylabs.laundryhub.ui.common.util.Resource
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
@@ -21,10 +20,9 @@ class GSheetRepositoryErrorHandlingTest {
 
         val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(exception)
 
-        assertTrue(result is Resource.Error)
         assertEquals(
             "Error 404: Not Found\nDetails: Sheet missing",
-            (result as Resource.Error).message
+            result.message
         )
     }
 

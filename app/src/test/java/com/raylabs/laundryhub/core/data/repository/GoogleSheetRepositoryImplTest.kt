@@ -178,4 +178,85 @@ class GoogleSheetRepositoryImplTest {
             }
         )
     }
+
+    @Test
+    fun `readPackageData returns success when rows exist`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+
+        val header = listOf("packages", "harga", "work", "unit")
+        val row1 = listOf("Regular", "5000", "3d", "Kg")
+        val row2 = listOf("Express", "8000", "1d", "Kg")
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(listOf(header, row1, row2))
+
+        val result = repo.readPackageData()
+        assertTrue(result is Resource.Success)
+        val data = (result as Resource.Success).data
+        assertEquals(2, data.size)
+        assertEquals("Regular", data[0].name)
+        assertEquals("5000", data[0].price)
+        assertEquals("Express", data[1].name)
+    }
+
+    @Test
+    fun `readPackageData returns empty when no rows`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(emptyList())
+
+        val result = repo.readPackageData()
+        assertTrue(result is Resource.Empty)
+    }
+
+    @Test
+    fun `readOtherPackage returns success when data exists`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(
+            listOf(listOf("Note A"), listOf("Note B"))
+        )
+
+        val result = repo.readOtherPackage()
+        assertTrue(result is Resource.Success)
+        val data = (result as Resource.Success).data
+        assertEquals(listOf("Note A", "Note B"), data)
+    }
+
+    @Test
+    fun `readOtherPackage returns empty when no data`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(emptyList())
+
+        val result = repo.readOtherPackage()
+        assertTrue(result is Resource.Empty)
+    }
 }
