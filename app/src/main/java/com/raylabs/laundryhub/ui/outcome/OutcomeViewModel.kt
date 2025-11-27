@@ -40,6 +40,11 @@ class OutcomeViewModel @Inject constructor(
         fetchLastOutcomeId()
     }
 
+    fun refreshOutcomeList() {
+        fetchOutcomeList()
+        fetchLastOutcomeId()
+    }
+
     private fun fetchLastOutcomeId() {
         viewModelScope.launch {
             when (val result = getLastOutcomeIdUseCase()) {

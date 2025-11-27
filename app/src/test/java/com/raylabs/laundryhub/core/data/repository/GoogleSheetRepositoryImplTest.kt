@@ -180,6 +180,66 @@ class GoogleSheetRepositoryImplTest {
     }
 
     @Test
+    fun `readSummaryTransaction returns success when data exists`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(
+            listOf(
+                listOf("today_income", "20000"),
+                listOf("weekly_income", "50000")
+            )
+        )
+
+        val result = repo.readSummaryTransaction()
+        assertTrue(result is Resource.Success)
+        val data = (result as Resource.Success).data
+        assertEquals(2, data.size)
+        assertEquals("today_income", data[0].key)
+        assertEquals("20000", data[0].value)
+    }
+
+    @Test
+    fun `readSummaryTransaction returns empty when no rows`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(emptyList())
+
+        val result = repo.readSummaryTransaction()
+        assertTrue(result is Resource.Empty)
+    }
+
+    @Test
+    fun `readSummaryTransaction returns error on exception`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenThrow(RuntimeException("boom"))
+
+        val result = repo.readSummaryTransaction()
+        assertTrue(result is Resource.Error)
+        assertTrue((result as Resource.Error).message.contains("boom"))
+    }
+
+    @Test
     fun `readPackageData returns success when rows exist`() = runTest {
         val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
         val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
@@ -258,5 +318,42 @@ class GoogleSheetRepositoryImplTest {
 
         val result = repo.readOtherPackage()
         assertTrue(result is Resource.Empty)
+    }
+
+    @Test
+    fun `getLastOrderId returns success when rows exist`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(
+            listOf(listOf("10"), listOf("11"))
+        )
+
+        val result = repo.getLastOrderId()
+        assertTrue(result is Resource.Success)
+        assertEquals("12", (result as Resource.Success).data)
+    }
+
+    @Test
+    fun `getLastOrderId returns error on exception`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenThrow(RuntimeException("fail get last id"))
+
+        val result = repo.getLastOrderId()
+        assertTrue(result is Resource.Error)
+        assertTrue((result as Resource.Error).message.contains("fail get last id"))
     }
 }

@@ -30,8 +30,8 @@ import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
@@ -224,7 +224,7 @@ fun HomeScreenContent(
                         Spacer(modifier = Modifier.width(4.dp))
                         IconButton(onClick = { showMenu = !showMenu }) {
                             Icon(
-                                imageVector = Icons.Filled.List,
+                                imageVector = Icons.AutoMirrored.Filled.List,
                                 contentDescription = stringResource(R.string.sort_orders)
                             )
                         }

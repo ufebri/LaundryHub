@@ -63,16 +63,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)
                 } catch (e: GoogleJsonResponseException) {
-                    // Tangkap error detail dari Google API
-                    val statusCode = e.statusCode
-                    val statusMessage = e.statusMessage
-                    val details = e.details?.message ?: "Unknown Error"
-
-                    Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                 } catch (e: Exception) {
-                    Resource.Error(e.message ?: "Unexpected Error")
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
                 }
-            } ?: Resource.Error("Failed after 3 attempts.")
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
         }
     }
 

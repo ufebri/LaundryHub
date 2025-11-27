@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.outcome
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -16,11 +17,15 @@ import androidx.compose.material.ScaffoldState
 import androidx.compose.material.SnackbarHost
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AddCircle
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -126,6 +131,8 @@ fun OutcomeScreenView(viewModel: OutcomeViewModel = hiltViewModel()) {
                 state = state,
                 scaffoldState = scaffoldState,
                 modifier = Modifier.padding(paddingValues),
+                isRefreshing = state.outcome.isLoading,
+                onRefresh = { viewModel.refreshOutcomeList() },
                 onEntryClick = { entry ->
                     coroutineScope.launch {
                         val success = viewModel.onOutcomeEditClick(entry.id)
@@ -139,11 +146,14 @@ fun OutcomeScreenView(viewModel: OutcomeViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun OutcomeContent(
     state: OutcomeUiState,
     scaffoldState: ScaffoldState,
     modifier: Modifier = Modifier,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
     onEntryClick: (EntryItem) -> Unit = {}
 ) {
     LaunchedEffect(state.outcome.errorMessage) {
@@ -152,28 +162,33 @@ fun OutcomeContent(
         }
     }
 
-    SectionOrLoading(
-        isLoading = state.outcome.isLoading,
-        error = state.outcome.errorMessage,
-        content = {
-            LazyColumn(modifier = modifier.fillMaxSize()) {
-                items(
-                    items = state.outcome.data.orEmpty(),
-                    key = { item ->
-                        when (item) {
-                            is DateListItemUI.Header -> "header_${item.date}"
-                            is DateListItemUI.Entry -> "entry_${item.item.id}"
-                        }
-                    }
-                ) {
-                    when (it) {
-                        is DateListItemUI.Header -> {
-                            DateHeader(it.date)
-                        }
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = onRefresh
+    )
 
-
-                        is DateListItemUI.Entry -> {
-                            EntryItemCard(
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
+        SectionOrLoading(
+            isLoading = state.outcome.isLoading,
+            error = state.outcome.errorMessage,
+            content = {
+                LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    items(
+                        items = state.outcome.data.orEmpty(),
+                        key = { item ->
+                            when (item) {
+                                is DateListItemUI.Header -> "header_${item.date}"
+                                is DateListItemUI.Entry -> "entry_${item.item.id}"
+                            }
+                        }
+                    ) {
+                        when (it) {
+                            is DateListItemUI.Header -> DateHeader(it.date)
+                            is DateListItemUI.Entry -> EntryItemCard(
                                 item = it.item,
                                 onClick = { onEntryClick(it.item) }
                             )
@@ -181,8 +196,14 @@ fun OutcomeContent(
                     }
                 }
             }
-        }
-    )
+        )
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(Alignment.TopCenter)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterialApi::class)
