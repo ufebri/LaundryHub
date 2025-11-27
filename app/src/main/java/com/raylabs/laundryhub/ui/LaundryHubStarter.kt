@@ -59,6 +59,7 @@ import com.raylabs.laundryhub.ui.order.OrderViewModel
 import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.outcome.OutcomeScreenView
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
+import com.raylabs.laundryhub.ui.profile.inventory.InventoryScreenView
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -229,7 +230,13 @@ fun LaundryHubStarter(
                     OutcomeScreenView()
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
-                    ProfileScreenView(loginViewModel = loginViewModel)
+                    ProfileScreenView(
+                        loginViewModel = loginViewModel,
+                        onInventoryClick = { navController.navigate("inventory") }
+                    )
+                }
+                composable("inventory") {
+                    InventoryScreenView()
                 }
             }
         }

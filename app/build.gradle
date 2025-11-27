@@ -105,7 +105,7 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.register("jacocoTestReport", JacocoReport) {
-    dependsOn "testDebugUnitTest"
+    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac"
 
     reports {
         xml.required = true
