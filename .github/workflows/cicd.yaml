@@ -226,7 +226,7 @@ jobs:
             ${{ runner.os }}-gradle
 
       - name: Run tests and generate Jacoco report
-        run: ./gradlew clean test jacocoTestReport
+        run: ./gradlew clean testDebugUnitTest jacocoTestReport
 
       - name: Check if coverage report exists
         run: ls -lh app/build/reports/jacoco/jacocoTestReport/

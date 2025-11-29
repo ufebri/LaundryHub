@@ -142,7 +142,7 @@ tasks.register("jacocoTestReport", JacocoReport) {
             fileTree(dir: new File(b, 'intermediates/javac/debug'), exclude: excludes),
             fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), exclude: excludes),
             fileTree(dir: new File(b, 'intermediates/classes/debug'), exclude: excludes)
-    ].findAll { it.dir.exists() }
+    ]
 
     def allTrees = []
     allTrees.addAll(classDirTrees)

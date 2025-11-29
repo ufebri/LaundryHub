@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.inventory
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
+import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.profile.inventory.InventoryViewModel
 import kotlinx.coroutines.Dispatchers
@@ -40,11 +41,10 @@ class InventoryViewModelTest {
 
     @Test
     fun `init fetches packages and otherPackages successfully`() = runTest {
-        val dummyPackages = listOf(
-            PackageData(name = "Reguler", price = "5000", duration = "3d", unit = "Kg"),
-            PackageData(name = "Express", price = "10000", duration = "6h", unit = "Kg")
-        )
-        val dummyOtherPackages = listOf("Cuci Sepatu", "Cuci Karpet")
+        val dummyPackages = dummyInventoryUiState.packages.data!!.map {
+            PackageData(name = it.name, price = it.price, duration = it.work, unit = "")
+        }
+        val dummyOtherPackages = dummyInventoryUiState.otherPackages.data!!
 
         whenever(mockReadPackageUseCase.invoke()).thenReturn(Resource.Success(dummyPackages))
         whenever(mockGetOtherPackageUseCase.invoke()).thenReturn(Resource.Success(dummyOtherPackages))
@@ -54,9 +54,11 @@ class InventoryViewModelTest {
 
         val state = vm.uiState
         assertNotNull(state.packages.data)
-        assertEquals(2, state.packages.data!!.size)
+        assertEquals(dummyInventoryUiState.packages.data!!.size, state.packages.data!!.size)
+        assertEquals(dummyInventoryUiState.packages.data!!.first().name, state.packages.data!!.first().name)
         assertNotNull(state.otherPackages.data)
-        assertEquals(2, state.otherPackages.data!!.size)
+        assertEquals(dummyInventoryUiState.otherPackages.data!!.size, state.otherPackages.data!!.size)
+        assertEquals(dummyInventoryUiState.otherPackages.data!!.first(), state.otherPackages.data!!.first())
         assertFalse(state.packages.isLoading)
         assertFalse(state.otherPackages.isLoading)
     }
