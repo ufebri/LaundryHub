@@ -576,4 +576,43 @@ class HomeViewModelTest {
             ), names
         )
     }
+
+    @Test
+    fun `fetchTodayIncome keeps loading state when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.todayIncome.isLoading)
+        assertNull(state.todayIncome.errorMessage)
+    }
+
+    @Test
+    fun `fetchSummary sets loading state when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.summary.isLoading)
+        assertNull(state.summary.errorMessage)
+    }
+
+    @Test
+    fun `fetchOrder keeps unpaidOrder loading when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.unpaidOrder.isLoading)
+        assertNull(state.unpaidOrder.errorMessage)
+        assertTrue(state.unpaidOrder.data == null || state.unpaidOrder.data!!.isEmpty())
+    }
 }

@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.outcome
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
@@ -164,5 +165,270 @@ class OutcomeViewModelTest {
 
         assertFalse(vm.uiState.isSubmitting)
         assertTrue(completed)
+    }
+
+    @Test
+    fun `submitOutcome sets error state on failure`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("fail"))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onPurposeChanged("Test")
+        vm.onPriceChanged("1,000")
+        vm.onPaymentMethodSelected("Paid by Cash")
+        vm.onRemarkChanged("-")
+
+        val data = vm.buildOutcomeDataForSubmit()
+        assertNotNull(data)
+
+        vm.submitOutcome(data!!) {}
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.isSubmitting)
+        assertEquals("fail", vm.uiState.submitNewOutcome.errorMessage)
+    }
+
+    @Test
+    fun `updateOutcome clears submitting flag on success`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Success(true))
+        whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
+            .thenReturn(Resource.Success(sampleOutcome))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onOutcomeEditClick("1")
+        var completed = false
+        vm.updateOutcome(sampleOutcome) { completed = true }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.isSubmitting)
+        assertTrue(completed)
+        assertTrue(vm.uiState.updateOutcome.data == true)
+    }
+
+    @Test
+    fun `onOutcomeEditClick returns false and sets error when use case fails`() = runTest {
+        whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
+            .thenReturn(Resource.Error("boom"))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.onOutcomeEditClick("1")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(result)
+        assertFalse(vm.uiState.isEditMode)
+        assertEquals("boom", vm.uiState.editOutcome.errorMessage)
+    }
+
+    @Test
+    fun `onOutcomeEditClick returns false and sets empty message when no data`() = runTest {
+        whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
+            .thenReturn(Resource.Empty)
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.onOutcomeEditClick("1")
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(result)
+        assertFalse(vm.uiState.isEditMode)
+        assertEquals(
+            "No data found for outcome ID: 1",
+            vm.uiState.editOutcome.errorMessage
+        )
+    }
+
+    @Test
+    fun `buildOutcomeDataForSubmit returns data when last id valid`() = runTest {
+        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Success("123"))
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onPurposeChanged("Laundry")
+        vm.onPriceChanged("1,000")
+        vm.onPaymentMethodSelected("Paid by Cash")
+        vm.onRemarkChanged("-")
+        vm.onDateChanged("01/01/2025")
+
+        val data = vm.buildOutcomeDataForSubmit()
+        assertNotNull(data)
+        assertEquals("123", data!!.id)
+        assertEquals("1000", data.price)
+        assertEquals(getPaymentValueFromDescription("Paid by Cash"), data.payment)
+    }
+
+    @Test
+    fun `buildOutcomeDataForUpdate returns data when outcomeID set`() = runTest {
+        whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
+            .thenReturn(Resource.Success(sampleOutcome))
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onOutcomeEditClick("1")
+        vm.onDateChanged("02/02/2025")
+        vm.onPurposeChanged("Update")
+        vm.onPriceChanged("2000")
+        vm.onPaymentMethodSelected("Paid by Cash")
+
+        val data = vm.buildOutcomeDataForUpdate()
+        assertNotNull(data)
+        assertEquals(vm.uiState.outcomeID, data!!.id)
+    }
+
+    @Test
+    fun `resetForm clears fields and edit mode`() = runTest {
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onOutcomeEditClick("1")
+        vm.onPurposeChanged("Change")
+        vm.onPaymentMethodSelected("Paid by Cash")
+
+        vm.resetForm()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.isEditMode)
+        assertEquals("", vm.uiState.name)
+        assertEquals("", vm.uiState.paymentStatus)
+    }
+
+    @Test
+    fun `fetchOutcomeList sets error when use case returns Error`() = runTest {
+        whenever(mockReadOutcome.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Error("fail"))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("fail", vm.uiState.outcome.errorMessage)
+        assertFalse(vm.uiState.outcome.isLoading)
+    }
+
+    @Test
+    fun `fetchOutcomeList sets error message when use case returns Empty`() = runTest {
+        whenever(mockReadOutcome.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Empty)
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Data Kosong", vm.uiState.outcome.errorMessage)
+        assertFalse(vm.uiState.outcome.isLoading)
+    }
+
+    @Test
+    fun `fetchLastOutcomeId sets fallback text on error`() = runTest {
+        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Error("boom"))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Error, try again", vm.uiState.lastOutcomeId)
+    }
+
+    @Test
+    fun `buildOutcomeDataForUpdate returns null when outcomeID blank`() = runTest {
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.resetForm() // outcomeID kosong
+        assertTrue(vm.buildOutcomeDataForUpdate() == null)
+    }
+
+    @Test
+    fun `updateOutcome stops submitting flag on error`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("fail"))
+
+        val vm = OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onOutcomeEditClick("1") // put into edit mode if possible
+        vm.updateOutcome(sampleOutcome) {}
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.isSubmitting)
+        assertEquals("fail", vm.uiState.updateOutcome.errorMessage)
     }
 }

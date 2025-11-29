@@ -3,23 +3,18 @@ package com.raylabs.laundryhub.ui.component
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.Button
-import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -126,27 +121,16 @@ fun OutcomeBottomSheet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        Button(
-            onClick = if (state.isEditMode) onUpdate else onSubmit,
-            enabled = if (state.isEditMode)
+        SubmitUpdateButton(
+            isEditMode = state.isEditMode,
+            isEnabled = if (state.isEditMode)
                 state.isUpdateEnabled && !state.isSubmitting
             else
                 state.isSubmitEnabled && !state.isSubmitting,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp)
-                .defaultMinSize(minWidth = 120.dp),
-            shape = RoundedCornerShape(12.dp)
-        ) {
-            if (state.isSubmitting) {
-                CircularProgressIndicator(
-                    color = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-            } else {
-                Text(if (state.isEditMode) "Update" else "Submit")
-            }
-        }
+            isSubmitting = state.isSubmitting,
+            onSubmit = onSubmit,
+            onUpdate = onUpdate
+        )
     }
 }
 

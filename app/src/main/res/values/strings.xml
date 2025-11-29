@@ -35,4 +35,6 @@
     <string name="price">Price</string>
     <string name="remark">Remark</string>
     <string name="payment_method">Payment Method</string>
+    <string name="update">Update</string>
+    <string name="submit">Submit</string>
 </resources>

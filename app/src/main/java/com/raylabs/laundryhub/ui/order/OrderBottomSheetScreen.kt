@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.Button
-import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.DropdownMenu
 import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.Icon
@@ -47,6 +44,7 @@ import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.component.DatePickerField
 import com.raylabs.laundryhub.ui.component.DropdownMenuField
+import com.raylabs.laundryhub.ui.component.SubmitUpdateButton
 import com.raylabs.laundryhub.ui.order.state.OrderUiState
 import com.raylabs.laundryhub.ui.order.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.order.state.isUpdateEnabled
@@ -239,27 +237,18 @@ fun OrderBottomSheet(
                 modifier = Modifier.weight(1f)
             )
 
-            Button(
-                onClick = if (state.isEditMode) onUpdate else onSubmit,
-                enabled = if (state.isEditMode)
+            SubmitUpdateButton(
+                isEditMode = state.isEditMode,
+                isEnabled = if (state.isEditMode)
                     state.isUpdateEnabled && !state.isSubmitting
                 else
                     state.isSubmitEnabled && !state.isSubmitting,
-                modifier = Modifier
-                    .align(Alignment.Bottom)
-                    .height(56.dp)
-                    .defaultMinSize(minWidth = 120.dp),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                if (state.isSubmitting) {
-                    CircularProgressIndicator(
-                        color = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                } else {
-                    Text(if (state.isEditMode) "Update" else "Submit")
-                }
-            }
+                isSubmitting = state.isSubmitting,
+                onSubmit = onSubmit,
+                onUpdate = onUpdate,
+                modifier = Modifier.align(Alignment.Bottom),
+                fillMaxWidth = false
+            )
         }
     }
 }

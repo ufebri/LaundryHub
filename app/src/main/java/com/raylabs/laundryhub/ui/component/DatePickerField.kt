@@ -21,6 +21,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.content.ContextCompat
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.DateUtil
@@ -111,4 +112,14 @@ fun DatePickerField(
                 }
         )
     }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewDatePickerField() {
+    DatePickerField(
+        label = "Order Date",
+        value = "24/12/2025",
+        onDateSelected = {}
+    )
 }
