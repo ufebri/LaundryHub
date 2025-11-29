@@ -1,4 +1,4 @@
-package com.raylabs.laundryhub.ui.inventory
+package com.raylabs.laundryhub.ui.profile.inventory
 
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
@@ -7,8 +7,8 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.inventory.state.InventoryUiState
-import com.raylabs.laundryhub.ui.inventory.state.toUi
+import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
+import com.raylabs.laundryhub.ui.profile.inventory.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject

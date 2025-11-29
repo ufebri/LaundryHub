@@ -1,4 +1,4 @@
-package com.raylabs.laundryhub.ui.inventory
+package com.raylabs.laundryhub.ui.profile.inventory
 
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -39,8 +39,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
-import com.raylabs.laundryhub.ui.inventory.state.InventoryUiState
-import com.raylabs.laundryhub.ui.inventory.state.PackageItem
+import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 
 @Composable
 fun InventoryScreenView(

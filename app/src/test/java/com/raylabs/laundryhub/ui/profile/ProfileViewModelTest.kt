@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.profile
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.profile.state.toUI
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertTrue
@@ -39,7 +40,7 @@ class ProfileViewModelTest {
     @Test
     fun `fetchUser sets user in uiState`() = runTest {
         // Given
-        val user = User("id", "Uray", "uray@mail.com", "photoUrl")
+        val user = User("id", "Ray Febri", "uray@mail.com", "photoUrl")
         `when`(userUseCase.getCurrentUser()).thenReturn(user)
 
         // When
@@ -48,6 +49,7 @@ class ProfileViewModelTest {
 
         // Then
         assertEquals(user.toUI(), actual)
+        assertEquals(dummyProfileUiState.user.data?.displayName, actual?.displayName)
     }
 
     @Test

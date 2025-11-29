@@ -7,26 +7,20 @@ import org.junit.Test
 class UserItemTest {
 
     @Test
-    fun `toUI maps displayName when not null`() {
-        val user = User(
-            uid = "123",
-            displayName = "Fahmi",
-            email = "fahmi@mail.com",
-            urlPhoto = "https://example.com/photo.jpg"
-        )
-        val uiItem = user.toUI()
-        assertEquals("Fahmi", uiItem.displayName)
+    fun `toUI maps displayName when present`() {
+        val user = User(uid = "1", displayName = "Alice", email = null, urlPhoto = null)
+
+        val result = user.toUI()
+
+        assertEquals("Alice", result.displayName)
     }
 
     @Test
-    fun `toUI uses Guest when displayName is null`() {
-        val user = User(
-            uid = "123",
-            displayName = null,
-            email = "test@mail.com",
-            urlPhoto = "https://photo"
-        )
-        val uiItem = user.toUI()
-        assertEquals("Guest", uiItem.displayName)
+    fun `toUI returns Guest when displayName is null`() {
+        val user = User(uid = "1", displayName = null, email = null, urlPhoto = null)
+
+        val result = user.toUI()
+
+        assertEquals("Guest", result.displayName)
     }
 }

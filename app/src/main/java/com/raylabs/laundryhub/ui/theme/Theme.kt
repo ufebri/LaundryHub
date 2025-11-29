@@ -8,25 +8,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val DarkColorPalette = darkColors(
-    primary = Purple200,
+    primary = PurpleLaundryHub,
     primaryVariant = Purple700,
-    secondary = Teal200,
+    secondary = PurpleLaundryHub,
     background = Color(0xFF181829),
     surface = Color(0xFFF5F5F5), // abu-abu terang agar bottom sheet tidak putih polos di dark mode
     onPrimary = Color.White,
-    onSecondary = Color.Black,
+    onSecondary = Color.White,
     onBackground = Color.White, // Teks di atas background utama (gelap) adalah PUTIH
     onSurface = Color.Black    // Teks di atas surface (bottom sheet terang) adalah HITAM
 )
 
 private val LightColorPalette = lightColors(
-    primary = Purple500,
+    primary = PurpleLaundryHub,
     primaryVariant = Purple700,
-    secondary = Teal200,
+    secondary = PurpleLaundryHub,
     background = Color.White,
     surface = Color.White, 
     onPrimary = Color.White,
-    onSecondary = Color.Black,
+    onSecondary = Color.White,
     onBackground = Color.Black, // Teks di atas background utama (terang) adalah HITAM
     onSurface = Color.Black    // Teks di atas surface (terang) adalah HITAM
 )

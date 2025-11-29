@@ -15,7 +15,11 @@ object TextUtil {
     fun String.toRupiahFormat(): String {
         if (this.isEmpty()) return ""
         val number = this.toLongOrNull() ?: return ""
-        val formatter = NumberFormat.getInstance(Locale("id", "ID"))
+        val locale = Locale.Builder()
+            .setLanguage("id")
+            .setRegion("ID")
+            .build()
+        val formatter = NumberFormat.getInstance(locale)
         return "${formatter.format(number)}"
     }
 

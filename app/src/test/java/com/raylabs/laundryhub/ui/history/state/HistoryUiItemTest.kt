@@ -1,8 +1,8 @@
 package com.raylabs.laundryhub.ui.history.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -26,14 +26,13 @@ class HistoryUiItemTest {
             dueDate = "01/08/2025"
         )
         val ui = trx.toUiItem()
-        assertEquals("123", ui.orderId)
+        assertEquals("123", ui.id)
         assertEquals("Rama", ui.name)
-        assertEquals("01/08/2025", ui.formattedDate)
-        assertEquals("10000", ui.totalPrice)
-        assertEquals("Reguler", ui.packageType)
+        assertEquals("01/08/2025", ui.date)
+        assertEquals("10000", ui.price)
+        assertEquals("Reguler", ui.remark)
         // Asumsi paidDescription dan isPaidData default-mu sesuai status Paid
         assertEquals(trx.paidDescription(), ui.paymentStatus)
-        assertEquals(trx.isPaidData(), ui.isPaid)
     }
 
     @Test
@@ -84,16 +83,16 @@ class HistoryUiItemTest {
         val result = listOf(trx1, trx2, trx3).toUiItems()
 
         // Harus ada 2 header (2 tanggal)
-        val headers = result.filterIsInstance<HistoryUiItem.Header>()
+        val headers = result.filterIsInstance<DateListItemUI.Header>()
         assertEquals(2, headers.size)
         assertTrue(headers.any { it.date == "01/08/2025" })
         assertTrue(headers.any { it.date == "02/08/2025" })
 
         // Cek Entry urutannya benar (orderId descending di group tanggal)
-        val entriesFor0108 = result.filterIsInstance<HistoryUiItem.Entry>()
-            .filter { it.item.formattedDate == "01/08/2025" }
+        val entriesFor0108 = result.filterIsInstance<DateListItemUI.Entry>()
+            .filter { it.item.date == "01/08/2025" }
         assertEquals(2, entriesFor0108.size)
-        assertEquals("20", entriesFor0108[0].item.orderId) // orderId 20 harus di depan (descending)
-        assertEquals("10", entriesFor0108[1].item.orderId)
+        assertEquals("20", entriesFor0108[0].item.id) // orderId 20 harus di depan (descending)
+        assertEquals("10", entriesFor0108[1].item.id)
     }
 }

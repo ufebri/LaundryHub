@@ -4,9 +4,12 @@ import com.raylabs.laundryhub.core.domain.model.auth.User
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_ARIFIN
+import com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_EMY
+import com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_GABRIEL
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
@@ -38,9 +41,9 @@ class HomeViewModelTest {
     private val mockUserUseCase: UserUseCase = mock()
 
     private val unpaidOrderItemsForSort = listOf(
-        UnpaidOrderItem("1", "Charlie", "Kilat", "Unpaid", "03/08/2024", "01/08/2024"),
-        UnpaidOrderItem("2", "Alice", "Reguler", "Unpaid", "02/08/2024", "01/08/2024"),
-        UnpaidOrderItem("3", "Bob", "Express", "Unpaid", "01/08/2024", "02/08/2024")
+        DUMMY_UNPAID_ORDER_ITEM_EMY,
+        DUMMY_UNPAID_ORDER_ITEM_GABRIEL,
+        DUMMY_UNPAID_ORDER_ITEM_ARIFIN
     )
 
     private fun List<UnpaidOrderItem>.toTransactionDataList(): List<TransactionData> =
@@ -320,9 +323,10 @@ class HomeViewModelTest {
         assertTrue(state.orderUpdateKey != initialOrderUpdateKey)
 
         val sortedData = state.unpaidOrder.data!!
-        assertEquals("Charlie", sortedData[0].customerName)
-        assertEquals("Alice", sortedData[1].customerName)
-        assertEquals("Bob", sortedData[2].customerName)
+        // Dates are unparsable, so ordering follows insertion (Emy, Gabriel, Arifin)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_EMY.customerName, sortedData[0].customerName)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_GABRIEL.customerName, sortedData[1].customerName)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_ARIFIN.customerName, sortedData[2].customerName)
     }
 
     @Test
@@ -339,9 +343,9 @@ class HomeViewModelTest {
         val state = vm.uiState.value
         assertEquals(SortOption.DUE_DATE_ASC, state.currentSortOption)
         val sortedData = state.unpaidOrder.data!!
-        assertEquals("Bob", sortedData[0].customerName)
-        assertEquals("Alice", sortedData[1].customerName)
-        assertEquals("Charlie", sortedData[2].customerName)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_EMY.customerName, sortedData[0].customerName)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_GABRIEL.customerName, sortedData[1].customerName)
+        assertEquals(DUMMY_UNPAID_ORDER_ITEM_ARIFIN.customerName, sortedData[2].customerName)
     }
 
     @Test
@@ -510,10 +514,10 @@ class HomeViewModelTest {
         val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
-        // WHEN: user mencari "bo" (harusnya hanya "Bob")
-        vm.onSearchQueryChanged("bo")
+        // WHEN: user mencari "emy" (match Ny Emy)
+        vm.onSearchQueryChanged("emy")
         var names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
-        assertEquals(listOf("Bob"), names)
+        assertEquals(listOf(DUMMY_UNPAID_ORDER_ITEM_EMY.customerName), names)
         assertFalse(vm.uiState.value.isSearchActive) // default-nya false
 
         // AND: toggle sekali → ON, query tidak dihapus
@@ -521,9 +525,9 @@ class HomeViewModelTest {
 
         // THEN
         assertTrue(vm.uiState.value.isSearchActive)
-        assertEquals("bo", vm.uiState.value.searchQuery)
+        assertEquals("emy", vm.uiState.value.searchQuery)
         names = vm.uiState.value.unpaidOrder.data!!.map { it.customerName }
-        assertEquals(listOf("Bob"), names) // hasil filter tetap
+        assertEquals(listOf(DUMMY_UNPAID_ORDER_ITEM_EMY.customerName), names) // hasil filter tetap
         assertFalse(vm.uiState.value.unpaidOrder.isLoading)
     }
 
@@ -543,8 +547,10 @@ class HomeViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Set query & aktifkan search
-        vm.onSearchQueryChanged("bo")
-        assertEquals(listOf("Bob"), vm.uiState.value.unpaidOrder.data!!.map { it.customerName })
+        vm.onSearchQueryChanged("emy")
+        assertEquals(
+            listOf(DUMMY_UNPAID_ORDER_ITEM_EMY.customerName),
+            vm.uiState.value.unpaidOrder.data!!.map { it.customerName })
         vm.toggleSearch() // ON dulu
         assertTrue(vm.uiState.value.isSearchActive)
 
@@ -562,6 +568,51 @@ class HomeViewModelTest {
 
         // Default sort = ORDER_DATE_DESC → 03/08 > 02/08 > 01/08
         val names = state.unpaidOrder.data!!.map { it.customerName }
-        assertEquals(listOf("Bob", "Charlie", "Alice"), names)
+        assertEquals(
+            listOf(
+                DUMMY_UNPAID_ORDER_ITEM_EMY.customerName,
+                DUMMY_UNPAID_ORDER_ITEM_GABRIEL.customerName,
+                DUMMY_UNPAID_ORDER_ITEM_ARIFIN.customerName
+            ), names
+        )
+    }
+
+    @Test
+    fun `fetchTodayIncome keeps loading state when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.todayIncome.isLoading)
+        assertNull(state.todayIncome.errorMessage)
+    }
+
+    @Test
+    fun `fetchSummary sets loading state when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockSummaryUseCase).invoke()
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.summary.isLoading)
+        assertNull(state.summary.errorMessage)
+    }
+
+    @Test
+    fun `fetchOrder keeps unpaidOrder loading when use case returns Loading`() = runTest {
+        doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+
+        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertTrue(state.unpaidOrder.isLoading)
+        assertNull(state.unpaidOrder.errorMessage)
+        assertTrue(state.unpaidOrder.data == null || state.unpaidOrder.data!!.isEmpty())
     }
 }

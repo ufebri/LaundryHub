@@ -1,7 +1,8 @@
-package com.raylabs.laundryhub.core.domain.usecase.sheets
+package com.raylabs.laundryhub.core.domain.usecase.sheets.income
 
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
+import com.raylabs.laundryhub.core.domain.usecase.UseCaseErrorHandling
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.retry
 import javax.inject.Inject
@@ -16,6 +17,6 @@ class GetOrderUseCase @Inject constructor(
         val result = retry(onRetry = onRetry) {
             repository.getOrderById(orderID)
         }
-        return result ?: Resource.Error("Failed after 3 attempts.")
+        return result ?: UseCaseErrorHandling.handleFailRetry
     }
 }

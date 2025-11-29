@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme_LaundryHub_DatePicker" parent="Theme.MaterialComponents.DayNight.Dialog">
+        <item name="colorPrimary">@color/colorPrimary</item>
+        <item name="colorPrimaryVariant">@color/colorPrimaryDark</item>
+        <item name="colorAccent">@color/colorPrimary</item>
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <item name="colorOnPrimary">@android:color/white</item>
+        <item name="colorOnSurface">@color/colorPrimaryDark</item>
+        <item name="colorSurface">@android:color/white</item>
+        <item name="android:windowBackground">@android:color/white</item>
+        <item name="android:colorBackground">@android:color/white</item>
+        <item name="android:textColor">@color/colorPrimaryDark</item>
+        <item name="android:textColorPrimary">@color/colorPrimaryDark</item>
+        <item name="android:textColorSecondary">@color/colorPrimaryDark</item>
+
+
+        <item name="colorControlActivated">@color/colorPrimary</item>
+        <!-- untuk jaga-jaga di beberapa versi Android -->
+        <item name="android:colorAccent">@color/colorPrimary</item>
+        <item name="android:colorControlActivated">@color/colorPrimary</item>
+    </style>
+</resources>

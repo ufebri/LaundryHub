@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.ui.inventory.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
+import com.raylabs.laundryhub.ui.profile.inventory.state.toUi
 import org.junit.Assert.assertEquals
 import org.junit.Test
 

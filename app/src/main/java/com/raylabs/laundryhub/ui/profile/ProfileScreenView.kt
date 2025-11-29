@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.ui.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,9 +17,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -42,7 +47,8 @@ import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
 @Composable
 fun ProfileScreenView(
     viewModel: ProfileViewModel = hiltViewModel(),
-    loginViewModel: LoginViewModel
+    loginViewModel: LoginViewModel,
+    onInventoryClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
 
@@ -57,7 +63,8 @@ fun ProfileScreenView(
                     // Handle successful logout, e.g., navigate to login screen
                     loginViewModel.clearUser()
                 })
-            }
+            },
+            onInventoryClick = onInventoryClick
         )
     }
 }
@@ -66,7 +73,8 @@ fun ProfileScreenView(
 fun ProfileScreenContent(
     state: ProfileUiState,
     modifier: Modifier = Modifier,
-    onLoggedOut: () -> Unit = {}
+    onLoggedOut: () -> Unit = {},
+    onInventoryClick: () -> Unit = {}
 ) {
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
@@ -81,7 +89,7 @@ fun ProfileScreenContent(
         verticalArrangement = Arrangement.SpaceBetween
     ) {
         // Top - User Info Card
-        Column {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             Card(
                 backgroundColor = Color(0xFF443C56),
                 shape = RoundedCornerShape(12.dp),
@@ -107,6 +115,58 @@ fun ProfileScreenContent(
                         style = MaterialTheme.typography.body1,
                         fontWeight = FontWeight.Bold
                     )
+                }
+            }
+
+            Spacer(modifier = Modifier.padding(16.dp))
+
+            Column {
+                Text(
+                    text = "Store",
+                    style = MaterialTheme.typography.h6,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    backgroundColor = Color(0xFF4B3F63),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(onClick = onInventoryClick)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Card(
+                            shape = CircleShape,
+                            backgroundColor = Color(0xFFCEC1FF),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.Build,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4B3F63)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                text = "Inventory",
+                                color = Color.White,
+                                style = MaterialTheme.typography.body1,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "Setup Order Package",
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.caption
+                            )
+                        }
+                    }
                 }
             }
         }
@@ -158,6 +218,9 @@ fun PreviewProfileScreen() {
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
-        ProfileScreenContent(dummyProfileUiState, modifier = Modifier.padding(padding))
+        ProfileScreenContent(
+            state = dummyProfileUiState,
+            modifier = Modifier.padding(padding)
+        )
     }
 }

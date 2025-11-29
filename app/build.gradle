@@ -6,7 +6,6 @@ plugins {
     id 'com.google.gms.google-services'
     id 'com.google.firebase.crashlytics'
     id 'jacoco'
-    id 'com.github.kt3k.coveralls' version '2.12.0'
 }
 
 def apikeyPropertiesFile = rootProject.file("config.properties")
@@ -22,7 +21,7 @@ versionProps.load(new FileInputStream(versionPropsFile))
 
 android {
     namespace 'com.raylabs.laundryhub'
-    compileSdk 36
+    compileSdkVersion 36
     defaultConfig {
         applicationId "com.raylabs.laundryhub"
         minSdkVersion 23
@@ -90,46 +89,105 @@ android {
     hilt {
         enableAggregatingTask = false
     }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+            returnDefaultValues = true
+        }
+    }
 }
 
-jacoco {
-    toolVersion = "0.8.8"
-}
-
+// Ensure unit tests always produce coverage data (CI friendly)
 tasks.withType(Test).configureEach {
-    finalizedBy jacocoTestReport
+    jacoco.includeNoLocationClasses = false
+    jacoco.excludes = ['jdk.internal.*', 'jdk.proxy*', 'java.*', 'sun.*', 'com.sun.*']
 }
 
 tasks.register("jacocoTestReport", JacocoReport) {
-    dependsOn("testDebugUnitTest")
+    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac"
 
     reports {
-        xml.required = true  // Coveralls membutuhkan format XML
+        xml.required = true
         html.required = true
         csv.required = false
-        xml.outputLocation.set(file("$buildDir/reports/jacoco/test/jacocoTestReport.xml"))
     }
 
-    def fileFilter = [
-            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*'
+    // === Pola exclude: generated + UI layer ===
+    def excludes = [
+            // generated/boilerplate
+            '**/R.class', '**/R$*.class',
+            '**/BuildConfig.*',
+            '**/Manifest*.*',
+            '**/*$ViewInjector*.*',
+            '**/*$ViewBinder*.*',
+            '**/androidx/**/*.*',
+
+            // UI yang mau kamu singkirkan dari coverage
+            '**/*Activity.*', '**/*Activity$*.*',
+            '**/*Fragment.*', '**/*Fragment$*.*',
+            '**/*Adapter.*',  '**/*Adapter$*.*',
+            '**/com/raylabs/laundryhub/ui/**',
+            '**/com/raylabs/laundryhub/databinding/**',
+            '**/com/raylabs/laundryhub/data/source/local/room/**',
+            '**/com/raylabs/laundryhub/LaundryHubApp*'
     ]
 
-    def javaClasses = fileTree(dir: "$buildDir/intermediates/javac/debug", excludes: fileFilter)
-    def kotlinClasses = fileTree(dir: "$buildDir/tmp/kotlin-classes/debug", excludes: fileFilter)
+    // === Cari file .class di seluruh buildDir (lebih toleran untuk variasi AGP/Gradle di CI) ===
+    def b = layout.buildDirectory.get().asFile
 
-    sourceDirectories.setFrom files("src/main/java", "src/main/kotlin")
-    classDirectories.setFrom files([javaClasses, kotlinClasses])
-    executionData.setFrom fileTree(dir: buildDir, includes: ["jacoco/testDebugUnitTest.exec"])
+    // 1) Semua direktori kelas yang umum untuk Kotlin/Java debug
+    def classDirTrees = [
+            fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/javac/debug'), exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/classes/debug'), exclude: excludes)
+    ]
+
+    def allTrees = []
+    allTrees.addAll(classDirTrees)
+    // Do not add unit test output to avoid duplicate classes (e.g., Application)
+
+    // Gunakan from(...) langsung agar Gradle tidak mengosongkan koleksi FileTree
+    classDirectories.from(allTrees)
+
+    // === Collect execution data for debug unit tests ===
+    def execFiles = files(
+            fileTree(dir: new File(b, 'jacoco'), include: ['testDebugUnitTest.exec']),
+            fileTree(dir: new File(b, 'outputs/unit_test_code_coverage/debugUnitTest'), include: ['**/*.ec'])
+    )
+    executionData.from(execFiles)
+
+    // Debug log
+    doFirst {
+        println "[jacoco] buildDir = ${b.absolutePath}"
+
+        println "[jacoco] class dir trees:"
+        classDirTrees.each { println " - DIR tree: ${it.dir} (exists=${it.dir.exists()}) files=${it.files.size()}" }
+
+        println "[jacoco] allTrees size = ${allTrees.size()} (dirTrees=${classDirTrees.size()})"
+        def total = 0
+        allTrees.each { ft -> total += ft.files.size() }
+        println "[jacoco] class files included = ${total}"
+
+        println "[jacoco] executionData files:"
+        execFiles.each { println " - EXEC: ${it.absolutePath} (exists=${it.exists()})" }
+    }
+}
+
+
+jacoco {
+    toolVersion = "0.8.11"
 }
 
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     //Need To Upgrade Gradle Plugin if we need to update the library
-    implementation 'androidx.core:core-ktx:1.12.0'
+    implementation 'androidx.core:core-ktx:1.17.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'com.google.android.material:material:1.9.0'
+    implementation 'com.google.android.material:material:1.13.0'
 
     //SplashScreen
     implementation "androidx.core:core-splashscreen:1.0.1"
@@ -149,7 +207,7 @@ dependencies {
     //Compose
     implementation "androidx.compose.ui:ui:$compose_version"
     implementation "androidx.navigation:navigation-compose:$nav_version"
-    implementation "androidx.compose.material:material:$materialui_version"
+    implementation "androidx.compose.material:material:1.6.8"
     implementation "androidx.activity:activity-compose:1.10.1"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"

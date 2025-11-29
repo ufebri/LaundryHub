@@ -5,7 +5,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodList
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.inventory.state.PackageItem
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 
 data class OrderUiState(
     val lastOrderId: String? = null,
@@ -29,7 +29,7 @@ data class OrderUiState(
     val weight: String = "",
     val paymentMethod: String = "",
     val note: String = "",
-    val orderDate: String = DateUtil.getTodayDate("dd/MM/yyyy"),
+    val orderDate: String = DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED),
     val dueDate: String? = "",
     val isSubmitting: Boolean = false,
 )

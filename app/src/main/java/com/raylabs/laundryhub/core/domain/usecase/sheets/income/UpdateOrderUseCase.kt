@@ -1,7 +1,8 @@
-package com.raylabs.laundryhub.core.domain.usecase.sheets
+package com.raylabs.laundryhub.core.domain.usecase.sheets.income
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
+import com.raylabs.laundryhub.core.domain.usecase.UseCaseErrorHandling
 import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.retry
 
@@ -14,6 +15,6 @@ class UpdateOrderUseCase(
     ): Resource<Boolean> {
         return retry(onRetry = onRetry) {
             repository.updateOrder(order)
-        } ?: Resource.Error("Failed to submit data")
+        } ?: UseCaseErrorHandling.handleFailedSubmit
     }
 }
