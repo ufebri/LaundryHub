@@ -50,6 +50,9 @@ sonar {
         property "sonar.projectKey", sonarProps.getProperty("SONAR_PROJECT_KEY")
         property "sonar.organization", sonarProps.getProperty("SONAR_ORGANIZATION")
         property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.coverage.jacoco.xmlReportPaths",
+                "app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+
 
         if (localSonarLogin) {
             property "sonar.token", localSonarLogin  // ← ini String

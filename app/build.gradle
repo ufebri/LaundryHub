@@ -130,7 +130,22 @@ tasks.register("jacocoTestReport", JacocoReport) {
             '**/com/raylabs/laundryhub/ui/**',
             '**/com/raylabs/laundryhub/databinding/**',
             '**/com/raylabs/laundryhub/data/source/local/room/**',
-            '**/com/raylabs/laundryhub/LaundryHubApp*'
+            '**/com/raylabs/laundryhub/LaundryHubApp*',
+
+            // Tambahkan pola exclude lainnya sesuai kebutuhan
+            '**/com/raylabs/laundryhub/ui/component/**',
+            '**/com/raylabs/laundryhub/ui/theme/**',
+            '**/*Screen*.*',
+            '**/com/raylabs/laundryhub/core/di/**',
+
+            // 🔽 library eksternal
+            'androidx/**',
+            'kotlin/**',
+            'kotlinx/**',
+            'com/google/**',
+            'com/squareup/**',
+            'coil/**',
+            'com/airbnb/**',
     ]
 
     // === Cari file .class di seluruh buildDir (lebih toleran untuk variasi AGP/Gradle di CI) ===
