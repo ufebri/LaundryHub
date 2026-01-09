@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
@@ -35,7 +36,8 @@ class OrderViewModel @Inject constructor(
     private val submitOrderUseCase: SubmitOrderUseCase,
     private val packageListUseCase: ReadPackageUseCase,
     private val getOrderByIdUseCase: GetOrderUseCase,
-    private val updateOrderUseCase: UpdateOrderUseCase
+    private val updateOrderUseCase: UpdateOrderUseCase,
+    private val observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OrderUiState())
@@ -44,6 +46,7 @@ class OrderViewModel @Inject constructor(
     init {
         fetchLastOrderId()
         getPackageList()
+        observeSettings()
     }
 
     fun onOrderEditClick(orderId: String, onSuccess: () -> Unit) {
@@ -188,6 +191,14 @@ class OrderViewModel @Inject constructor(
                 }
 
                 else -> Unit
+            }
+        }
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            observeShowWhatsAppSettingUseCase().collect { isEnabled ->
+                _uiState.value = _uiState.value.copy(showWhatsAppOption = isEnabled)
             }
         }
     }

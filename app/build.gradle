@@ -130,7 +130,12 @@ tasks.register("jacocoTestReport", JacocoReport) {
             '**/*Activity.*', '**/*Activity$*.*',
             '**/*Fragment.*', '**/*Fragment$*.*',
             '**/*Adapter.*',  '**/*Adapter$*.*',
-            '**/com/raylabs/laundryhub/ui/**',
+            // UI composables/screens (keep ViewModel/state coverage)
+            '**/com/raylabs/laundryhub/ui/**/MainActivity*.*',
+            '**/com/raylabs/laundryhub/ui/**/LaundryHubStarter*.*',
+            '**/com/raylabs/laundryhub/ui/**/*Screen*.*',
+            '**/com/raylabs/laundryhub/ui/**/*ScreenView*.*',
+            '**/com/raylabs/laundryhub/ui/**/*BottomSheet*.*',
             '**/com/raylabs/laundryhub/databinding/**',
             '**/com/raylabs/laundryhub/data/source/local/room/**',
             '**/com/raylabs/laundryhub/LaundryHubApp*',
@@ -138,7 +143,6 @@ tasks.register("jacocoTestReport", JacocoReport) {
             // Tambahkan pola exclude lainnya sesuai kebutuhan
             '**/com/raylabs/laundryhub/ui/component/**',
             '**/com/raylabs/laundryhub/ui/theme/**',
-            '**/*Screen*.*',
             '**/com/raylabs/laundryhub/core/di/**',
 
             // 🔽 library eksternal
@@ -205,6 +209,7 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
+    androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     implementation 'com.google.android.material:material:1.13.0'
 
     //SplashScreen
@@ -228,6 +233,7 @@ dependencies {
     implementation "androidx.compose.material:material:1.6.8"
     implementation "androidx.activity:activity-compose:1.10.1"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
+    debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
 
     // Firebase

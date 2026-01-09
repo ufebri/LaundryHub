@@ -20,6 +20,8 @@ import androidx.compose.material.Card
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
+import androidx.compose.material.Switch
+import androidx.compose.material.SwitchDefaults
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
@@ -32,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -64,7 +67,8 @@ fun ProfileScreenView(
                     loginViewModel.clearUser()
                 })
             },
-            onInventoryClick = onInventoryClick
+            onInventoryClick = onInventoryClick,
+            onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption
         )
     }
 }
@@ -74,7 +78,8 @@ fun ProfileScreenContent(
     state: ProfileUiState,
     modifier: Modifier = Modifier,
     onLoggedOut: () -> Unit = {},
-    onInventoryClick: () -> Unit = {}
+    onInventoryClick: () -> Unit = {},
+    onWhatsAppOptionChanged: (Boolean) -> Unit = {}
 ) {
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
@@ -166,6 +171,53 @@ fun ProfileScreenContent(
                                 style = MaterialTheme.typography.caption
                             )
                         }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            Column {
+                Text(
+                    text = stringResource(R.string.settings),
+                    style = MaterialTheme.typography.h6,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    backgroundColor = Color(0xFF4B3F63),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = stringResource(R.string.whatsapp_option),
+                                color = Color.White,
+                                style = MaterialTheme.typography.body1,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = stringResource(R.string.whatsapp_option_description),
+                                color = Color.White.copy(alpha = 0.8f),
+                                style = MaterialTheme.typography.caption
+                            )
+                        }
+                        Switch(
+                            checked = state.showWhatsAppOption,
+                            onCheckedChange = onWhatsAppOptionChanged,
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color(0xFFCEC1FF),
+                                checkedTrackColor = Color(0xFF6B4FAA),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color.White.copy(alpha = 0.4f)
+                            )
+                        )
                     }
                 }
             }

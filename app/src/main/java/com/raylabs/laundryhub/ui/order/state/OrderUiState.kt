@@ -10,6 +10,7 @@ import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 data class OrderUiState(
     val lastOrderId: String? = null,
     val lastOrderIdError: String? = null,
+    val showWhatsAppOption: Boolean = true,
     val isEditMode: Boolean = false,
     val submitNewOrder: SectionState<Boolean> = SectionState(),
     val submitHistoryOrder: SectionState<Boolean> = SectionState(),

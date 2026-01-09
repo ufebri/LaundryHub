@@ -24,6 +24,9 @@
     <string name="gross_tax">Tax</string>
     <string name="back">Back</string>
     <string name="order_id_unavailable">Failed to get order ID. Please try again.</string>
+    <string name="settings">Settings</string>
+    <string name="whatsapp_option">WhatsApp Option</string>
+    <string name="whatsapp_option_description">Show WhatsApp field on order form</string>
 
     <!--  BottomNavItem  -->
     <string name="home">Home</string>

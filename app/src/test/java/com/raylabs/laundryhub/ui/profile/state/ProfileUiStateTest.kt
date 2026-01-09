@@ -18,6 +18,7 @@ class ProfileUiStateTest {
         assertFalse(state.logout.isLoading)
         assertNull(state.logout.errorMessage)
         assertNull(state.logout.data)
+        assertTrue(state.showWhatsAppOption)
     }
 
     @Test
@@ -29,11 +30,12 @@ class ProfileUiStateTest {
         )
         val userSection = SectionState(data = userItem)
         val logoutSection = SectionState(data = true)
-        val state = ProfileUiState(user = userSection, logout = logoutSection)
+        val state = ProfileUiState(user = userSection, logout = logoutSection, showWhatsAppOption = false)
         assertEquals("Raihan", state.user.data?.displayName)
         assertEquals("raihan@example.com", state.user.data?.email)
         assertEquals("http://img.com/p.jpg", state.user.data?.photoUrl)
         assertTrue(state.logout.data == true)
+        assertFalse(state.showWhatsAppOption)
     }
 
     @Test
