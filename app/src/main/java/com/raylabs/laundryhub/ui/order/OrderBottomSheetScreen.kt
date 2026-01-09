@@ -111,54 +111,56 @@ fun OrderBottomSheet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        OutlinedTextField(
-            value = state.phone,
-            onValueChange = { if (it.length <= 13) onPhoneChanged(it) },
-            label = { Text("Phone Number") },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions.Default.copy(
-                imeAction = ImeAction.Next,
-                keyboardType = KeyboardType.Number
-            ),
-            leadingIcon = {
-                Text(
-                    text = "+62",
-                    style = MaterialTheme.typography.body1
-                )
-            },
-            trailingIcon = {
-                if (state.isEditMode && state.phone.length > 9) {
-                    val context = LocalContext.current
-                    val message = WhatsAppHelper.buildOrderMessage(
-                        customerName = state.name,
-                        packageName = state.selectedPackage?.name.orEmpty(),
-                        total = state.price,
-                        paymentStatus = state.paymentMethod
+        if (state.showWhatsAppOption) {
+            OutlinedTextField(
+                value = state.phone,
+                onValueChange = { if (it.length <= 13) onPhoneChanged(it) },
+                label = { Text("Phone Number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions.Default.copy(
+                    imeAction = ImeAction.Next,
+                    keyboardType = KeyboardType.Number
+                ),
+                leadingIcon = {
+                    Text(
+                        text = "+62",
+                        style = MaterialTheme.typography.body1
                     )
+                },
+                trailingIcon = {
+                    if (state.isEditMode && state.phone.length > 9) {
+                        val context = LocalContext.current
+                        val message = WhatsAppHelper.buildOrderMessage(
+                            customerName = state.name,
+                            packageName = state.selectedPackage?.name.orEmpty(),
+                            total = state.price,
+                            paymentStatus = state.paymentMethod
+                        )
 
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Filled.Send,
-                        contentDescription = null,
-                        modifier = Modifier.clickable {
-                            WhatsAppHelper.sendWhatsApp(context, state.phone, message)
-                        }
-                    )
-                }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        LaunchedEffect(state.isEditMode, state.phone) {
-            Log.d(
-                "OrderBottomSheet",
-                "PhoneField Rendered: isEditMode=${state.isEditMode}, phone=${state.phone}"
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.Send,
+                            contentDescription = null,
+                            modifier = Modifier.clickable {
+                                WhatsAppHelper.sendWhatsApp(context, state.phone, message)
+                            }
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            LaunchedEffect(state.isEditMode, state.phone) {
+                Log.d(
+                    "OrderBottomSheet",
+                    "PhoneField Rendered: isEditMode=${state.isEditMode}, phone=${state.phone}"
+                )
+            }
+
+            Text(
+                text = "Make sure the WhatsApp is Available",
+                style = MaterialTheme.typography.caption,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
             )
         }
-
-        Text(
-            text = "Make sure the WhatsApp is Available",
-            style = MaterialTheme.typography.caption,
-            modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
-        )
 
         val orderDate = state.orderDate.ifBlank { "" }
 

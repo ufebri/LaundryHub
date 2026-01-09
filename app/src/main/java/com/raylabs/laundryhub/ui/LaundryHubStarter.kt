@@ -45,10 +45,12 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
+import com.raylabs.laundryhub.ui.home.GrossDetailScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
@@ -135,6 +137,17 @@ fun LaundryHubStarter(
     val snackBarHostState = remember { SnackbarHostState() }
     val triggerOpenSheet = remember { mutableStateOf(false) }
     val showEditOrderSheet = remember { mutableStateOf(false) }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val bottomBarRoutes = remember {
+        setOf(
+            BottomNavItem.Home.screenRoute,
+            BottomNavItem.History.screenRoute,
+            BottomNavItem.Order.screenRoute,
+            BottomNavItem.Outcome.screenRoute,
+            BottomNavItem.Profile.screenRoute
+        )
+    }
 
     fun dismissSheet() {
         scope.launch {
@@ -190,12 +203,14 @@ fun LaundryHubStarter(
                 )
             },
             bottomBar = {
-                BottomBar(navController, onOrderClick = {
-                    showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
-                    orderViewModel.resetForm() // Set mode new order
-                    showNewOrderSheet.value = true
-                    triggerOpenSheet.value = true
-                })
+                if (currentRoute in bottomBarRoutes) {
+                    BottomBar(navController, onOrderClick = {
+                        showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
+                        orderViewModel.resetForm() // Set mode new order
+                        showNewOrderSheet.value = true
+                        triggerOpenSheet.value = true
+                    })
+                }
             },
             modifier = modifier
         ) { innerPadding ->
@@ -220,6 +235,9 @@ fun LaundryHubStarter(
                                 showEditOrderSheet.value = true
                                 triggerOpenSheet.value = true
                             }
+                        },
+                        onGrossCardClick = {
+                            navController.navigate("gross")
                         }
                     )
                 }
@@ -238,6 +256,13 @@ fun LaundryHubStarter(
                 composable("inventory") {
                     InventoryScreenView()
                 }
+                composable("gross") {
+                    val state by homeViewModel.uiState.collectAsState()
+                    GrossDetailScreenView(
+                        grossState = state.gross,
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
         }
     }
@@ -253,6 +278,7 @@ fun ShowOrderBottomSheet(
 ) {
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
+    val orderIdUnavailableMessage = stringResource(R.string.order_id_unavailable)
 
     OrderBottomSheet(
         state = uiState,
@@ -264,30 +290,40 @@ fun ShowOrderBottomSheet(
         onNoteChanged = { orderViewModel.updateField("note", it) },
         onOrderDateSelected = { orderViewModel.onOrderDateSelected(it) },
         onSubmit = {
-            uiState.lastOrderId?.let { id ->
-                scope.launch {
-                    orderViewModel.submitOrder(uiState.toOrderData(id), onComplete = {
-                        homeViewModel.fetchOrder()
-                        homeViewModel.fetchTodayIncome()
-                        homeViewModel.fetchSummary()
-                        delay(500)
-                        dismissSheet()
+            scope.launch {
+                val currentState = orderViewModel.uiState.value
+                val orderId = currentState.lastOrderId
+                    ?: orderViewModel.resolveLastOrderIdForSubmit()
 
-                        val phone = uiState.phone
-                        if (phone.isNotEmpty()) {
-                            val message = WhatsAppHelper.buildOrderMessage(
-                                customerName = uiState.name,
-                                packageName = uiState.selectedPackage?.name.orEmpty(),
-                                total = uiState.price,
-                                paymentStatus = uiState.paymentMethod
-                            )
-                            WhatsAppHelper.sendWhatsApp(context, phone, message)
-                        }
-
-                        orderViewModel.resetForm()
-                        snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
-                    })
+                if (orderId.isNullOrBlank()) {
+                    val errorMessage = orderViewModel.uiState.value.lastOrderIdError
+                        ?: orderIdUnavailableMessage
+                    snackBarHostState.showSnackbar(errorMessage)
+                    return@launch
                 }
+
+                orderViewModel.submitOrder(orderViewModel.uiState.value.toOrderData(orderId), onComplete = {
+                    homeViewModel.fetchOrder()
+                    homeViewModel.fetchTodayIncome()
+                    homeViewModel.fetchSummary()
+                    homeViewModel.fetchGross()
+                    delay(500)
+                    dismissSheet()
+
+                    val phone = orderViewModel.uiState.value.phone
+                    if (phone.isNotEmpty()) {
+                        val message = WhatsAppHelper.buildOrderMessage(
+                            customerName = orderViewModel.uiState.value.name,
+                            packageName = orderViewModel.uiState.value.selectedPackage?.name.orEmpty(),
+                            total = orderViewModel.uiState.value.price,
+                            paymentStatus = orderViewModel.uiState.value.paymentMethod
+                        )
+                        WhatsAppHelper.sendWhatsApp(context, phone, message)
+                    }
+
+                    orderViewModel.resetForm()
+                    snackBarHostState.showSnackbar("Order #$orderId successfully submitted!, waiting for open wa...")
+                })
             }
         },
         onUpdate = {
@@ -296,6 +332,7 @@ fun ShowOrderBottomSheet(
                     homeViewModel.fetchOrder()
                     homeViewModel.fetchTodayIncome()
                     homeViewModel.fetchSummary()
+                    homeViewModel.fetchGross()
                     delay(500)
                     dismissSheet()
                     snackBarHostState.showSnackbar("Order #${uiState.orderID} successfully updated!")

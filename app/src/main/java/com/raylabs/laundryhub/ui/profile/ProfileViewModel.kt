@@ -2,6 +2,8 @@ package com.raylabs.laundryhub.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.loading
@@ -17,7 +19,9 @@ import javax.inject.Inject
 
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
-    private val userUseCase: UserUseCase
+    private val userUseCase: UserUseCase,
+    private val observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase,
+    private val setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase
 ) : ViewModel() {
 
 
@@ -27,6 +31,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         fetchUser()
+        observeSettings()
     }
 
     private fun fetchUser() {
@@ -34,6 +39,20 @@ class ProfileViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             user = SectionState(data = user?.toUI())
         )
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            observeShowWhatsAppSettingUseCase().collect { isEnabled ->
+                _uiState.update { it.copy(showWhatsAppOption = isEnabled) }
+            }
+        }
+    }
+
+    fun setShowWhatsAppOption(enabled: Boolean) {
+        viewModelScope.launch {
+            setShowWhatsAppSettingUseCase(enabled)
+        }
     }
 
     fun logOut(onSuccess: () -> Unit) {

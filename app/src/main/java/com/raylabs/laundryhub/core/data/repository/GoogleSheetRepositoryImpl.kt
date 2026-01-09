@@ -5,6 +5,7 @@ import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
@@ -18,6 +19,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.isCashData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidData
 import com.raylabs.laundryhub.core.domain.model.sheets.isQRISData
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidData
+import com.raylabs.laundryhub.core.domain.model.sheets.toGrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.toIncomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toOutcomeList
 import com.raylabs.laundryhub.core.domain.model.sheets.toPackageData
@@ -38,6 +40,7 @@ class GoogleSheetRepositoryImpl @Inject constructor(
 
     companion object {
         private const val SUMMARY_RANGE = "summary!A2:B"
+        private const val GROSS_RANGE = "gross!A1:D"
         private const val INCOME_RANGE = "income!A1:N"
         private const val PACKAGE_RANGE = "notes!A1:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
@@ -59,6 +62,33 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         SpreadsheetData(
                             key = it[0].toString(), value = it[1].toString()
                         )
+                    }
+
+                    if (data.isEmpty()) Resource.Empty else Resource.Success(data)
+                } catch (e: GoogleJsonResponseException) {
+                    GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
+                } catch (e: Exception) {
+                    GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
+                }
+            } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+        }
+    }
+
+    override suspend fun readGrossData(): Resource<List<GrossData>> {
+        return withContext(Dispatchers.IO) {
+            retry {
+                try {
+                    val response = googleSheetService.getSheetsService().spreadsheets().values()
+                        .get(BuildConfig.SPREAD_SHEET_ID, GROSS_RANGE).execute()
+
+                    val headers = response.getValues().firstOrNull() ?: emptyList()
+                    val dataRows = response.getValues().drop(1)
+
+                    val data = dataRows.map { row ->
+                        val mappedRow = headers.zip(row).associate {
+                            it.first.toString() to it.second?.toString().orEmpty()
+                        }
+                        mappedRow.toGrossData()
                     }
 
                     if (data.isEmpty()) Resource.Empty else Resource.Success(data)

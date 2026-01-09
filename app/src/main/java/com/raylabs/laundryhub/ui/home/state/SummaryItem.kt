@@ -8,27 +8,26 @@ data class SummaryItem(
     var body: String,
     var footer: String,
     var backgroundColor: Color,
-    var textColor: Color = Color.White
+    var textColor: Color = Color.White,
+    val isInteractive: Boolean = false
 )
 
 const val CASH_ON_HAND = "Total Cash di mama"
 const val READY_TO_PICKUP = "ReadyToPickup Status"
 const val NEW_MEMBER = "New Member last 7 days"
-const val MONTHLY_TARGET_PERCENTAGE = "Monthly Target Percentage"
-const val MONTHLY_TARGET_STATUS = "Monthly Target Status"
 
 val DUMMY_SUMMARY_ITEM = listOf(
     SummaryItem(title = "Ready To Pick", body = "32 Orders", footer = "Send message →", backgroundColor = Color(0xFFFEF7FF), textColor = Color.Black),
     SummaryItem(title = "New Member", body = "2 Members", footer = "Last 7 days", backgroundColor = Color(0xFFF9DEDC), textColor = Color.Black),
-    SummaryItem(title = "Pending", body = "2 Orders", footer = "Avg: 1d 2h in last 7d", backgroundColor = Color(0xFFB3261E)),
+    SummaryItem(title = "Gross Income", body = "Rp 3.944.000", footer = "158 order", backgroundColor = Color(0xFFE6F4EA), textColor = Color.Black, isInteractive = true),
     SummaryItem(title = "Cash On Hand", body = "Rp 200.002", footer = "", backgroundColor = Color(0xFF6750A4)),
 )
 
-fun List<SpreadsheetData>.toUI(): List<SummaryItem> =
+fun List<SpreadsheetData>.toUI(grossItem: GrossItem? = null): List<SummaryItem> =
     listOfNotNull(
         find { it.key == READY_TO_PICKUP }?.toReadyToPick(),
         find { it.key == NEW_MEMBER }?.toNewMember(),
-        toMonthlyTarget(),
+        grossItem?.toSummaryItem(),
         find { it.key == CASH_ON_HAND }?.toCashOnHand()
     )
 
@@ -51,14 +50,6 @@ fun SpreadsheetData.toNewMember(): SummaryItem {
         textColor = Color.Black
     )
 }
-
-fun List<SpreadsheetData>.toMonthlyTarget(): SummaryItem =
-    SummaryItem(
-        title = "Monthly Target",
-        body = "${this.firstOrNull { it.key == MONTHLY_TARGET_PERCENTAGE }?.value}",
-        footer = "${this.firstOrNull { it.key == MONTHLY_TARGET_STATUS }?.value}",
-        backgroundColor = Color(0xFFB3261E)
-    )
 
 fun SpreadsheetData.toCashOnHand(): SummaryItem = SummaryItem(
     title = "Cash On Hand",

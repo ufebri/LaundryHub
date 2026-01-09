@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.order
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
@@ -13,6 +14,7 @@ import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -35,12 +37,14 @@ class OrderViewModelTest {
     private val mockPackageListUseCase: ReadPackageUseCase = mock()
     private val mockGetOrderByIdUseCase: GetOrderUseCase = mock()
     private val mockUpdateOrderUseCase: UpdateOrderUseCase = mock()
+    private val mockObserveShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase = mock()
 
     private lateinit var vm: OrderViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
+        whenever(mockObserveShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(true))
     }
 
     @After
@@ -65,7 +69,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
 
@@ -73,6 +78,24 @@ class OrderViewModelTest {
         assertEquals("ORD-123", state.lastOrderId)
         assertFalse(state.packageNameList.isLoading)
         assertEquals(1, state.packageNameList.data?.size)
+    }
+
+    @Test
+    fun `observe settings updates showWhatsAppOption`() = runTest {
+        whenever(mockObserveShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(false))
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-123"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.showWhatsAppOption)
     }
 
     @Test
@@ -102,7 +125,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var successCalled = false
         vm.onOrderEditClick("ORD-1") { successCalled = true }
@@ -121,7 +145,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onOrderEditClick("ORD-1") { }
         testDispatcher.scheduler.advanceUntilIdle()
@@ -152,7 +177,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var onCompleteCalled = false
         vm.updateOrder(order) { onCompleteCalled = true }
@@ -170,7 +196,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.updateField("name", "Budi")
         assertEquals("Budi", vm.uiState.value.name)
@@ -187,7 +214,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onPhoneChanged("08123")
         assertEquals("8123", vm.uiState.value.phone)
@@ -202,7 +230,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onPriceChanged("10000")
         val packageItem = PackageItem("Express", "10000", "6h")
@@ -218,7 +247,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         val packageItem = PackageItem("Express", "10000", "6h")
         vm.onPackageSelected(packageItem)
@@ -234,7 +264,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.updateField("name", "Budi")
         vm.resetForm()
@@ -252,10 +283,62 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals("Error, try again", vm.uiState.value.lastOrderId)
+        assertEquals(null, vm.uiState.value.lastOrderId)
+        assertEquals("x", vm.uiState.value.lastOrderIdError)
+    }
+
+    @Test
+    fun `resolveLastOrderIdForSubmit returns id and marks submitting`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
+            Resource.Success("ORD-1"),
+            Resource.Success("ORD-2")
+        )
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.resolveLastOrderIdForSubmit()
+
+        assertEquals("ORD-2", result)
+        assertEquals("ORD-2", vm.uiState.value.lastOrderId)
+        assertEquals(null, vm.uiState.value.lastOrderIdError)
+        assertTrue(vm.uiState.value.isSubmitting)
+    }
+
+    @Test
+    fun `resolveLastOrderIdForSubmit error clears id and stops submitting`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
+            Resource.Success("ORD-1"),
+            Resource.Error("fail")
+        )
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.resolveLastOrderIdForSubmit()
+
+        assertEquals(null, result)
+        assertEquals(null, vm.uiState.value.lastOrderId)
+        assertEquals("fail", vm.uiState.value.lastOrderIdError)
+        assertFalse(vm.uiState.value.isSubmitting)
     }
 
     @Test
@@ -267,7 +350,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
         assertEquals("pkg err", vm.uiState.value.packageNameList.errorMessage)
@@ -308,7 +392,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
         vm.onOrderEditClick("1") {}; testDispatcher.scheduler.advanceUntilIdle()
@@ -327,7 +412,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onOrderEditClick("X") {}; testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isEditMode)
@@ -343,7 +429,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onOrderEditClick("X") {} // no advance to keep at loading if needed
         assertTrue(vm.uiState.value.editOrder.isLoading)
@@ -373,7 +460,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
         vm.submitOrder(order) { done = true }
@@ -406,7 +494,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
         vm.submitOrder(order) { done = true }
@@ -439,7 +528,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
         vm.submitOrder(order) { done = true }
@@ -471,7 +561,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
         vm.updateOrder(order) { done = true }; testDispatcher.scheduler.advanceUntilIdle()
@@ -487,7 +578,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         val before = vm.uiState.value
         vm.updateField("unknown", "x")
@@ -501,7 +593,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         vm.onPackageSelected(PackageItem("Zero", "0", "6h"))
         vm.onPriceChanged("10000")
@@ -521,7 +614,8 @@ class OrderViewModelTest {
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
 

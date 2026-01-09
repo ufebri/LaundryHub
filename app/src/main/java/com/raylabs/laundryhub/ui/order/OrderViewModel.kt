@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
@@ -35,7 +36,8 @@ class OrderViewModel @Inject constructor(
     private val submitOrderUseCase: SubmitOrderUseCase,
     private val packageListUseCase: ReadPackageUseCase,
     private val getOrderByIdUseCase: GetOrderUseCase,
-    private val updateOrderUseCase: UpdateOrderUseCase
+    private val updateOrderUseCase: UpdateOrderUseCase,
+    private val observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(OrderUiState())
@@ -44,6 +46,7 @@ class OrderViewModel @Inject constructor(
     init {
         fetchLastOrderId()
         getPackageList()
+        observeSettings()
     }
 
     fun onOrderEditClick(orderId: String, onSuccess: () -> Unit) {
@@ -104,14 +107,47 @@ class OrderViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = getLastOrderIdUseCase()) {
                 is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(lastOrderId = result.data)
+                    _uiState.value = _uiState.value.copy(
+                        lastOrderId = result.data,
+                        lastOrderIdError = null
+                    )
                 }
 
                 is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(lastOrderId = "Error, try again")
+                    _uiState.value = _uiState.value.copy(
+                        lastOrderId = null,
+                        lastOrderIdError = result.message
+                    )
                 }
 
                 else -> Unit
+            }
+        }
+    }
+
+    suspend fun resolveLastOrderIdForSubmit(): String? {
+        _uiState.value = _uiState.value.copy(isSubmitting = true)
+        return when (val result = getLastOrderIdUseCase()) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    lastOrderId = result.data,
+                    lastOrderIdError = null
+                )
+                result.data
+            }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    lastOrderId = null,
+                    lastOrderIdError = result.message,
+                    isSubmitting = false
+                )
+                null
+            }
+
+            else -> {
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
+                null
             }
         }
     }
@@ -155,6 +191,14 @@ class OrderViewModel @Inject constructor(
                 }
 
                 else -> Unit
+            }
+        }
+    }
+
+    private fun observeSettings() {
+        viewModelScope.launch {
+            observeShowWhatsAppSettingUseCase().collect { isEnabled ->
+                _uiState.value = _uiState.value.copy(showWhatsAppOption = isEnabled)
             }
         }
     }

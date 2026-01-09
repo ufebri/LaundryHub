@@ -12,5 +12,6 @@ val dummyProfileUiState = ProfileUiState(
             photoUrl = null
         )
     ),
-    logout = SectionState(data = false)
+    logout = SectionState(data = false),
+    showWhatsAppOption = true
 )

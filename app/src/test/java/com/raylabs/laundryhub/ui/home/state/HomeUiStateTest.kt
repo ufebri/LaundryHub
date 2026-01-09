@@ -19,6 +19,7 @@ class HomeUiStateTest {
         assertNull(state.user.data)
         assertNull(state.todayIncome.data)
         assertNull(state.summary.data)
+        assertNull(state.gross.data)
         assertNull(state.unpaidOrder.data)
         assertNull(state.detailOrder.data)
         // Tidak error & tidak loading
@@ -30,14 +31,18 @@ class HomeUiStateTest {
     fun `state with loaded todayIncome and summary returns correct values`() {
         val todayIncomeList = listOf(TransactionItem("ORD1", "Test", "01/08/2025", "10000", Color(0xFFFEF7FF), "1 Week"))
         val summaryList = listOf(SummaryItem(title = "Ready To Pick", body = "32 Orders", footer = "Send message →", backgroundColor = Color(0xFFFEF7FF), textColor = Color.Black))
+        val grossList = listOf(GrossItem("juni", "Rp1.672.800", "68", "Rp8.364"))
         val loadedTodayIncome = SectionState(data = todayIncomeList)
         val loadedSummary = SectionState(data = summaryList)
+        val loadedGross = SectionState(data = grossList)
         val state = HomeUiState(
             todayIncome = loadedTodayIncome,
-            summary = loadedSummary
+            summary = loadedSummary,
+            gross = loadedGross
         )
         assertEquals(todayIncomeList, state.todayIncome.data)
         assertEquals(summaryList, state.summary.data)
+        assertEquals(grossList, state.gross.data)
         assertNull(state.todayIncome.errorMessage)
         assertFalse(state.summary.isLoading)
     }

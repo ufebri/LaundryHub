@@ -76,6 +76,34 @@ class GoogleSheetRepositoryImplTest {
     }
 
     @Test
+    fun `readGrossData returns success with valid data`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenReturn(valueRange)
+        whenever(valueRange.getValues()).thenReturn(
+            listOf(
+                listOf("bulan", "total nominal", "# nota laundry", "pajak"),
+                listOf("maret", "Rp1.038.150", "35", "Rp5.191")
+            )
+        )
+
+        val result = repo.readGrossData()
+        assertTrue(result is Resource.Success)
+        val data = (result as Resource.Success).data
+        assertEquals(1, data.size)
+        assertEquals("maret", data[0].month)
+        assertEquals("Rp1.038.150", data[0].totalNominal)
+        assertEquals("35", data[0].orderCount)
+        assertEquals("Rp5.191", data[0].tax)
+    }
+
+    @Test
     fun `readIncomeTransaction handles GoogleJsonResponseException`() = runTest {
         val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
         val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()

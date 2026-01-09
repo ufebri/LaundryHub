@@ -15,6 +15,7 @@ data class HomeUiState(
     val user: SectionState<UserItem> = SectionState(),
     val todayIncome: SectionState<List<TransactionItem>> = SectionState(),
     val summary: SectionState<List<SummaryItem>> = SectionState(),
+    val gross: SectionState<List<GrossItem>> = SectionState(),
     val unpaidOrder: SectionState<List<UnpaidOrderItem>> = SectionState(),
     val detailOrder: SectionState<TransactionItem> = SectionState(),
     val currentSortOption: SortOption = SortOption.ORDER_DATE_DESC, // Default sort option

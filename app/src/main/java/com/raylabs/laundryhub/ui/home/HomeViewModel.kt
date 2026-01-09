@@ -3,6 +3,8 @@ package com.raylabs.laundryhub.ui.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
@@ -12,6 +14,7 @@ import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
+import com.raylabs.laundryhub.ui.home.state.GrossItem
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
@@ -30,6 +33,7 @@ import javax.inject.Inject
 @HiltViewModel
 class HomeViewModel @Inject constructor(
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
+    private val grossUseCase: ReadGrossDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
 ) : ViewModel() {
@@ -39,12 +43,15 @@ class HomeViewModel @Inject constructor(
 
     private var originalUnpaidOrders: List<UnpaidOrderItem> = emptyList()
     private var orderUpdateCounter: Long = 0
+    private var summaryDataCache: List<SpreadsheetData>? = null
+    private var grossItemsCache: List<GrossItem> = emptyList()
 
     init {
         fetchUser()
         fetchTodayIncomeFromInit()
         fetchSummaryFromInit()
         fetchOrderFromInit()
+        fetchGrossFromInit()
     }
 
     private fun fetchUser() {
@@ -104,23 +111,20 @@ class HomeViewModel @Inject constructor(
         }
         when (val result = summaryUseCase()) {
             is Resource.Success -> {
-                val uiData = result.data.toUI()
-                _uiState.update {
-                    it.copy(summary = it.summary.success(uiData))
-                }
+                summaryDataCache = result.data
+                updateSummaryCards()
             }
 
             is Resource.Error -> {
+                summaryDataCache = null
                 _uiState.update {
                     it.copy(summary = it.summary.error(result.message))
                 }
             }
 
             is Resource.Empty -> {
-                _uiState.update {
-                    // Consider success with empty list or specific message for empty state
-                    it.copy(summary = it.summary.success(emptyList())) // Or error if preferred
-                }
+                summaryDataCache = emptyList()
+                updateSummaryCards()
             }
 
             is Resource.Loading -> {
@@ -128,6 +132,55 @@ class HomeViewModel @Inject constructor(
                     it.copy(summary = it.summary.loading())
                 }
             }
+        }
+    }
+
+    private fun fetchGrossFromInit() {
+        viewModelScope.launch { fetchGross() }
+    }
+
+    suspend fun fetchGross() {
+        _uiState.update {
+            it.copy(gross = it.gross.loading())
+        }
+        when (val result = grossUseCase()) {
+            is Resource.Success -> {
+                grossItemsCache = result.data.toUi()
+                _uiState.update {
+                    it.copy(gross = it.gross.success(grossItemsCache))
+                }
+                updateSummaryCards()
+            }
+
+            is Resource.Error -> {
+                grossItemsCache = emptyList()
+                _uiState.update {
+                    it.copy(gross = it.gross.error(result.message))
+                }
+                updateSummaryCards()
+            }
+
+            is Resource.Empty -> {
+                grossItemsCache = emptyList()
+                _uiState.update {
+                    it.copy(gross = it.gross.success(emptyList()))
+                }
+                updateSummaryCards()
+            }
+
+            is Resource.Loading -> {
+                _uiState.update {
+                    it.copy(gross = it.gross.loading())
+                }
+            }
+        }
+    }
+
+    private fun updateSummaryCards() {
+        val summaryData = summaryDataCache ?: return
+        val summaryItems = summaryData.toUI(grossItemsCache.lastOrNull())
+        _uiState.update {
+            it.copy(summary = it.summary.success(summaryItems))
         }
     }
 
@@ -270,6 +323,7 @@ class HomeViewModel @Inject constructor(
                 val jobs = listOf(
                     async { fetchTodayIncome() },
                     async { fetchSummary() },
+                    async { fetchGross() },
                     async { fetchOrder() } // fetchOrder will call updateDisplayedUnpaidOrders
                 )
                 jobs.awaitAll()

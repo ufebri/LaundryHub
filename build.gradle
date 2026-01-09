@@ -25,7 +25,7 @@ buildscript {
 }
 
 plugins {
-    id "org.sonarqube" version "7.1.0.6387"
+    id "org.sonarqube" version "7.2.2.6593"
 }
 
 allprojects {
@@ -50,11 +50,19 @@ sonar {
         property "sonar.projectKey", sonarProps.getProperty("SONAR_PROJECT_KEY")
         property "sonar.organization", sonarProps.getProperty("SONAR_ORGANIZATION")
         property "sonar.host.url", "https://sonarcloud.io"
+        property "sonar.coverage.jacoco.xmlReportPaths",
+                "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+
 
         if (localSonarLogin) {
             property "sonar.token", localSonarLogin  // ← ini String
         }
     }
+}
+
+// Pastikan laporan Jacoco tersedia saat sonar jalan
+tasks.named("sonar").configure {
+    dependsOn(":app:jacocoTestReport")
 }
 
 tasks.register('clean', Delete) {

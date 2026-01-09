@@ -5,6 +5,7 @@ import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
@@ -42,6 +43,14 @@ object GSheetModule {
         repository: GoogleSheetRepository
     ): ReadSpreadsheetDataUseCase {
         return ReadSpreadsheetDataUseCase(repository)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideReadGrossDataUseCase(
+        repository: GoogleSheetRepository
+    ): ReadGrossDataUseCase {
+        return ReadGrossDataUseCase(repository)
     }
 
     @Provides

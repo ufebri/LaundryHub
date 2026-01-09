@@ -45,19 +45,6 @@ class SummaryItemTest {
     }
 
     @Test
-    fun `toMonthlyTarget maps percent and status correctly`() {
-        val dataList = listOf(
-            SpreadsheetData(key = MONTHLY_TARGET_PERCENTAGE, value = "75%"),
-            SpreadsheetData(key = MONTHLY_TARGET_STATUS, value = "On Track")
-        )
-        val summary = dataList.toMonthlyTarget()
-        assertEquals("Monthly Target", summary.title)
-        assertEquals("75%", summary.body)
-        assertEquals("On Track", summary.footer)
-        assertEquals(Color(0xFFB3261E), summary.backgroundColor)
-    }
-
-    @Test
     fun `toCashOnHand maps value correctly`() {
         val data = SpreadsheetData(key = CASH_ON_HAND, value = "Rp 3.000.000")
         val summary = data.toCashOnHand()
@@ -72,16 +59,15 @@ class SummaryItemTest {
         val dataList = listOf(
             SpreadsheetData(key = READY_TO_PICKUP, value = "3"),
             SpreadsheetData(key = NEW_MEMBER, value = "2"),
-            SpreadsheetData(key = MONTHLY_TARGET_PERCENTAGE, value = "90%"),
-            SpreadsheetData(key = MONTHLY_TARGET_STATUS, value = "Above Target"),
             SpreadsheetData(key = CASH_ON_HAND, value = "Rp 1.500.000")
         )
-        val summaryList = dataList.toUI()
-        // Harus urut: ReadyToPick, NewMember, MonthlyTarget, CashOnHand
+        val grossItem = GrossItem("desember", "Rp 3.944.000", "158", "Rp 19.720")
+        val summaryList = dataList.toUI(grossItem)
+        // Harus urut: ReadyToPick, NewMember, GrossIncome, CashOnHand
         assertEquals(4, summaryList.size)
         assertEquals("Ready To Pick", summaryList[0].title)
         assertEquals("New Member", summaryList[1].title)
-        assertEquals("Monthly Target", summaryList[2].title)
+        assertEquals("Gross Income", summaryList[2].title)
         assertEquals("Cash On Hand", summaryList[3].title)
     }
 }
