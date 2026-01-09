@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.ui.component
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,7 +23,8 @@ import com.raylabs.laundryhub.ui.home.state.SummaryItem
 @Composable
 fun InfoCard(
     summaryItem: SummaryItem,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
         backgroundColor = summaryItem.backgroundColor,
@@ -30,6 +32,7 @@ fun InfoCard(
         shape = RoundedCornerShape(12.dp),
         border = BorderStroke(1.dp, Color.Black),
         modifier = modifier
+            .then(if (onClick != null) Modifier.clickable { onClick() } else Modifier)
             .height(110.dp)
             .fillMaxWidth()
     ) {

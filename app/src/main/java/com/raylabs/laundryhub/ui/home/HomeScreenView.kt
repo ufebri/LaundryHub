@@ -66,14 +66,19 @@ import com.raylabs.laundryhub.ui.home.state.TransactionItem
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
     onOrderCardClick: (String) -> Unit,
-    onTodayActivityClick: (String) -> Unit
+    onTodayActivityClick: (String) -> Unit,
+    onGrossCardClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     HomeScreenContent(
         state = state,
-        viewModel = viewModel,
+        onRefresh = viewModel::refreshAllData,
+        onSearchQueryChanged = viewModel::onSearchQueryChanged,
+        onToggleSearch = viewModel::toggleSearch,
+        onChangeSortOrder = viewModel::changeSortOrder,
         onOrderCardClick = onOrderCardClick,
-        onTodayActivityClick = onTodayActivityClick
+        onTodayActivityClick = onTodayActivityClick,
+        onGrossCardClick = onGrossCardClick
     )
 }
 
@@ -81,20 +86,24 @@ fun HomeScreen(
 @Composable
 fun HomeScreenContent(
     state: HomeUiState,
-    viewModel: HomeViewModel,
+    onRefresh: () -> Unit,
+    onSearchQueryChanged: (String) -> Unit,
+    onToggleSearch: () -> Unit,
+    onChangeSortOrder: (SortOption) -> Unit,
     onOrderCardClick: (String) -> Unit,
-    onTodayActivityClick: (String) -> Unit
+    onTodayActivityClick: (String) -> Unit,
+    onGrossCardClick: () -> Unit
 ) {
     val snackBarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.isRefreshing,
-        onRefresh = { viewModel.refreshAllData() }
+        onRefresh = onRefresh
     )
 
-    LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.unpaidOrder.errorMessage) {
-        listOf(state.user, state.todayIncome, state.summary, state.unpaidOrder).forEach {
+    LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.gross.errorMessage, state.unpaidOrder.errorMessage) {
+        listOf(state.user, state.todayIncome, state.summary, state.gross, state.unpaidOrder).forEach {
             it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
         }
     }
@@ -117,6 +126,7 @@ fun HomeScreenContent(
                         content = {
                             InfoCardSection(
                                 summary = state.summary.data.orEmpty(),
+                                onGrossCardClick = onGrossCardClick,
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .heightIn(max = 300.dp)
@@ -171,7 +181,7 @@ fun HomeScreenContent(
                     if (state.isSearchActive) {
                         OutlinedTextField(
                             value = state.searchQuery,
-                            onValueChange = { viewModel.onSearchQueryChanged(it) },
+                            onValueChange = onSearchQueryChanged,
                             modifier = Modifier.weight(1f),
                             placeholder = { 
                                 Text(
@@ -188,7 +198,7 @@ fun HomeScreenContent(
                             },
                             trailingIcon = {
                                 if (state.searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { viewModel.onSearchQueryChanged("") }) {
+                                    IconButton(onClick = { onSearchQueryChanged("") }) {
                                         Icon(
                                             Icons.Filled.Close, 
                                             contentDescription = stringResource(R.string.clear_search),
@@ -205,7 +215,7 @@ fun HomeScreenContent(
                                 unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled) // Use onBackground
                             )
                         )
-                        IconButton(onClick = { viewModel.toggleSearch() }) { 
+                        IconButton(onClick = onToggleSearch) { 
                             Icon(
                                 Icons.Filled.Close, 
                                 contentDescription = stringResource(R.string.close_search_view),
@@ -218,7 +228,7 @@ fun HomeScreenContent(
                             style = MaterialTheme.typography.h6,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = { viewModel.toggleSearch() }) {
+                        IconButton(onClick = onToggleSearch) {
                             Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.open_search_view))
                         }
                         Spacer(modifier = Modifier.width(4.dp))
@@ -233,25 +243,25 @@ fun HomeScreenContent(
                             onDismissRequest = { showMenu = false }
                         ) {
                             DropdownMenuItem(onClick = {
-                                viewModel.changeSortOrder(SortOption.DUE_DATE_ASC)
+                                onChangeSortOrder(SortOption.DUE_DATE_ASC)
                                 showMenu = false
                             }) {
                                 Text(stringResource(R.string.due_date_earliest))
                             }
                             DropdownMenuItem(onClick = {
-                                viewModel.changeSortOrder(SortOption.DUE_DATE_DESC)
+                                onChangeSortOrder(SortOption.DUE_DATE_DESC)
                                 showMenu = false
                             }) {
                                 Text(stringResource(R.string.due_date_latest))
                             }
                             DropdownMenuItem(onClick = {
-                                viewModel.changeSortOrder(SortOption.ORDER_DATE_ASC)
+                                onChangeSortOrder(SortOption.ORDER_DATE_ASC)
                                 showMenu = false
                             }) {
                                 Text(stringResource(R.string.order_date_oldest))
                             }
                             DropdownMenuItem(onClick = {
-                                viewModel.changeSortOrder(SortOption.ORDER_DATE_DESC)
+                                onChangeSortOrder(SortOption.ORDER_DATE_DESC)
                                 showMenu = false
                             }) {
                                 Text(stringResource(R.string.order_date_newest))
@@ -321,7 +331,11 @@ fun HomeScreenContent(
 }
 
 @Composable
-fun InfoCardSection(summary: List<SummaryItem>, modifier: Modifier = Modifier) {
+fun InfoCardSection(
+    summary: List<SummaryItem>,
+    onGrossCardClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     LazyVerticalGrid(
         modifier = modifier,
         columns = GridCells.Fixed(2),
@@ -329,7 +343,10 @@ fun InfoCardSection(summary: List<SummaryItem>, modifier: Modifier = Modifier) {
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         content = {
             items(summary) { mData ->
-                InfoCard(summaryItem = mData)
+                InfoCard(
+                    summaryItem = mData,
+                    onClick = if (mData.isInteractive) onGrossCardClick else null
+                )
             }
         }
     )
@@ -355,9 +372,13 @@ fun PreviewHomeScreenContent_Default() {
     MaterialTheme {
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = false),
-            viewModel = hiltViewModel(), 
+            onRefresh = {},
+            onSearchQueryChanged = {},
+            onToggleSearch = {},
+            onChangeSortOrder = {},
             onOrderCardClick = {},
-            onTodayActivityClick = {}
+            onTodayActivityClick = {},
+            onGrossCardClick = {}
         )
     }
 }
@@ -368,9 +389,13 @@ fun PreviewHomeScreenContent_SearchActiveDark() {
     MaterialTheme(colors = MaterialTheme.colors.copy(isLight = false)) { // Force dark theme for preview
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            viewModel = hiltViewModel(), 
+            onRefresh = {},
+            onSearchQueryChanged = {},
+            onToggleSearch = {},
+            onChangeSortOrder = {},
             onOrderCardClick = {},
-            onTodayActivityClick = {}
+            onTodayActivityClick = {},
+            onGrossCardClick = {}
         )
     }
 }
@@ -381,9 +406,13 @@ fun PreviewHomeScreenContent_SearchActiveLight() {
     MaterialTheme(colors = MaterialTheme.colors.copy(isLight = true)) { // Force light theme for preview
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            viewModel = hiltViewModel(), 
+            onRefresh = {},
+            onSearchQueryChanged = {},
+            onToggleSearch = {},
+            onChangeSortOrder = {},
             onOrderCardClick = {},
-            onTodayActivityClick = {}
+            onTodayActivityClick = {},
+            onGrossCardClick = {}
         )
     }
 }

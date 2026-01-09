@@ -2,8 +2,10 @@ package com.raylabs.laundryhub.ui.home
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
@@ -37,6 +39,7 @@ class HomeViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private val mockSummaryUseCase: ReadSpreadsheetDataUseCase = mock()
+    private val mockGrossUseCase: ReadGrossDataUseCase = mock()
     private val mockReadIncomeUseCase: ReadIncomeTransactionUseCase = mock()
     private val mockUserUseCase: UserUseCase = mock()
 
@@ -80,6 +83,8 @@ class HomeViewModelTest {
                 .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
             doReturn(Resource.Success(emptyList<SpreadsheetData>())).whenever(mockSummaryUseCase)
                 .invoke()
+            doReturn(Resource.Success(emptyList<GrossData>())).whenever(mockGrossUseCase)
+                .invoke()
             doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
                 .invoke(filter = FILTER.SHOW_UNPAID_DATA)
         }
@@ -106,7 +111,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -114,9 +124,11 @@ class HomeViewModelTest {
         assertEquals("Raihan", state.user.data?.displayName)
         assertNotNull(state.todayIncome.data)
         assertNotNull(state.summary.data)
+        assertNotNull(state.gross.data)
         assertNotNull(state.unpaidOrder.data)
         assertFalse(state.todayIncome.isLoading)
         assertFalse(state.summary.isLoading)
+        assertFalse(state.gross.isLoading)
         assertFalse(state.unpaidOrder.isLoading)
     }
 
@@ -141,7 +153,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -157,7 +174,12 @@ class HomeViewModelTest {
         doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -176,7 +198,12 @@ class HomeViewModelTest {
         whenever(mockSummaryUseCase.invoke())
             .thenReturn(Resource.Empty)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         // THEN
@@ -189,17 +216,46 @@ class HomeViewModelTest {
 
     @Test
     fun `fetchSummary updates state on success`() = runTest {
-        val summaryList = listOf(SpreadsheetData(key = "a", value = "b"))
+        val summaryList = listOf(
+            SpreadsheetData(key = "ReadyToPickup Status", value = "4"),
+            SpreadsheetData(key = "Total Cash di mama", value = "Rp 2.000.000")
+        )
         doReturn(Resource.Success(summaryList)).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
         assertNotNull(state.summary.data)
-        assertEquals(1, state.summary.data?.size)
+        assertEquals(2, state.summary.data?.size)
+        assertEquals("Ready To Pick", state.summary.data?.first()?.title)
         assertFalse(state.summary.isLoading)
         assertNull(state.summary.errorMessage)
+    }
+
+    @Test
+    fun `fetchGross updates state on success`() = runTest {
+        val grossList = listOf(GrossData("januari", "Rp801.000", "31", "Rp4.005"))
+        doReturn(Resource.Success(grossList)).whenever(mockGrossUseCase).invoke()
+
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertNotNull(state.gross.data)
+        assertEquals("januari", state.gross.data?.first()?.month)
+        assertFalse(state.gross.isLoading)
+        assertNull(state.gross.errorMessage)
     }
 
     @Test
@@ -223,7 +279,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -237,7 +298,12 @@ class HomeViewModelTest {
     fun `init sets user to null when getCurrentUser returns null`() = runTest {
         whenever(mockUserUseCase.getCurrentUser()).thenReturn(null)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertNull(vm.uiState.value.user.data)
@@ -248,7 +314,12 @@ class HomeViewModelTest {
         val errorMessage = "Summary fetch error"
         doReturn(Resource.Error(errorMessage)).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -263,7 +334,12 @@ class HomeViewModelTest {
         whenever(mockSummaryUseCase.invoke()).thenReturn(Resource.Empty) // atau Empty() jika class
         whenever(mockReadIncomeUseCase.invoke()).thenReturn(Resource.Empty)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         // THEN
@@ -280,7 +356,12 @@ class HomeViewModelTest {
         doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -294,7 +375,12 @@ class HomeViewModelTest {
         doReturn(Resource.Empty).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -310,7 +396,12 @@ class HomeViewModelTest {
             mockReadIncomeUseCase
         ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val initialOrderUpdateKey = vm.uiState.value.orderUpdateKey
@@ -335,7 +426,12 @@ class HomeViewModelTest {
             mockReadIncomeUseCase
         ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_ASC)
@@ -353,7 +449,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_DESC)
@@ -383,7 +484,8 @@ class HomeViewModelTest {
                 "02/01/2024"
             )
         )
-        val summaryData = listOf(SpreadsheetData("Monthly Target", "v1"))
+        val summaryData = listOf(SpreadsheetData("ReadyToPickup Status", "1"))
+        val grossData = listOf(GrossData("november", "Rp3.563.000", "149", "Rp17.815"))
         val unpaidOrderData = listOf(
             TransactionData(
                 "uo1",
@@ -405,10 +507,16 @@ class HomeViewModelTest {
         doReturn(Resource.Success(todayIncomeData)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
         doReturn(Resource.Success(summaryData)).whenever(mockSummaryUseCase).invoke()
+        doReturn(Resource.Success(grossData)).whenever(mockGrossUseCase).invoke()
         doReturn(Resource.Success(unpaidOrderData)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.refreshAllData()
@@ -428,7 +536,10 @@ class HomeViewModelTest {
         assertEquals(todayIncomeData.first().orderID, state.todayIncome.data?.first()?.id)
 
         assertNotNull(state.summary.data)
-        assertEquals(summaryData.first().key, state.summary.data?.first()?.title)
+        assertEquals("Ready To Pick", state.summary.data?.first()?.title)
+
+        assertNotNull(state.gross.data)
+        assertEquals("november", state.gross.data?.first()?.month)
 
         assertNotNull(state.unpaidOrder.data)
         assertEquals(unpaidOrderData.first().orderID, state.unpaidOrder.data?.first()?.orderID)
@@ -444,7 +555,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.refreshAllData()
@@ -471,7 +587,12 @@ class HomeViewModelTest {
             .whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_ASC)
@@ -491,7 +612,12 @@ class HomeViewModelTest {
             .whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.onSearchQueryChanged("BO")
@@ -511,7 +637,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<SpreadsheetData>()))
             .whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         // WHEN: user mencari "emy" (match Ny Emy)
@@ -543,7 +674,12 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<SpreadsheetData>()))
             .whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Set query & aktifkan search
@@ -582,7 +718,12 @@ class HomeViewModelTest {
         doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -594,7 +735,12 @@ class HomeViewModelTest {
     fun `fetchSummary sets loading state when use case returns Loading`() = runTest {
         doReturn(Resource.Loading).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -607,7 +753,12 @@ class HomeViewModelTest {
         doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(mockSummaryUseCase, mockReadIncomeUseCase, mockUserUseCase)
+        val vm = HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase
+        )
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value

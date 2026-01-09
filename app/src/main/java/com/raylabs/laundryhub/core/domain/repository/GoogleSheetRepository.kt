@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.core.domain.repository
 
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
@@ -11,6 +12,7 @@ import com.raylabs.laundryhub.ui.common.util.Resource
 
 interface GoogleSheetRepository {
     suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>>
+    suspend fun readGrossData(): Resource<List<GrossData>>
     suspend fun readIncomeTransaction(
         filter: FILTER,
         rangeDate: RangeDate? = null

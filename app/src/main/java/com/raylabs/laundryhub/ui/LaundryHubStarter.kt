@@ -49,6 +49,7 @@ import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
+import com.raylabs.laundryhub.ui.home.GrossDetailScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
 import com.raylabs.laundryhub.ui.home.HomeViewModel
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
@@ -135,6 +136,17 @@ fun LaundryHubStarter(
     val snackBarHostState = remember { SnackbarHostState() }
     val triggerOpenSheet = remember { mutableStateOf(false) }
     val showEditOrderSheet = remember { mutableStateOf(false) }
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
+    val bottomBarRoutes = remember {
+        setOf(
+            BottomNavItem.Home.screenRoute,
+            BottomNavItem.History.screenRoute,
+            BottomNavItem.Order.screenRoute,
+            BottomNavItem.Outcome.screenRoute,
+            BottomNavItem.Profile.screenRoute
+        )
+    }
 
     fun dismissSheet() {
         scope.launch {
@@ -190,12 +202,14 @@ fun LaundryHubStarter(
                 )
             },
             bottomBar = {
-                BottomBar(navController, onOrderClick = {
-                    showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
-                    orderViewModel.resetForm() // Set mode new order
-                    showNewOrderSheet.value = true
-                    triggerOpenSheet.value = true
-                })
+                if (currentRoute in bottomBarRoutes) {
+                    BottomBar(navController, onOrderClick = {
+                        showEditOrderSheet.value = false // Pastikan sheet edit tidak aktif
+                        orderViewModel.resetForm() // Set mode new order
+                        showNewOrderSheet.value = true
+                        triggerOpenSheet.value = true
+                    })
+                }
             },
             modifier = modifier
         ) { innerPadding ->
@@ -220,6 +234,9 @@ fun LaundryHubStarter(
                                 showEditOrderSheet.value = true
                                 triggerOpenSheet.value = true
                             }
+                        },
+                        onGrossCardClick = {
+                            navController.navigate("gross")
                         }
                     )
                 }
@@ -237,6 +254,13 @@ fun LaundryHubStarter(
                 }
                 composable("inventory") {
                     InventoryScreenView()
+                }
+                composable("gross") {
+                    val state by homeViewModel.uiState.collectAsState()
+                    GrossDetailScreenView(
+                        grossState = state.gross,
+                        onBack = { navController.popBackStack() }
+                    )
                 }
             }
         }
@@ -270,6 +294,7 @@ fun ShowOrderBottomSheet(
                         homeViewModel.fetchOrder()
                         homeViewModel.fetchTodayIncome()
                         homeViewModel.fetchSummary()
+                        homeViewModel.fetchGross()
                         delay(500)
                         dismissSheet()
 
@@ -296,6 +321,7 @@ fun ShowOrderBottomSheet(
                     homeViewModel.fetchOrder()
                     homeViewModel.fetchTodayIncome()
                     homeViewModel.fetchSummary()
+                    homeViewModel.fetchGross()
                     delay(500)
                     dismissSheet()
                     snackBarHostState.showSnackbar("Order #${uiState.orderID} successfully updated!")

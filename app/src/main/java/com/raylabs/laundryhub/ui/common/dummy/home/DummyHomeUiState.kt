@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.common.dummy.home
 
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.home.state.DUMMY_SUMMARY_ITEM
+import com.raylabs.laundryhub.ui.home.state.GrossItem
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
@@ -52,6 +53,16 @@ val dummyState = HomeUiState(
         )
     ),
     summary = SectionState(data = DUMMY_SUMMARY_ITEM),
+    gross = SectionState(
+        data = listOf(
+            GrossItem(
+                month = "desember",
+                totalNominal = "Rp3.944.000",
+                orderCount = "158",
+                tax = "Rp19.720"
+            )
+        )
+    ),
     unpaidOrder = SectionState(
         data = listOf(
             DUMMY_UNPAID_ORDER_ITEM_EMY,

@@ -18,6 +18,11 @@
     <string name="search_icon">Search Icon</string>
     <string name="search_customer_placeholder">Search Customer</string>
     <string name="no_search_results">Data Not Found</string>
+    <string name="gross_income">Gross Income</string>
+    <string name="gross_income_empty">No gross data yet.</string>
+    <string name="gross_orders">Orders</string>
+    <string name="gross_tax">Tax</string>
+    <string name="back">Back</string>
 
     <!--  BottomNavItem  -->
     <string name="home">Home</string>
