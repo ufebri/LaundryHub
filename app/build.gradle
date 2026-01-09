@@ -113,7 +113,10 @@ tasks.register("jacocoTestReport", JacocoReport) {
         csv.required = false
     }
 
-    // === Pola exclude: generated + UI layer ===
+    // === Pola include/exclude: fokus ke app code ===
+    def includes = [
+            'com/raylabs/laundryhub/**'
+    ]
     def excludes = [
             // generated/boilerplate
             '**/R.class', '**/R$*.class',
@@ -153,10 +156,10 @@ tasks.register("jacocoTestReport", JacocoReport) {
 
     // 1) Semua direktori kelas yang umum untuk Kotlin/Java debug
     def classDirTrees = [
-            fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug'), exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/classes/debug'), exclude: excludes)
+            fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/javac/debug'), include: includes, exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), include: includes, exclude: excludes),
+            fileTree(dir: new File(b, 'intermediates/classes/debug'), include: includes, exclude: excludes)
     ]
 
     def allTrees = []

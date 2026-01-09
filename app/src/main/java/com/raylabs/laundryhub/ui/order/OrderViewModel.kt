@@ -104,14 +104,47 @@ class OrderViewModel @Inject constructor(
         viewModelScope.launch {
             when (val result = getLastOrderIdUseCase()) {
                 is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(lastOrderId = result.data)
+                    _uiState.value = _uiState.value.copy(
+                        lastOrderId = result.data,
+                        lastOrderIdError = null
+                    )
                 }
 
                 is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(lastOrderId = "Error, try again")
+                    _uiState.value = _uiState.value.copy(
+                        lastOrderId = null,
+                        lastOrderIdError = result.message
+                    )
                 }
 
                 else -> Unit
+            }
+        }
+    }
+
+    suspend fun resolveLastOrderIdForSubmit(): String? {
+        _uiState.value = _uiState.value.copy(isSubmitting = true)
+        return when (val result = getLastOrderIdUseCase()) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    lastOrderId = result.data,
+                    lastOrderIdError = null
+                )
+                result.data
+            }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    lastOrderId = null,
+                    lastOrderIdError = result.message,
+                    isSubmitting = false
+                )
+                null
+            }
+
+            else -> {
+                _uiState.value = _uiState.value.copy(isSubmitting = false)
+                null
             }
         }
     }

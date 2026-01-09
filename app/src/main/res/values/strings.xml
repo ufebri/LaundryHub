@@ -23,6 +23,7 @@
     <string name="gross_orders">Orders</string>
     <string name="gross_tax">Tax</string>
     <string name="back">Back</string>
+    <string name="order_id_unavailable">Failed to get order ID. Please try again.</string>
 
     <!--  BottomNavItem  -->
     <string name="home">Home</string>

@@ -45,6 +45,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
@@ -277,6 +278,7 @@ fun ShowOrderBottomSheet(
 ) {
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
+    val orderIdUnavailableMessage = stringResource(R.string.order_id_unavailable)
 
     OrderBottomSheet(
         state = uiState,
@@ -288,31 +290,40 @@ fun ShowOrderBottomSheet(
         onNoteChanged = { orderViewModel.updateField("note", it) },
         onOrderDateSelected = { orderViewModel.onOrderDateSelected(it) },
         onSubmit = {
-            uiState.lastOrderId?.let { id ->
-                scope.launch {
-                    orderViewModel.submitOrder(uiState.toOrderData(id), onComplete = {
-                        homeViewModel.fetchOrder()
-                        homeViewModel.fetchTodayIncome()
-                        homeViewModel.fetchSummary()
-                        homeViewModel.fetchGross()
-                        delay(500)
-                        dismissSheet()
+            scope.launch {
+                val currentState = orderViewModel.uiState.value
+                val orderId = currentState.lastOrderId
+                    ?: orderViewModel.resolveLastOrderIdForSubmit()
 
-                        val phone = uiState.phone
-                        if (phone.isNotEmpty()) {
-                            val message = WhatsAppHelper.buildOrderMessage(
-                                customerName = uiState.name,
-                                packageName = uiState.selectedPackage?.name.orEmpty(),
-                                total = uiState.price,
-                                paymentStatus = uiState.paymentMethod
-                            )
-                            WhatsAppHelper.sendWhatsApp(context, phone, message)
-                        }
-
-                        orderViewModel.resetForm()
-                        snackBarHostState.showSnackbar("Order #$id successfully submitted!, waiting for open wa...")
-                    })
+                if (orderId.isNullOrBlank()) {
+                    val errorMessage = orderViewModel.uiState.value.lastOrderIdError
+                        ?: orderIdUnavailableMessage
+                    snackBarHostState.showSnackbar(errorMessage)
+                    return@launch
                 }
+
+                orderViewModel.submitOrder(orderViewModel.uiState.value.toOrderData(orderId), onComplete = {
+                    homeViewModel.fetchOrder()
+                    homeViewModel.fetchTodayIncome()
+                    homeViewModel.fetchSummary()
+                    homeViewModel.fetchGross()
+                    delay(500)
+                    dismissSheet()
+
+                    val phone = orderViewModel.uiState.value.phone
+                    if (phone.isNotEmpty()) {
+                        val message = WhatsAppHelper.buildOrderMessage(
+                            customerName = orderViewModel.uiState.value.name,
+                            packageName = orderViewModel.uiState.value.selectedPackage?.name.orEmpty(),
+                            total = orderViewModel.uiState.value.price,
+                            paymentStatus = orderViewModel.uiState.value.paymentMethod
+                        )
+                        WhatsAppHelper.sendWhatsApp(context, phone, message)
+                    }
+
+                    orderViewModel.resetForm()
+                    snackBarHostState.showSnackbar("Order #$orderId successfully submitted!, waiting for open wa...")
+                })
             }
         },
         onUpdate = {

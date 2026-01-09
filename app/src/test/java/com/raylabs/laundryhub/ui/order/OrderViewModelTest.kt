@@ -255,7 +255,56 @@ class OrderViewModelTest {
             mockUpdateOrderUseCase
         )
         testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals("Error, try again", vm.uiState.value.lastOrderId)
+        assertEquals(null, vm.uiState.value.lastOrderId)
+        assertEquals("x", vm.uiState.value.lastOrderIdError)
+    }
+
+    @Test
+    fun `resolveLastOrderIdForSubmit returns id and marks submitting`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
+            Resource.Success("ORD-1"),
+            Resource.Success("ORD-2")
+        )
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.resolveLastOrderIdForSubmit()
+
+        assertEquals("ORD-2", result)
+        assertEquals("ORD-2", vm.uiState.value.lastOrderId)
+        assertEquals(null, vm.uiState.value.lastOrderIdError)
+        assertTrue(vm.uiState.value.isSubmitting)
+    }
+
+    @Test
+    fun `resolveLastOrderIdForSubmit error clears id and stops submitting`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
+            Resource.Success("ORD-1"),
+            Resource.Error("fail")
+        )
+        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val result = vm.resolveLastOrderIdForSubmit()
+
+        assertEquals(null, result)
+        assertEquals(null, vm.uiState.value.lastOrderId)
+        assertEquals("fail", vm.uiState.value.lastOrderIdError)
+        assertFalse(vm.uiState.value.isSubmitting)
     }
 
     @Test
