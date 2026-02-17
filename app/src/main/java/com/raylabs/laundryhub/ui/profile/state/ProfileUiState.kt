@@ -5,5 +5,8 @@ import com.raylabs.laundryhub.ui.common.util.SectionState
 data class ProfileUiState(
     val user: SectionState<UserItem> = SectionState(),
     val logout: SectionState<Boolean> = SectionState(),
-    val showWhatsAppOption: Boolean = true
+    val showWhatsAppOption: Boolean = true,
+    val cacheSize: SectionState<Long> = SectionState(isLoading = true),
+    val clearCache: SectionState<Boolean> = SectionState(),
+    val showClearCacheDialog: Boolean = false
 )
