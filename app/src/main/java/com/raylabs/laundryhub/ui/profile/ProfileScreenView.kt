@@ -14,15 +14,19 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Switch
 import androidx.compose.material.SwitchDefaults
 import androidx.compose.material.Text
+import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.runtime.Composable
@@ -46,6 +50,7 @@ import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
+import java.util.Locale
 
 @Composable
 fun ProfileScreenView(
@@ -68,7 +73,10 @@ fun ProfileScreenView(
                 })
             },
             onInventoryClick = onInventoryClick,
-            onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption
+            onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption,
+            onClearCacheClick = viewModel::openClearCacheDialog,
+            onConfirmClearCache = viewModel::clearCache,
+            onDismissClearCache = viewModel::dismissClearCacheDialog
         )
     }
 }
@@ -79,8 +87,17 @@ fun ProfileScreenContent(
     modifier: Modifier = Modifier,
     onLoggedOut: () -> Unit = {},
     onInventoryClick: () -> Unit = {},
-    onWhatsAppOptionChanged: (Boolean) -> Unit = {}
+    onWhatsAppOptionChanged: (Boolean) -> Unit = {},
+    onClearCacheClick: () -> Unit = {},
+    onConfirmClearCache: () -> Unit = {},
+    onDismissClearCache: () -> Unit = {}
 ) {
+    val cacheSizeText = when {
+        state.cacheSize.isLoading -> stringResource(R.string.cache_size_loading)
+        state.cacheSize.errorMessage != null -> stringResource(R.string.cache_size_unavailable)
+        else -> formatCacheSize(state.cacheSize.data)
+    }
+
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
             onLoggedOut()
@@ -189,35 +206,76 @@ fun ProfileScreenContent(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(16.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = stringResource(R.string.whatsapp_option),
-                                color = Color.White,
-                                style = MaterialTheme.typography.body1,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Text(
-                                text = stringResource(R.string.whatsapp_option_description),
-                                color = Color.White.copy(alpha = 0.8f),
-                                style = MaterialTheme.typography.caption
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.whatsapp_option),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.body1,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = stringResource(R.string.whatsapp_option_description),
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    style = MaterialTheme.typography.caption
+                                )
+                            }
+                            Switch(
+                                checked = state.showWhatsAppOption,
+                                onCheckedChange = onWhatsAppOptionChanged,
+                                colors = SwitchDefaults.colors(
+                                    checkedThumbColor = Color(0xFFCEC1FF),
+                                    checkedTrackColor = Color(0xFF6B4FAA),
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color.White.copy(alpha = 0.4f)
+                                )
                             )
                         }
-                        Switch(
-                            checked = state.showWhatsAppOption,
-                            onCheckedChange = onWhatsAppOptionChanged,
-                            colors = SwitchDefaults.colors(
-                                checkedThumbColor = Color(0xFFCEC1FF),
-                                checkedTrackColor = Color(0xFF6B4FAA),
-                                uncheckedThumbColor = Color.White,
-                                uncheckedTrackColor = Color.White.copy(alpha = 0.4f)
-                            )
-                        )
+                        Divider(color = Color.White.copy(alpha = 0.2f))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable(
+                                    enabled = !state.clearCache.isLoading,
+                                    onClick = onClearCacheClick
+                                )
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = stringResource(R.string.clear_cache),
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.body1,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    text = stringResource(R.string.clear_cache_description),
+                                    color = Color.White.copy(alpha = 0.8f),
+                                    style = MaterialTheme.typography.caption
+                                )
+                            }
+                            if (state.clearCache.isLoading) {
+                                CircularProgressIndicator(
+                                    color = Color(0xFFCEC1FF),
+                                    modifier = Modifier.size(20.dp),
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Text(
+                                    text = cacheSizeText,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.body2
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -262,6 +320,30 @@ fun ProfileScreenContent(
             }
         }
     }
+
+    if (state.showClearCacheDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissClearCache,
+            title = { Text(text = stringResource(R.string.clear_cache)) },
+            text = { Text(text = stringResource(R.string.clear_cache_confirmation)) },
+            confirmButton = {
+                TextButton(onClick = onConfirmClearCache) {
+                    Text(text = stringResource(R.string.clear))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = onDismissClearCache) {
+                    Text(text = stringResource(R.string.cancel))
+                }
+            }
+        )
+    }
+}
+
+private fun formatCacheSize(sizeBytes: Long?): String {
+    if (sizeBytes == null) return "-"
+    val megaBytes = sizeBytes.toDouble() / (1024.0 * 1024.0)
+    return String.format(Locale.getDefault(), "%.1f MB", megaBytes)
 }
 
 @Preview(showBackground = true)
