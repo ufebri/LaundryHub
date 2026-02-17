@@ -13,5 +13,7 @@ val dummyProfileUiState = ProfileUiState(
         )
     ),
     logout = SectionState(data = false),
-    showWhatsAppOption = true
+    showWhatsAppOption = true,
+    cacheSize = SectionState(data = 5_242_880L),
+    clearCache = SectionState(data = false)
 )
