@@ -9,6 +9,7 @@ import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.profile.state.toUI
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -170,6 +171,42 @@ class ProfileViewModelTest {
     }
 
     @Test
+    fun `fetch cache size stores error when use case fails`() = runTest {
+        runBlocking {
+            `when`(getCacheSizeUseCase.invoke()).thenThrow(RuntimeException("cache unavailable"))
+        }
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        assertEquals("cache unavailable", viewModel.uiState.value.cacheSize.errorMessage)
+    }
+
+    @Test
+    fun `open and dismiss clear cache dialog update state`() = runTest {
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        viewModel.openClearCacheDialog()
+        assertTrue(viewModel.uiState.value.showClearCacheDialog)
+
+        viewModel.dismissClearCacheDialog()
+        assertFalse(viewModel.uiState.value.showClearCacheDialog)
+    }
+
+    @Test
     fun `clear cache updates state and refreshes size`() = runTest {
         `when`(clearCacheUseCase.invoke()).thenReturn(true)
         `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 0L)
@@ -190,5 +227,30 @@ class ProfileViewModelTest {
         assertEquals(true, viewModel.uiState.value.clearCache.data)
         assertEquals(0L, viewModel.uiState.value.cacheSize.data)
         assertTrue(!viewModel.uiState.value.showClearCacheDialog)
+    }
+
+    @Test
+    fun `clear cache stores error and still refreshes cache size`() = runTest {
+        runBlocking {
+            `when`(clearCacheUseCase.invoke()).thenThrow(RuntimeException("clear cache failed"))
+            `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 1024L)
+        }
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        viewModel.openClearCacheDialog()
+        viewModel.clearCache()
+        advanceUntilIdle()
+
+        assertEquals("clear cache failed", viewModel.uiState.value.clearCache.errorMessage)
+        assertEquals(1024L, viewModel.uiState.value.cacheSize.data)
+        assertFalse(viewModel.uiState.value.showClearCacheDialog)
     }
 }
