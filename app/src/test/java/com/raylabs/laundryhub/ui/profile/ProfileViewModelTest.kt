@@ -1,16 +1,20 @@
 package com.raylabs.laundryhub.ui.profile
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
+import com.raylabs.laundryhub.core.domain.usecase.settings.ClearCacheUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.GetCacheSizeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.profile.state.toUI
 import junit.framework.TestCase.assertEquals
+import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -29,6 +33,8 @@ class ProfileViewModelTest {
     private lateinit var userUseCase: UserUseCase
     private lateinit var observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase
     private lateinit var setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase
+    private lateinit var getCacheSizeUseCase: GetCacheSizeUseCase
+    private lateinit var clearCacheUseCase: ClearCacheUseCase
     private lateinit var viewModel: ProfileViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -38,7 +44,12 @@ class ProfileViewModelTest {
         userUseCase = mock(UserUseCase::class.java)
         observeShowWhatsAppSettingUseCase = mock(ObserveShowWhatsAppSettingUseCase::class.java)
         setShowWhatsAppSettingUseCase = mock(SetShowWhatsAppSettingUseCase::class.java)
+        getCacheSizeUseCase = mock(GetCacheSizeUseCase::class.java)
+        clearCacheUseCase = mock(ClearCacheUseCase::class.java)
         `when`(observeShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(true))
+        runBlocking {
+            `when`(getCacheSizeUseCase.invoke()).thenReturn(0L)
+        }
     }
 
     @After
@@ -56,7 +67,9 @@ class ProfileViewModelTest {
         viewModel = ProfileViewModel(
             userUseCase,
             observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
         )
         val actual = viewModel.uiState.value.user.data
 
@@ -72,7 +85,9 @@ class ProfileViewModelTest {
         viewModel = ProfileViewModel(
             userUseCase,
             observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
         )
         var called = false
 
@@ -93,7 +108,9 @@ class ProfileViewModelTest {
         viewModel = ProfileViewModel(
             userUseCase,
             observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
         )
         var called = false
 
@@ -112,7 +129,9 @@ class ProfileViewModelTest {
         viewModel = ProfileViewModel(
             userUseCase,
             observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
         )
         viewModel.setShowWhatsAppOption(false)
         advanceUntilIdle()
@@ -126,10 +145,112 @@ class ProfileViewModelTest {
         viewModel = ProfileViewModel(
             userUseCase,
             observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
         )
         advanceUntilIdle()
 
         assertEquals(false, viewModel.uiState.value.showWhatsAppOption)
+    }
+
+    @Test
+    fun `fetch cache size updates state`() = runTest {
+        `when`(getCacheSizeUseCase.invoke()).thenReturn(1024L)
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        assertEquals(1024L, viewModel.uiState.value.cacheSize.data)
+    }
+
+    @Test
+    fun `fetch cache size stores error when use case fails`() = runTest {
+        runBlocking {
+            `when`(getCacheSizeUseCase.invoke()).thenThrow(RuntimeException("cache unavailable"))
+        }
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        assertEquals("cache unavailable", viewModel.uiState.value.cacheSize.errorMessage)
+    }
+
+    @Test
+    fun `open and dismiss clear cache dialog update state`() = runTest {
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        viewModel.openClearCacheDialog()
+        assertTrue(viewModel.uiState.value.showClearCacheDialog)
+
+        viewModel.dismissClearCacheDialog()
+        assertFalse(viewModel.uiState.value.showClearCacheDialog)
+    }
+
+    @Test
+    fun `clear cache updates state and refreshes size`() = runTest {
+        `when`(clearCacheUseCase.invoke()).thenReturn(true)
+        `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 0L)
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        viewModel.openClearCacheDialog()
+        viewModel.clearCache()
+        advanceUntilIdle()
+
+        assertEquals(true, viewModel.uiState.value.clearCache.data)
+        assertEquals(0L, viewModel.uiState.value.cacheSize.data)
+        assertTrue(!viewModel.uiState.value.showClearCacheDialog)
+    }
+
+    @Test
+    fun `clear cache stores error and still refreshes cache size`() = runTest {
+        runBlocking {
+            `when`(clearCacheUseCase.invoke()).thenThrow(RuntimeException("clear cache failed"))
+            `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 1024L)
+        }
+
+        viewModel = ProfileViewModel(
+            userUseCase,
+            observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase,
+            clearCacheUseCase
+        )
+        advanceUntilIdle()
+
+        viewModel.openClearCacheDialog()
+        viewModel.clearCache()
+        advanceUntilIdle()
+
+        assertEquals("clear cache failed", viewModel.uiState.value.clearCache.errorMessage)
+        assertEquals(1024L, viewModel.uiState.value.cacheSize.data)
+        assertFalse(viewModel.uiState.value.showClearCacheDialog)
     }
 }

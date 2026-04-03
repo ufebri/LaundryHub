@@ -203,7 +203,11 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    suspend fun submitOrder(order: OrderData, onComplete: suspend () -> Unit) {
+    suspend fun submitOrder(
+        order: OrderData,
+        onComplete: suspend () -> Unit,
+        onError: suspend (String) -> Unit = {}
+    ) {
         _uiState.value = _uiState.value.copy(
             submitNewOrder = _uiState.value.submitNewOrder.loading(),
             isSubmitting = true
@@ -223,6 +227,7 @@ class OrderViewModel @Inject constructor(
                     submitNewOrder = _uiState.value.submitNewOrder.error(result.message),
                     isSubmitting = false
                 )
+                onError(result.message)
             }
 
             else -> {
@@ -231,7 +236,11 @@ class OrderViewModel @Inject constructor(
         }
     }
 
-    fun updateOrder(order: OrderData, onComplete: suspend () -> Unit) {
+    fun updateOrder(
+        order: OrderData,
+        onComplete: suspend () -> Unit,
+        onError: suspend (String) -> Unit = {}
+    ) {
         _uiState.value = _uiState.value.copy(
             updateOrder = _uiState.value.updateOrder.loading(),
             isSubmitting = true
@@ -252,6 +261,7 @@ class OrderViewModel @Inject constructor(
                         updateOrder = _uiState.value.updateOrder.error(result.message),
                         isSubmitting = false
                     )
+                    onError(result.message)
                 }
 
                 else -> {

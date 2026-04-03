@@ -27,6 +27,13 @@
     <string name="settings">Settings</string>
     <string name="whatsapp_option">WhatsApp Option</string>
     <string name="whatsapp_option_description">Show WhatsApp field on order form</string>
+    <string name="clear_cache">Clear Cache</string>
+    <string name="clear_cache_description">Remove temporary files to free up space</string>
+    <string name="clear_cache_confirmation">App cache will be removed. Continue?</string>
+    <string name="clear">Clear</string>
+    <string name="cancel">Cancel</string>
+    <string name="cache_size_loading">Calculating...</string>
+    <string name="cache_size_unavailable">Unavailable</string>
 
     <!--  BottomNavItem  -->
     <string name="home">Home</string>
@@ -46,4 +53,11 @@
     <string name="payment_method">Payment Method</string>
     <string name="update">Update</string>
     <string name="submit">Submit</string>
+    <string name="submitting">Submitting...</string>
+    <string name="updating">Updating...</string>
+    <string name="order_submit_failed">Failed to submit order. Please try again.</string>
+    <string name="order_update_failed">Failed to update order. Please try again.</string>
+    <string name="order_submit_success">Order #%1$s submitted successfully.</string>
+    <string name="order_submit_success_opening_whatsapp">Order #%1$s submitted successfully. Opening WhatsApp...</string>
+    <string name="order_update_success">Order #%1$s updated successfully.</string>
 </resources>

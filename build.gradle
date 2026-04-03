@@ -44,6 +44,25 @@ if (sonarFile.exists()) {
 }
 
 def localSonarLogin = sonarProps.getProperty("SONAR_TOKEN")
+def sonarCoverageExclusions = [
+        "**/*Activity.kt",
+        "**/*Activity.java",
+        "**/*Fragment.kt",
+        "**/*Fragment.java",
+        "**/*Adapter.kt",
+        "**/*Adapter.java",
+        "**/ui/**/MainActivity*.kt",
+        "**/ui/**/LaundryHubStarter*.kt",
+        "**/ui/**/*Screen*.kt",
+        "**/ui/**/*ScreenView*.kt",
+        "**/ui/**/*BottomSheet*.kt",
+        "**/ui/component/**",
+        "**/ui/theme/**",
+        "**/core/di/**",
+        "**/databinding/**",
+        "**/data/source/local/room/**",
+        "**/LaundryHubApp*.kt"
+]
 
 sonar {
     properties {
@@ -52,6 +71,7 @@ sonar {
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.coverage.jacoco.xmlReportPaths",
                 "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+        property "sonar.coverage.exclusions", sonarCoverageExclusions.join(",")
 
 
         if (localSonarLogin) {

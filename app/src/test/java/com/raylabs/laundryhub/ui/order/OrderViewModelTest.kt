@@ -181,7 +181,7 @@ class OrderViewModelTest {
             mockObserveShowWhatsAppSettingUseCase
         )
         var onCompleteCalled = false
-        vm.updateOrder(order) { onCompleteCalled = true }
+        vm.updateOrder(order = order, onComplete = { onCompleteCalled = true })
         testDispatcher.scheduler.advanceUntilIdle()
         val state = vm.uiState.value
         assertFalse(state.isSubmitting)
@@ -464,7 +464,7 @@ class OrderViewModelTest {
             mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
-        vm.submitOrder(order) { done = true }
+        vm.submitOrder(order = order, onComplete = { done = true })
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
         assertTrue(done)
@@ -498,10 +498,16 @@ class OrderViewModelTest {
             mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
-        vm.submitOrder(order) { done = true }
+        var error: String? = null
+        vm.submitOrder(
+            order = order,
+            onComplete = { done = true },
+            onError = { error = it }
+        )
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
         assertEquals("submit err", vm.uiState.value.submitNewOrder.errorMessage)
+        assertEquals("submit err", error)
         assertFalse(done)
     }
 
@@ -532,7 +538,7 @@ class OrderViewModelTest {
             mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
-        vm.submitOrder(order) { done = true }
+        vm.submitOrder(order = order, onComplete = { done = true })
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
         assertFalse(done)
@@ -565,9 +571,16 @@ class OrderViewModelTest {
             mockObserveShowWhatsAppSettingUseCase
         )
         var done = false
-        vm.updateOrder(order) { done = true }; testDispatcher.scheduler.advanceUntilIdle()
+        var error: String? = null
+        vm.updateOrder(
+            order = order,
+            onComplete = { done = true },
+            onError = { error = it }
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
         assertEquals("upd err", vm.uiState.value.updateOrder.errorMessage)
+        assertEquals("upd err", error)
         assertFalse(done)
     }
 

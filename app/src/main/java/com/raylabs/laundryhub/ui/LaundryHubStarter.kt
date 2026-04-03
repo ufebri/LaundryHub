@@ -279,6 +279,8 @@ fun ShowOrderBottomSheet(
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
     val orderIdUnavailableMessage = stringResource(R.string.order_id_unavailable)
+    val submitFailedMessage = stringResource(R.string.order_submit_failed)
+    val updateFailedMessage = stringResource(R.string.order_update_failed)
 
     OrderBottomSheet(
         state = uiState,
@@ -302,41 +304,60 @@ fun ShowOrderBottomSheet(
                     return@launch
                 }
 
-                orderViewModel.submitOrder(orderViewModel.uiState.value.toOrderData(orderId), onComplete = {
-                    homeViewModel.fetchOrder()
-                    homeViewModel.fetchTodayIncome()
-                    homeViewModel.fetchSummary()
-                    homeViewModel.fetchGross()
-                    delay(500)
-                    dismissSheet()
+                orderViewModel.submitOrder(
+                    orderViewModel.uiState.value.toOrderData(orderId),
+                    onComplete = {
+                        val submittedState = orderViewModel.uiState.value
+                        homeViewModel.fetchOrder()
+                        homeViewModel.fetchTodayIncome()
+                        homeViewModel.fetchSummary()
+                        homeViewModel.fetchGross()
+                        delay(500)
+                        dismissSheet()
 
-                    val phone = orderViewModel.uiState.value.phone
-                    if (phone.isNotEmpty()) {
-                        val message = WhatsAppHelper.buildOrderMessage(
-                            customerName = orderViewModel.uiState.value.name,
-                            packageName = orderViewModel.uiState.value.selectedPackage?.name.orEmpty(),
-                            total = orderViewModel.uiState.value.price,
-                            paymentStatus = orderViewModel.uiState.value.paymentMethod
-                        )
-                        WhatsAppHelper.sendWhatsApp(context, phone, message)
+                        val phone = submittedState.phone
+                        if (phone.isNotEmpty()) {
+                            val message = WhatsAppHelper.buildOrderMessage(
+                                customerName = submittedState.name,
+                                packageName = submittedState.selectedPackage?.name.orEmpty(),
+                                total = submittedState.price,
+                                paymentStatus = submittedState.paymentMethod
+                            )
+                            WhatsAppHelper.sendWhatsApp(context, phone, message)
+                        }
+
+                        val successMessage = if (phone.isNotEmpty()) {
+                            context.getString(R.string.order_submit_success_opening_whatsapp, orderId)
+                        } else {
+                            context.getString(R.string.order_submit_success, orderId)
+                        }
+                        snackBarHostState.showSnackbar(successMessage)
+                    },
+                    onError = { errorMessage ->
+                        snackBarHostState.showSnackbar(errorMessage.ifBlank { submitFailedMessage })
                     }
-
-                    orderViewModel.resetForm()
-                    snackBarHostState.showSnackbar("Order #$orderId successfully submitted!, waiting for open wa...")
-                })
+                )
             }
         },
         onUpdate = {
             scope.launch {
-                orderViewModel.updateOrder(uiState.toOrderData(uiState.orderID), onComplete = {
-                    homeViewModel.fetchOrder()
-                    homeViewModel.fetchTodayIncome()
-                    homeViewModel.fetchSummary()
-                    homeViewModel.fetchGross()
-                    delay(500)
-                    dismissSheet()
-                    snackBarHostState.showSnackbar("Order #${uiState.orderID} successfully updated!")
-                })
+                orderViewModel.updateOrder(
+                    uiState.toOrderData(uiState.orderID),
+                    onComplete = {
+                        homeViewModel.fetchOrder()
+                        homeViewModel.fetchTodayIncome()
+                        homeViewModel.fetchSummary()
+                        homeViewModel.fetchGross()
+                        delay(500)
+                        dismissSheet()
+                        snackBarHostState.showSnackbar(
+                            context.getString(R.string.order_update_success, uiState.orderID)
+                        )
+                    },
+                    onError = { errorMessage ->
+                        snackBarHostState.showSnackbar(errorMessage.ifBlank { updateFailedMessage })
+                    }
+                )
             }
         }
     )
