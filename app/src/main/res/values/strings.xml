@@ -53,4 +53,11 @@
     <string name="payment_method">Payment Method</string>
     <string name="update">Update</string>
     <string name="submit">Submit</string>
+    <string name="submitting">Submitting...</string>
+    <string name="updating">Updating...</string>
+    <string name="order_submit_failed">Failed to submit order. Please try again.</string>
+    <string name="order_update_failed">Failed to update order. Please try again.</string>
+    <string name="order_submit_success">Order #%1$s submitted successfully.</string>
+    <string name="order_submit_success_opening_whatsapp">Order #%1$s submitted successfully. Opening WhatsApp...</string>
+    <string name="order_update_success">Order #%1$s updated successfully.</string>
 </resources>
