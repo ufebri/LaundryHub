@@ -5,8 +5,10 @@ import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
 import com.raylabs.laundryhub.ui.common.util.Resource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,14 +24,19 @@ import org.mockito.kotlin.whenever
 @OptIn(ExperimentalCoroutinesApi::class)
 class GoogleSheetRepositoryImplTest {
     private lateinit var googleSheetService: GoogleSheetService
+    private lateinit var spreadsheetIdProvider: SpreadsheetIdProvider
     private lateinit var repo: GoogleSheetRepositoryImpl
     private lateinit var valueRange: ValueRange
 
     @Before
     fun setup() {
         googleSheetService = mock()
+        spreadsheetIdProvider = mock()
         valueRange = mock()
-        repo = GoogleSheetRepositoryImpl(googleSheetService)
+        runBlocking {
+            whenever(spreadsheetIdProvider.getSpreadsheetId()).thenReturn(TEST_SPREADSHEET_ID)
+        }
+        repo = GoogleSheetRepositoryImpl(googleSheetService, spreadsheetIdProvider)
     }
 
     @Test
@@ -170,7 +177,7 @@ class GoogleSheetRepositoryImplTest {
         whenever(update.execute()).thenReturn(mock())
 
         // Create repo & test data
-        val repo = GoogleSheetRepositoryImpl(googleSheetService)
+        val repo = GoogleSheetRepositoryImpl(googleSheetService, spreadsheetIdProvider)
         val orderData = OrderData(
             orderId = "ORD1",
             name = "Alicia", // changed name!
@@ -383,5 +390,24 @@ class GoogleSheetRepositoryImplTest {
         val result = repo.getLastOrderId()
         assertTrue(result is Resource.Error)
         assertTrue((result as Resource.Error).message.contains("fail get last id"))
+    }
+
+    @Test
+    fun `readSummaryTransaction returns config error when spreadsheet is not connected`() = runTest {
+        runBlocking {
+            whenever(spreadsheetIdProvider.getSpreadsheetId()).thenReturn(null)
+        }
+
+        val result = repo.readSummaryTransaction()
+
+        assertTrue(result is Resource.Error)
+        assertEquals(
+            "Spreadsheet not connected yet. Please complete setup first.",
+            (result as Resource.Error).message
+        )
+    }
+
+    private companion object {
+        const val TEST_SPREADSHEET_ID = "sheet-test-id"
     }
 }

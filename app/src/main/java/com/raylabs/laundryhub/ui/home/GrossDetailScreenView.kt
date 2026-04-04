@@ -27,7 +27,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
@@ -55,12 +54,9 @@ fun GrossDetailScreenView(
             val window = (view.context as? android.app.Activity)?.window
             if (window == null) return@DisposableEffect onDispose {}
             val controller = WindowInsetsControllerCompat(window, view)
-            val previousColor = window.statusBarColor
             val previousAppearance = controller.isAppearanceLightStatusBars
-            window.statusBarColor = Color.Transparent.toArgb()
             controller.isAppearanceLightStatusBars = useDarkStatusIcons
             onDispose {
-                window.statusBarColor = previousColor
                 controller.isAppearanceLightStatusBars = previousAppearance
             }
         }

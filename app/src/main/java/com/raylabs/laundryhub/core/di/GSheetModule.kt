@@ -1,9 +1,13 @@
 package com.raylabs.laundryhub.core.di
 
-import android.content.Context
 import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
+import com.raylabs.laundryhub.core.data.repository.SpreadsheetValidationRepositoryImpl
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
+import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
+import com.raylabs.laundryhub.core.domain.repository.SpreadsheetValidationRepository
+import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
@@ -22,7 +26,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.components.ViewModelComponent
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ViewModelScoped
 
 @Module
@@ -32,9 +35,10 @@ object GSheetModule {
     @Provides
     @ViewModelScoped
     fun provideGoogleSheetRepository(
-        service: GoogleSheetService
+        service: GoogleSheetService,
+        spreadsheetIdProvider: SpreadsheetIdProvider
     ): GoogleSheetRepository {
-        return GoogleSheetRepositoryImpl(service)
+        return GoogleSheetRepositoryImpl(service, spreadsheetIdProvider)
     }
 
     @Provides
@@ -81,10 +85,23 @@ object GSheetModule {
 
     @Provides
     @ViewModelScoped
-    fun provideGoogleSheetService(@ApplicationContext context: Context): GoogleSheetService {
-        // Inject aplikasi context langsung ke GoogleSheetService
-        return GoogleSheetService(context)
+    fun provideGoogleSheetService(
+        googleSheetsAuthorizationManager: GoogleSheetsAuthorizationManager
+    ): GoogleSheetService {
+        return GoogleSheetService(googleSheetsAuthorizationManager)
     }
+
+    @Provides
+    @ViewModelScoped
+    fun provideSpreadsheetValidationRepository(
+        service: GoogleSheetService
+    ): SpreadsheetValidationRepository = SpreadsheetValidationRepositoryImpl(service)
+
+    @Provides
+    @ViewModelScoped
+    fun provideValidateSpreadsheetUseCase(
+        repository: SpreadsheetValidationRepository
+    ): ValidateSpreadsheetUseCase = ValidateSpreadsheetUseCase(repository)
 
     @Provides
     @ViewModelScoped

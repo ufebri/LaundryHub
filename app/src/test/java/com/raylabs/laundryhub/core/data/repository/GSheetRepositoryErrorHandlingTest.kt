@@ -1,8 +1,9 @@
 package com.raylabs.laundryhub.core.data.repository
 
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.googleapis.json.GoogleJsonError
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.mockito.kotlin.mock
@@ -11,54 +12,173 @@ import org.mockito.kotlin.whenever
 class GSheetRepositoryErrorHandlingTest {
 
     @Test
-    fun `handleGoogleJsonResponseException formats message`() {
-        val details = GoogleJsonError().apply { message = "Sheet missing" }
-        val exception = mock<GoogleJsonResponseException>()
-        whenever(exception.statusCode).thenReturn(404)
-        whenever(exception.statusMessage).thenReturn("Not Found")
-        whenever(exception.details).thenReturn(details)
-
-        val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(exception)
+    fun `handleGoogleJsonResponseException maps drive api disabled details`() {
+        val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(
+            googleJsonException(
+                statusCode = 403,
+                statusMessage = "Forbidden",
+                detailsMessage = "Google Drive API has not been used in project 655099386324 before or it is disabled."
+            )
+        )
 
         assertEquals(
-            "Error 404: Not Found\nDetails: Sheet missing",
+            GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE,
             result.message
         )
     }
 
     @Test
-    fun `handleReadSheetResponseException returns error with message`() {
-        val result =
-            GSheetRepositoryErrorHandling.handleReadSheetResponseException(Exception("boom"))
+    fun `handleGoogleJsonResponseException returns generic error for non drive failures`() {
+        val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(
+            googleJsonException(
+                statusCode = 500,
+                statusMessage = "Internal Server Error",
+                detailsMessage = "Spreadsheet exploded."
+            )
+        )
 
-        assertEquals(Resource.Error("boom"), result)
+        assertEquals(
+            "Error 500: Internal Server Error\nDetails: Spreadsheet exploded.",
+            result.message
+        )
     }
 
     @Test
-    fun `handleFailAfterRetry returns standard error`() {
-        val result = GSheetRepositoryErrorHandling.handleFailAfterRetry()
+    fun `handleReadSheetResponseException maps user recoverable auth error`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            mock<UserRecoverableAuthIOException>()
+        )
 
-        assertEquals(Resource.Error("Failed after 3 attempts."), result)
+        assertEquals(GoogleSheetService.MISSING_ACCESS_MESSAGE, result.message)
     }
 
     @Test
-    fun `handleFailedAddOrder returns error`() {
-        val result = GSheetRepositoryErrorHandling.handleFailedAddOrder(Exception("add failed"))
+    fun `handleReadSheetResponseException maps authorization configuration issue`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            Exception("DEVELOPER_ERROR: Unknown calling package name com.google.android.gms")
+        )
 
-        assertEquals(Resource.Error("add failed"), result)
+        assertEquals(
+            GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE,
+            result.message
+        )
     }
 
     @Test
-    fun `handleFailedUpdate returns error`() {
-        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(Exception("update failed"))
+    fun `handleReadSheetResponseException falls back to exception message`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            Exception("something else happened")
+        )
 
-        assertEquals(Resource.Error("update failed"), result)
+        assertEquals("something else happened", result.message)
     }
 
     @Test
-    fun `handleIDNotFound returns error`() {
-        val result = GSheetRepositoryErrorHandling.handleIDNotFound()
+    fun `handleReadSheetResponseException falls back to unexpected error when message is null`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            Exception()
+        )
 
-        assertEquals(Resource.Error("ID not found."), result)
+        assertEquals("Unexpected Error", result.message)
+    }
+
+    @Test
+    fun `handleFailAfterRetry returns fixed message`() {
+        assertEquals(
+            "Failed after 3 attempts.",
+            GSheetRepositoryErrorHandling.handleFailAfterRetry().message
+        )
+    }
+
+    @Test
+    fun `handleFailedAddOrder maps google 403 write denial to edit access required`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedAddOrder(
+            googleJsonException(
+                statusCode = 403,
+                statusMessage = "Forbidden",
+                detailsMessage = "The caller does not have permission"
+            )
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.EDIT_ACCESS_REQUIRED_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
+    fun `handleFailedAddOrder maps user recoverable auth error`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedAddOrder(
+            mock<UserRecoverableAuthIOException>()
+        )
+
+        assertEquals(GoogleSheetService.MISSING_ACCESS_MESSAGE, result.message)
+    }
+
+    @Test
+    fun `handleFailedAddOrder maps drive api disabled 403 to setup message`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedAddOrder(
+            googleJsonException(
+                statusCode = 403,
+                statusMessage = "Forbidden",
+                detailsMessage = "Drive API accessNotConfigured for drive.googleapis.com, enable it first."
+            )
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
+    fun `handleFailedUpdate maps auth configuration issue`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
+            Exception("access token is unavailable for owner@laundryhub.com")
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
+    fun `handleFailedUpdate uses fallback message when exception message is null`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
+            Exception()
+        )
+
+        assertEquals("Failed to update order.", result.message)
+    }
+
+    @Test
+    fun `handleFailedUpdate falls back to exception message`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
+            Exception("failed to update row 99")
+        )
+
+        assertEquals("failed to update row 99", result.message)
+    }
+
+    @Test
+    fun `handleIDNotFound returns fixed message`() {
+        assertEquals("ID not found.", GSheetRepositoryErrorHandling.handleIDNotFound().message)
+    }
+
+    private fun googleJsonException(
+        statusCode: Int,
+        statusMessage: String,
+        detailsMessage: String
+    ): GoogleJsonResponseException {
+        val error = GoogleJsonError().apply {
+            message = detailsMessage
+        }
+        return mock<GoogleJsonResponseException>().also { mocked ->
+            whenever(mocked.statusCode).thenReturn(statusCode)
+            whenever(mocked.statusMessage).thenReturn(statusMessage)
+            whenever(mocked.details).thenReturn(error)
+            whenever(mocked.message).thenReturn("Error $statusCode: $statusMessage\nDetails: $detailsMessage")
+        }
     }
 }
