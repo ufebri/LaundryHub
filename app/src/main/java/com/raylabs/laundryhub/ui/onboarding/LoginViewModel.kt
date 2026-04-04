@@ -53,6 +53,25 @@ class LoginViewModel @Inject constructor(
         }
     }
 
+    suspend fun signOut(): Boolean {
+        _isLoading.value = true
+        return try {
+            val hasSignedOut = userUseCase.signOut()
+            if (hasSignedOut) {
+                _userState.value = null
+                _errorState.value = null
+            } else {
+                _errorState.value = "Failed to sign out"
+            }
+            hasSignedOut
+        } catch (e: Exception) {
+            _errorState.value = e.message
+            false
+        } finally {
+            _isLoading.value = false
+        }
+    }
+
     fun clearUser() {
         _userState.value = null
     }

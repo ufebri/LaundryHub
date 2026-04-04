@@ -3,16 +3,22 @@ package com.raylabs.laundryhub.ui.profile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearCacheUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ClearSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.GetCacheSizeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveSpreadsheetConfigUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
 import com.raylabs.laundryhub.ui.profile.state.toUI
+import com.raylabs.laundryhub.ui.profile.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -26,7 +32,11 @@ class ProfileViewModel @Inject constructor(
     private val observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase,
     private val setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase,
     private val getCacheSizeUseCase: GetCacheSizeUseCase,
-    private val clearCacheUseCase: ClearCacheUseCase
+    private val clearCacheUseCase: ClearCacheUseCase,
+    private val observeSpreadsheetConfigUseCase: ObserveSpreadsheetConfigUseCase,
+    private val clearSpreadsheetConnectionUseCase: ClearSpreadsheetConnectionUseCase,
+    private val saveSpreadsheetConnectionUseCase: SaveSpreadsheetConnectionUseCase,
+    private val validateSpreadsheetUseCase: ValidateSpreadsheetUseCase
 ) : ViewModel() {
 
 
@@ -37,6 +47,7 @@ class ProfileViewModel @Inject constructor(
     init {
         fetchUser()
         observeSettings()
+        observeSpreadsheetConfig()
         fetchCacheSize()
     }
 
@@ -51,6 +62,19 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             observeShowWhatsAppSettingUseCase().collect { isEnabled ->
                 _uiState.update { it.copy(showWhatsAppOption = isEnabled) }
+            }
+        }
+    }
+
+    private fun observeSpreadsheetConfig() {
+        viewModelScope.launch {
+            observeSpreadsheetConfigUseCase().collect { config ->
+                _uiState.update {
+                    it.copy(
+                        connectedSpreadsheet = it.connectedSpreadsheet.success(config.toUi()),
+                        spreadsheetValidation = SectionState()
+                    )
+                }
             }
         }
     }
@@ -96,6 +120,81 @@ class ProfileViewModel @Inject constructor(
 
     fun dismissClearCacheDialog() {
         _uiState.update { it.copy(showClearCacheDialog = false) }
+    }
+
+    fun openChangeSpreadsheetDialog() {
+        _uiState.update { it.copy(showChangeSpreadsheetDialog = true) }
+    }
+
+    fun dismissChangeSpreadsheetDialog() {
+        _uiState.update { it.copy(showChangeSpreadsheetDialog = false) }
+    }
+
+    fun confirmChangeSpreadsheet() {
+        viewModelScope.launch {
+            clearSpreadsheetConnectionUseCase()
+            _uiState.update {
+                it.copy(
+                    showChangeSpreadsheetDialog = false,
+                    spreadsheetValidation = SectionState()
+                )
+            }
+        }
+    }
+
+    fun revalidateSpreadsheet() {
+        val spreadsheet = _uiState.value.connectedSpreadsheet.data ?: run {
+            _uiState.update {
+                it.copy(
+                    spreadsheetValidation = it.spreadsheetValidation.error(
+                        "No spreadsheet connected yet."
+                    )
+                )
+            }
+            return
+        }
+
+        val validationInput = spreadsheet.spreadsheetUrl ?: spreadsheet.spreadsheetId
+        _uiState.update {
+            it.copy(spreadsheetValidation = it.spreadsheetValidation.loading())
+        }
+
+        viewModelScope.launch {
+            when (val result = validateSpreadsheetUseCase(validationInput)) {
+                is Resource.Success -> {
+                    saveSpreadsheetConnectionUseCase(
+                        spreadsheetId = result.data.spreadsheetId,
+                        spreadsheetName = result.data.spreadsheetTitle,
+                        spreadsheetUrl = spreadsheet.spreadsheetUrl ?: result.data.spreadsheetUrl
+                    )
+                    _uiState.update {
+                        it.copy(
+                            spreadsheetValidation = it.spreadsheetValidation.success(
+                                "Spreadsheet validated successfully."
+                            )
+                        )
+                    }
+                }
+
+                is Resource.Error -> {
+                    _uiState.update {
+                        it.copy(
+                            spreadsheetValidation = it.spreadsheetValidation.error(result.message)
+                        )
+                    }
+                }
+
+                else -> {
+                    _uiState.update {
+                        it.copy(
+                            spreadsheetValidation = it.spreadsheetValidation.error(
+                                "Unable to validate spreadsheet."
+                            )
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fun clearCache() {

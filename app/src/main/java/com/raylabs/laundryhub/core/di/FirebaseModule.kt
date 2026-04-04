@@ -1,16 +1,21 @@
 package com.raylabs.laundryhub.core.di
 
 import android.content.Context
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions
+import androidx.credentials.CredentialManager
+import com.google.android.gms.auth.api.identity.AuthorizationClient
+import com.google.android.gms.auth.api.identity.Identity
 import com.google.firebase.appdistribution.FirebaseAppDistribution
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.crashlytics.FirebaseCrashlytics
-import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.data.firebase.AppDistributionUpdateChecker
 import com.raylabs.laundryhub.core.data.firebase.AuthRepositoryImpl
 import com.raylabs.laundryhub.core.data.firebase.FirebaseDataSource
+import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
+import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManagerImpl
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAccountProvider
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAccountProviderImpl
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManagerImpl
 import com.raylabs.laundryhub.core.domain.repository.AuthRepository
 import com.raylabs.laundryhub.core.domain.repository.UpdateCheckerRepository
 import com.raylabs.laundryhub.core.domain.usecase.auth.CheckUserLoggedInUseCase
@@ -35,9 +40,10 @@ object FirebaseModule {
 
     @Provides
     fun provideFirebaseAuthDataSource(
-        firebaseAuth: FirebaseAuth
+        firebaseAuth: FirebaseAuth,
+        googleCredentialAuthManager: GoogleCredentialAuthManager
     ): FirebaseDataSource {
-        return FirebaseDataSource(firebaseAuth)
+        return FirebaseDataSource(firebaseAuth, googleCredentialAuthManager)
     }
 
     @Provides
@@ -45,15 +51,6 @@ object FirebaseModule {
         firebaseAuthDataSource: FirebaseDataSource
     ): AuthRepository {
         return AuthRepositoryImpl(firebaseAuthDataSource)
-    }
-
-    // GoogleSignInOptions
-    @Provides
-    fun provideGoogleSignInOptions(): GoogleSignInOptions {
-        return GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-            .requestIdToken(BuildConfig.WEB_CLIENT_ID)
-            .requestEmail()
-            .build()
     }
 
     @Provides
@@ -73,12 +70,36 @@ object FirebaseModule {
     }
 
     @Provides
-    fun provideGoogleSignInClient(
-        @ApplicationContext context: Context,
-        gso: GoogleSignInOptions
-    ): GoogleSignInClient {
-        return GoogleSignIn.getClient(context, gso)
-    }
+    @Singleton
+    fun provideGoogleCredentialAuthManager(
+        credentialManager: CredentialManager
+    ): GoogleCredentialAuthManager = GoogleCredentialAuthManagerImpl(credentialManager)
+
+    @Provides
+    @Singleton
+    fun provideCredentialManager(
+        @ApplicationContext context: Context
+    ): CredentialManager = CredentialManager.create(context)
+
+    @Provides
+    @Singleton
+    fun provideGoogleSheetsAccountProvider(
+        firebaseAuth: FirebaseAuth
+    ): GoogleSheetsAccountProvider = GoogleSheetsAccountProviderImpl(firebaseAuth)
+
+    @Provides
+    @Singleton
+    fun provideGoogleSheetsAuthorizationManager(
+        authorizationClient: AuthorizationClient,
+        googleSheetsAccountProvider: GoogleSheetsAccountProvider
+    ): GoogleSheetsAuthorizationManager =
+        GoogleSheetsAuthorizationManagerImpl(authorizationClient, googleSheetsAccountProvider)
+
+    @Provides
+    @Singleton
+    fun provideAuthorizationClient(
+        @ApplicationContext context: Context
+    ): AuthorizationClient = Identity.getAuthorizationClient(context)
 
     @Provides
     @Singleton

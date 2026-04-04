@@ -4,6 +4,7 @@ import com.google.android.gms.tasks.Task
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -24,6 +25,7 @@ class FirebaseDataSourceMockitoTest {
     private lateinit var firebaseUser: FirebaseUser
     private lateinit var authResult: AuthResult
     private lateinit var task: Task<AuthResult>
+    private lateinit var googleCredentialAuthManager: GoogleCredentialAuthManager
 
     @Before
     fun setup() {
@@ -31,7 +33,8 @@ class FirebaseDataSourceMockitoTest {
         firebaseUser = mock()
         authResult = mock()
         task = mock()
-        dataSource = FirebaseDataSource(firebaseAuth)
+        googleCredentialAuthManager = mock()
+        dataSource = FirebaseDataSource(firebaseAuth, googleCredentialAuthManager)
     }
 
     @Test
@@ -74,5 +77,6 @@ class FirebaseDataSourceMockitoTest {
         val result = dataSource.signOut()
         assertTrue(result)
         Mockito.verify(firebaseAuth).signOut()
+        Mockito.verify(googleCredentialAuthManager).clearCredentialState()
     }
 }
