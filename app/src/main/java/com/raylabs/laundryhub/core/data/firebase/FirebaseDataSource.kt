@@ -2,11 +2,13 @@ package com.raylabs.laundryhub.core.data.firebase
 
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
+import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
 import com.raylabs.laundryhub.core.domain.model.auth.User
 import kotlinx.coroutines.tasks.await
 
 class FirebaseDataSource(
-    private val firebaseAuth: FirebaseAuth
+    private val firebaseAuth: FirebaseAuth,
+    private val googleCredentialAuthManager: GoogleCredentialAuthManager
 ) : FirebaseAuthDataSource {
 
     override suspend fun signInWithGoogle(idToken: String): User? {
@@ -39,6 +41,7 @@ class FirebaseDataSource(
 
     override suspend fun signOut(): Boolean {
         firebaseAuth.signOut()
+        runCatching { googleCredentialAuthManager.clearCredentialState() }
         return true
     }
 

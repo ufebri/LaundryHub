@@ -1,12 +1,19 @@
 package com.raylabs.laundryhub.ui.profile
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
+import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
+import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetValidationResult
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearCacheUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ClearSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.GetCacheSizeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveSpreadsheetConfigUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
+import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
+import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.profile.state.toUI
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
@@ -35,6 +42,10 @@ class ProfileViewModelTest {
     private lateinit var setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase
     private lateinit var getCacheSizeUseCase: GetCacheSizeUseCase
     private lateinit var clearCacheUseCase: ClearCacheUseCase
+    private lateinit var observeSpreadsheetConfigUseCase: ObserveSpreadsheetConfigUseCase
+    private lateinit var clearSpreadsheetConnectionUseCase: ClearSpreadsheetConnectionUseCase
+    private lateinit var saveSpreadsheetConnectionUseCase: SaveSpreadsheetConnectionUseCase
+    private lateinit var validateSpreadsheetUseCase: ValidateSpreadsheetUseCase
     private lateinit var viewModel: ProfileViewModel
     private val testDispatcher = StandardTestDispatcher()
 
@@ -46,7 +57,13 @@ class ProfileViewModelTest {
         setShowWhatsAppSettingUseCase = mock(SetShowWhatsAppSettingUseCase::class.java)
         getCacheSizeUseCase = mock(GetCacheSizeUseCase::class.java)
         clearCacheUseCase = mock(ClearCacheUseCase::class.java)
+        observeSpreadsheetConfigUseCase = mock(ObserveSpreadsheetConfigUseCase::class.java)
+        clearSpreadsheetConnectionUseCase = mock(ClearSpreadsheetConnectionUseCase::class.java)
+        saveSpreadsheetConnectionUseCase = mock(SaveSpreadsheetConnectionUseCase::class.java)
+        validateSpreadsheetUseCase = mock(ValidateSpreadsheetUseCase::class.java)
+
         `when`(observeShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(true))
+        `when`(observeSpreadsheetConfigUseCase.invoke()).thenReturn(flowOf(SpreadsheetConfig()))
         runBlocking {
             `when`(getCacheSizeUseCase.invoke()).thenReturn(0L)
         }
@@ -59,80 +76,46 @@ class ProfileViewModelTest {
 
     @Test
     fun `fetchUser sets user in uiState`() = runTest {
-        // Given
         val user = User("id", "Ray Febri", "uray@mail.com", "photoUrl")
         `when`(userUseCase.getCurrentUser()).thenReturn(user)
 
-        // When
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         val actual = viewModel.uiState.value.user.data
 
-        // Then
         assertEquals(user.toUI(), actual)
         assertEquals(dummyProfileUiState.user.data?.displayName, actual?.displayName)
     }
 
     @Test
     fun `logOut updates state and calls onSuccess`() = runTest {
-        // Given
         `when`(userUseCase.signOut()).thenReturn(true)
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         var called = false
 
-        // When
         viewModel.logOut { called = true }
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertTrue(state.logout.data == true)
+        assertTrue(viewModel.uiState.value.logout.data == true)
         assertTrue(called)
     }
 
     @Test
     fun `logOut updates state with false if failed`() = runTest {
-        // Given
         `when`(userUseCase.signOut()).thenReturn(false)
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         var called = false
 
-        // When
         viewModel.logOut { called = true }
         advanceUntilIdle()
 
-        // Then
-        val state = viewModel.uiState.value
-        assertEquals(false, state.logout.data)
+        assertEquals(false, viewModel.uiState.value.logout.data)
         assertTrue(!called)
     }
 
     @Test
     fun `setShowWhatsAppOption calls use case`() = runTest {
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
+
         viewModel.setShowWhatsAppOption(false)
         advanceUntilIdle()
 
@@ -142,13 +125,8 @@ class ProfileViewModelTest {
     @Test
     fun `observe settings updates showWhatsAppOption`() = runTest {
         `when`(observeShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(false))
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         assertEquals(false, viewModel.uiState.value.showWhatsAppOption)
@@ -158,13 +136,7 @@ class ProfileViewModelTest {
     fun `fetch cache size updates state`() = runTest {
         `when`(getCacheSizeUseCase.invoke()).thenReturn(1024L)
 
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         assertEquals(1024L, viewModel.uiState.value.cacheSize.data)
@@ -176,13 +148,7 @@ class ProfileViewModelTest {
             `when`(getCacheSizeUseCase.invoke()).thenThrow(RuntimeException("cache unavailable"))
         }
 
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         assertEquals("cache unavailable", viewModel.uiState.value.cacheSize.errorMessage)
@@ -190,13 +156,7 @@ class ProfileViewModelTest {
 
     @Test
     fun `open and dismiss clear cache dialog update state`() = runTest {
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.openClearCacheDialog()
@@ -211,13 +171,7 @@ class ProfileViewModelTest {
         `when`(clearCacheUseCase.invoke()).thenReturn(true)
         `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 0L)
 
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.openClearCacheDialog()
@@ -236,13 +190,7 @@ class ProfileViewModelTest {
             `when`(getCacheSizeUseCase.invoke()).thenReturn(2048L, 1024L)
         }
 
-        viewModel = ProfileViewModel(
-            userUseCase,
-            observeShowWhatsAppSettingUseCase,
-            setShowWhatsAppSettingUseCase,
-            getCacheSizeUseCase,
-            clearCacheUseCase
-        )
+        viewModel = createViewModel()
         advanceUntilIdle()
 
         viewModel.openClearCacheDialog()
@@ -252,5 +200,135 @@ class ProfileViewModelTest {
         assertEquals("clear cache failed", viewModel.uiState.value.clearCache.errorMessage)
         assertEquals(1024L, viewModel.uiState.value.cacheSize.data)
         assertFalse(viewModel.uiState.value.showClearCacheDialog)
+    }
+
+    @Test
+    fun `observe spreadsheet config updates connected spreadsheet state`() = runTest {
+        `when`(observeSpreadsheetConfigUseCase.invoke()).thenReturn(
+            flowOf(
+                SpreadsheetConfig(
+                    spreadsheetId = "sheet-123",
+                    spreadsheetName = "Laundry A",
+                    spreadsheetUrl = "https://docs.google.com/spreadsheets/d/sheet-123/edit"
+                )
+            )
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertEquals("Laundry A", viewModel.uiState.value.connectedSpreadsheet.data?.spreadsheetName)
+        assertEquals("sheet-123", viewModel.uiState.value.connectedSpreadsheet.data?.spreadsheetId)
+    }
+
+    @Test
+    fun `revalidate spreadsheet stores success message and refreshes saved spreadsheet`() = runTest {
+        `when`(observeSpreadsheetConfigUseCase.invoke()).thenReturn(
+            flowOf(
+                SpreadsheetConfig(
+                    spreadsheetId = "sheet-123",
+                    spreadsheetName = "Laundry A",
+                    spreadsheetUrl = "https://docs.google.com/spreadsheets/d/sheet-123/edit"
+                )
+            )
+        )
+        runBlocking {
+            `when`(
+                validateSpreadsheetUseCase.invoke("https://docs.google.com/spreadsheets/d/sheet-123/edit")
+            ).thenReturn(
+                Resource.Success(
+                    SpreadsheetValidationResult(
+                        spreadsheetId = "sheet-123",
+                        spreadsheetTitle = "Laundry A Updated"
+                    )
+                )
+            )
+        }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.revalidateSpreadsheet()
+        advanceUntilIdle()
+
+        assertEquals(
+            "Spreadsheet validated successfully.",
+            viewModel.uiState.value.spreadsheetValidation.data
+        )
+        runBlocking {
+            verify(saveSpreadsheetConnectionUseCase).invoke(
+                "sheet-123",
+                "Laundry A Updated",
+                "https://docs.google.com/spreadsheets/d/sheet-123/edit"
+            )
+        }
+    }
+
+    @Test
+    fun `revalidate spreadsheet stores error message when validation fails`() = runTest {
+        `when`(observeSpreadsheetConfigUseCase.invoke()).thenReturn(
+            flowOf(
+                SpreadsheetConfig(
+                    spreadsheetId = "sheet-123",
+                    spreadsheetName = "Laundry A",
+                    spreadsheetUrl = "https://docs.google.com/spreadsheets/d/sheet-123/edit"
+                )
+            )
+        )
+        runBlocking {
+            `when`(
+                validateSpreadsheetUseCase.invoke("https://docs.google.com/spreadsheets/d/sheet-123/edit")
+            ).thenReturn(Resource.Error("Error 403: access denied"))
+        }
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.revalidateSpreadsheet()
+        advanceUntilIdle()
+
+        assertEquals(
+            "Error 403: access denied",
+            viewModel.uiState.value.spreadsheetValidation.errorMessage
+        )
+    }
+
+    @Test
+    fun `open and dismiss change spreadsheet dialog update state`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.openChangeSpreadsheetDialog()
+        assertTrue(viewModel.uiState.value.showChangeSpreadsheetDialog)
+
+        viewModel.dismissChangeSpreadsheetDialog()
+        assertFalse(viewModel.uiState.value.showChangeSpreadsheetDialog)
+    }
+
+    @Test
+    fun `confirm change spreadsheet clears connection and closes dialog`() = runTest {
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        viewModel.openChangeSpreadsheetDialog()
+        viewModel.confirmChangeSpreadsheet()
+        advanceUntilIdle()
+
+        verify(clearSpreadsheetConnectionUseCase).invoke()
+        assertFalse(viewModel.uiState.value.showChangeSpreadsheetDialog)
+    }
+
+    private fun createViewModel(): ProfileViewModel {
+        return ProfileViewModel(
+            userUseCase = userUseCase,
+            observeShowWhatsAppSettingUseCase = observeShowWhatsAppSettingUseCase,
+            setShowWhatsAppSettingUseCase = setShowWhatsAppSettingUseCase,
+            getCacheSizeUseCase = getCacheSizeUseCase,
+            clearCacheUseCase = clearCacheUseCase,
+            observeSpreadsheetConfigUseCase = observeSpreadsheetConfigUseCase,
+            clearSpreadsheetConnectionUseCase = clearSpreadsheetConnectionUseCase,
+            saveSpreadsheetConnectionUseCase = saveSpreadsheetConnectionUseCase,
+            validateSpreadsheetUseCase = validateSpreadsheetUseCase
+        )
     }
 }

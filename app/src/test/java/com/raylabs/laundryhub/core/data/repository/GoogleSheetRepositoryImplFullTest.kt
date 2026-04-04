@@ -3,8 +3,10 @@ package com.raylabs.laundryhub.core.data.repository
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
 import com.raylabs.laundryhub.ui.common.util.Resource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -22,12 +24,17 @@ import org.mockito.kotlin.whenever
 class GoogleSheetRepositoryImplFullTest {
 
     private lateinit var googleSheetService: GoogleSheetService
+    private lateinit var spreadsheetIdProvider: SpreadsheetIdProvider
     private lateinit var repo: GoogleSheetRepositoryImpl
 
     @Before
     fun setUp() {
         googleSheetService = mock()
-        repo = GoogleSheetRepositoryImpl(googleSheetService)
+        spreadsheetIdProvider = mock()
+        runBlocking {
+            whenever(spreadsheetIdProvider.getSpreadsheetId()).thenReturn(TEST_SPREADSHEET_ID)
+        }
+        repo = GoogleSheetRepositoryImpl(googleSheetService, spreadsheetIdProvider)
     }
 
     @Test
@@ -296,5 +303,9 @@ class GoogleSheetRepositoryImplFullTest {
         val result = repo.getOutcomeById("O7")
 
         assertTrue(result is Resource.Empty)
+    }
+
+    private companion object {
+        const val TEST_SPREADSHEET_ID = "sheet-test-id"
     }
 }

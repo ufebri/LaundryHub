@@ -1,7 +1,12 @@
 package com.raylabs.laundryhub.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.util.Log
 import android.widget.Toast
+import androidx.activity.compose.LocalActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -25,7 +30,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
@@ -43,10 +50,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
-import com.google.android.gms.auth.api.signin.GoogleSignIn
-import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.core.di.GoogleSignInClientEntryPoint
+import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
+import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
+import com.raylabs.laundryhub.core.data.service.SpreadsheetIdParser
+import com.raylabs.laundryhub.core.di.GoogleAuthEntryPoint
+import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
@@ -62,6 +71,8 @@ import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.outcome.OutcomeScreenView
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import com.raylabs.laundryhub.ui.profile.inventory.InventoryScreenView
+import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupScreen
+import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupViewModel
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -71,42 +82,194 @@ import kotlinx.coroutines.launch
 @Composable
 fun AppRoot(
     loginViewModel: LoginViewModel = hiltViewModel(),
-    googleSignInClient: GoogleSignInClient =
+    spreadsheetSetupViewModel: SpreadsheetSetupViewModel = hiltViewModel(),
+    googleCredentialAuthManager: GoogleCredentialAuthManager =
         EntryPointAccessors.fromApplication(
             LocalContext.current.applicationContext,
-            GoogleSignInClientEntryPoint::class.java
-        ).googleSignInClient()
+            GoogleAuthEntryPoint::class.java
+        ).googleCredentialAuthManager(),
+    googleSheetsAuthorizationManager: GoogleSheetsAuthorizationManager =
+        EntryPointAccessors.fromApplication(
+            LocalContext.current.applicationContext,
+            GoogleAuthEntryPoint::class.java
+        ).googleSheetsAuthorizationManager()
 ) {
     val user by loginViewModel.userState.collectAsState()
     val isLoading by loginViewModel.isLoading.collectAsState()
+    val spreadsheetSetupState by spreadsheetSetupViewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val activity = LocalActivity.current
+    val scope = rememberCoroutineScope()
+    val sheetsAccessRefreshTick = remember { mutableIntStateOf(0) }
+    val connectedGoogleAccountEmail =
+        googleSheetsAuthorizationManager.getSignedInEmail() ?: user?.email
+    val hasLoadedSpreadsheetConfiguration = spreadsheetSetupState.hasLoadedConfiguration
+    val hasConfiguredSpreadsheet =
+        !spreadsheetSetupState.configuredSpreadsheetId.isNullOrBlank() &&
+            spreadsheetSetupState.configuredValidationVersion >= SpreadsheetConfig.CURRENT_VALIDATION_VERSION
+    val shouldShowSpreadsheetSetup = user != null && hasLoadedSpreadsheetConfiguration && !hasConfiguredSpreadsheet
 
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.StartActivityForResult()
+    val hasGoogleSheetsAccess by produceState<Boolean?>(
+        initialValue = if (user == null || !shouldShowSpreadsheetSetup) false else null,
+        key1 = user?.uid,
+        key2 = shouldShowSpreadsheetSetup,
+        key3 = sheetsAccessRefreshTick.intValue
+    ) {
+        value = if (user == null || !shouldShowSpreadsheetSetup) {
+            false
+        } else {
+            runCatching { googleSheetsAuthorizationManager.hasSheetsAccess() }.getOrDefault(false)
+        }
+    }
+    val isCheckingGoogleSheetsAccess = user != null && hasGoogleSheetsAccess == null
+    val requiresGoogleSheetsAccess = user != null && hasGoogleSheetsAccess == false
+
+    val sheetsAuthorizationLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
-        val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-        try {
-            val account = task.result
-            val idToken = account?.idToken
-            if (!idToken.isNullOrEmpty()) {
-                loginViewModel.signInGoogle(idToken)
-            }
-        } catch (_: Exception) {
-            // handle error
-            Toast.makeText(context, "Failed to sign in", Toast.LENGTH_SHORT).show()
+        Log.d(
+            "AppRootAuth",
+            "Sheets authorization resultCode=${result.resultCode} hasData=${result.data != null}"
+        )
+        val granted = googleSheetsAuthorizationManager.handleAuthorizationResult(result.data)
+        sheetsAccessRefreshTick.intValue++
+        if (!granted) {
+            Log.w("AppRootAuth", "Google Sheets access was not granted after resolution flow")
+            Toast.makeText(context, "Failed to grant Google Sheets access", Toast.LENGTH_SHORT)
+                .show()
         }
     }
 
     when {
-        isLoading -> { // Show loading indicator
+        isLoading || (user != null && !hasLoadedSpreadsheetConfiguration) || isCheckingGoogleSheetsAccess -> {
             Box(
                 Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) { CircularProgressIndicator() }
         }
 
-        user != null -> {
+        user != null && hasConfiguredSpreadsheet -> {
             LaundryHubStarter(loginViewModel = loginViewModel)
+        }
+
+        shouldShowSpreadsheetSetup -> {
+            SpreadsheetSetupScreen(
+                state = spreadsheetSetupState,
+                connectedAccountEmail = connectedGoogleAccountEmail,
+                requiresGoogleSheetsAccess = requiresGoogleSheetsAccess,
+                onInputChanged = spreadsheetSetupViewModel::onInputChanged,
+                onValidate = spreadsheetSetupViewModel::validateAndContinue,
+                onOpenInGoogleSheets = {
+                    val spreadsheetUrl = when {
+                        spreadsheetSetupState.input.isNotBlank() -> {
+                            SpreadsheetIdParser.normalize(spreadsheetSetupState.input)?.let { spreadsheetId ->
+                                "https://docs.google.com/spreadsheets/d/$spreadsheetId/edit"
+                            } ?: spreadsheetSetupState.input
+                        }
+
+                        !spreadsheetSetupState.configuredSpreadsheetUrl.isNullOrBlank() ->
+                            spreadsheetSetupState.configuredSpreadsheetUrl
+
+                        !spreadsheetSetupState.configuredSpreadsheetId.isNullOrBlank() ->
+                            "https://docs.google.com/spreadsheets/d/${spreadsheetSetupState.configuredSpreadsheetId}/edit"
+
+                        else -> null
+                    }
+
+                    if (spreadsheetUrl.isNullOrBlank()) {
+                        Toast.makeText(
+                            context,
+                            "Spreadsheet URL is not available yet",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        return@SpreadsheetSetupScreen
+                    }
+
+                    val uri = Uri.parse(spreadsheetUrl)
+                    val sheetsIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        setPackage("com.google.android.apps.docs.editors.sheets")
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+                    val genericIntent = Intent(Intent.ACTION_VIEW, uri).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    }
+
+                    val openedSheetsApp = runCatching {
+                        context.startActivity(sheetsIntent)
+                    }.onFailure {
+                        Log.w(
+                            "AppRootAuth",
+                            "Failed to open Google Sheets app directly for $spreadsheetUrl: ${it.message}",
+                            it
+                        )
+                    }.isSuccess
+
+                    if (!openedSheetsApp) {
+                        runCatching {
+                            context.startActivity(genericIntent)
+                        }.onFailure {
+                            Log.e(
+                                "AppRootAuth",
+                                "Failed to open spreadsheet URL $spreadsheetUrl: ${it.message}",
+                                it
+                            )
+                            Toast.makeText(
+                                context,
+                                "Unable to open Google Sheets",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                onSignOut = {
+                    scope.launch {
+                        val signedOut = loginViewModel.signOut()
+                        if (!signedOut) {
+                            Toast.makeText(
+                                context,
+                                "Failed to sign out",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                },
+                onGrantGoogleSheetsAccess = {
+                    if (activity == null) {
+                        Toast.makeText(context, "Unable to open Google authorization", Toast.LENGTH_SHORT)
+                            .show()
+                        return@SpreadsheetSetupScreen
+                    }
+
+                    scope.launch {
+                        runCatching {
+                            googleSheetsAuthorizationManager.getAuthorizationIntentSender()
+                        }.onSuccess { intentSender ->
+                            Log.d(
+                                "AppRootAuth",
+                                "Requested Google Sheets authorization intentSenderAvailable=${intentSender != null}"
+                            )
+                            if (intentSender != null) {
+                                sheetsAuthorizationLauncher.launch(
+                                    IntentSenderRequest.Builder(intentSender).build()
+                                )
+                            } else {
+                                sheetsAccessRefreshTick.intValue++
+                            }
+                        }.onFailure {
+                            Log.e(
+                                "AppRootAuth",
+                                "Failed to start Google Sheets authorization: ${it.message}",
+                                it
+                            )
+                            Toast.makeText(
+                                context,
+                                it.message ?: "Failed to grant Google Sheets access",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            )
         }
 
         else -> {
@@ -114,7 +277,34 @@ fun AppRoot(
             OnboardingScreen(
                 pages = getListOnboardingPage,
                 onLoginClick = {
-                    launcher.launch(googleSignInClient.signInIntent)
+                    if (activity == null) {
+                        Toast.makeText(context, "Unable to open Google sign in", Toast.LENGTH_SHORT)
+                            .show()
+                        return@OnboardingScreen
+                    }
+
+                    scope.launch {
+                        runCatching {
+                            googleCredentialAuthManager.signIn(activity)
+                        }.onSuccess { result ->
+                            Log.d(
+                                "AppRootAuth",
+                                "Google sign-in succeeded for email=${result.email}"
+                            )
+                            loginViewModel.signInGoogle(result.idToken)
+                        }.onFailure {
+                            Log.e(
+                                "AppRootAuth",
+                                "Google sign-in failed: ${it.message}",
+                                it
+                            )
+                            Toast.makeText(
+                                context,
+                                it.message ?: "Failed to sign in",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
                 }
             )
         }
