@@ -1,5 +1,9 @@
 package com.raylabs.laundryhub.core.data.repository
 
+import com.google.api.client.googleapis.json.GoogleJsonError
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.client.http.HttpHeaders
+import com.google.api.client.http.HttpResponseException
 import com.google.api.services.sheets.v4.Sheets
 import com.google.api.services.sheets.v4.model.Sheet
 import com.google.api.services.sheets.v4.model.SheetProperties
@@ -18,6 +22,18 @@ import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SpreadsheetValidationRepositoryImplTest {
+
+    @Test
+    fun `validateSpreadsheet returns invalid input error when spreadsheet id cannot be parsed`() = runTest {
+        val repository = createRepository()
+
+        val result = repository.validateSpreadsheet("not-a-sheet")
+
+        assertEquals(
+            Resource.Error("Invalid spreadsheet URL or ID."),
+            result
+        )
+    }
 
     @Test
     fun `validateSpreadsheet succeeds when spreadsheet is readable and editable`() = runTest {
@@ -67,6 +83,79 @@ class SpreadsheetValidationRepositoryImplTest {
 
         assertEquals(
             Resource.Error("Spreadsheet template is incomplete. Missing sheets: notes, outcome."),
+            result
+        )
+    }
+
+    @Test
+    fun `validateSpreadsheet returns missing headers when required column is absent`() = runTest {
+        val googleSheetService: GoogleSheetService = mock()
+        val sheets: Sheets = mock()
+        val spreadsheetsApi: Sheets.Spreadsheets = mock()
+        val spreadsheetGet: Sheets.Spreadsheets.Get = mock()
+        val valuesApi: Sheets.Spreadsheets.Values = mock()
+        val grossHeaderGet: Sheets.Spreadsheets.Values.Get = mock()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheetsApi)
+        whenever(spreadsheetsApi.get(SHEET_ID)).thenReturn(spreadsheetGet)
+        whenever(spreadsheetGet.execute()).thenReturn(validSpreadsheet())
+        whenever(spreadsheetsApi.values()).thenReturn(valuesApi)
+        whenever(valuesApi.get(SHEET_ID, "gross!A1:D1")).thenReturn(grossHeaderGet)
+        whenever(grossHeaderGet.execute()).thenReturn(
+            headerRow("bulan", "total nominal", "# nota laundry")
+        )
+
+        val repository = SpreadsheetValidationRepositoryImpl(googleSheetService)
+
+        val result = repository.validateSpreadsheet(INPUT_URL)
+
+        assertEquals(
+            Resource.Error("Sheet \"gross\" is missing required columns: pajak."),
+            result
+        )
+    }
+
+    @Test
+    fun `validateSpreadsheet maps google response failures through repository handler`() = runTest {
+        val googleSheetService: GoogleSheetService = mock()
+        val sheets: Sheets = mock()
+        val spreadsheetsApi: Sheets.Spreadsheets = mock()
+        val spreadsheetGet: Sheets.Spreadsheets.Get = mock()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheetsApi)
+        whenever(spreadsheetsApi.get(SHEET_ID)).thenReturn(spreadsheetGet)
+        whenever(spreadsheetGet.execute()).thenThrow(
+            googleJsonException(
+                statusCode = 403,
+                statusMessage = "Forbidden",
+                detailsMessage = "Google Drive API has not been used in project 655099386324 before or it is disabled."
+            )
+        )
+
+        val repository = SpreadsheetValidationRepositoryImpl(googleSheetService)
+
+        val result = repository.validateSpreadsheet(INPUT_URL)
+
+        assertEquals(
+            Resource.Error(GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE),
+            result
+        )
+    }
+
+    @Test
+    fun `validateSpreadsheet maps unexpected exceptions through read handler`() = runTest {
+        val googleSheetService: GoogleSheetService = mock()
+        whenever(googleSheetService.getSheetsService()).thenThrow(
+            IllegalStateException("access token is unavailable for owner@laundryhub.com")
+        )
+
+        val repository = SpreadsheetValidationRepositoryImpl(googleSheetService)
+
+        val result = repository.validateSpreadsheet(INPUT_URL)
+
+        assertEquals(
+            Resource.Error(GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE),
             result
         )
     }
@@ -141,6 +230,22 @@ class SpreadsheetValidationRepositoryImplTest {
 
     private fun headerRow(vararg values: String): ValueRange =
         ValueRange().setValues(listOf(values.toList()))
+
+    private fun googleJsonException(
+        statusCode: Int,
+        statusMessage: String,
+        detailsMessage: String
+    ): GoogleJsonResponseException {
+        val error = GoogleJsonError().apply {
+            message = detailsMessage
+        }
+        val builder = HttpResponseException.Builder(
+            statusCode,
+            statusMessage,
+            HttpHeaders()
+        ).setContent(detailsMessage)
+        return GoogleJsonResponseException(builder, error)
+    }
 
     private companion object {
         private const val SHEET_ID = "sheet-123"

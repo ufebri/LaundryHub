@@ -160,6 +160,23 @@ class SpreadsheetConfigRepositoryImplTest {
         )
     }
 
+    @Test
+    fun `save and clear spreadsheet connection are no-ops when there is no signed in user`() = runTest {
+        val (repository, _) = createRepository(
+            scope = backgroundScope,
+            initialUser = null
+        )
+
+        repository.saveSpreadsheetConnection(
+            spreadsheetId = "sheet-a",
+            spreadsheetName = "Laundry A",
+            spreadsheetUrl = "https://sheet-a"
+        )
+        repository.clearSpreadsheetConnection()
+
+        assertEquals(SpreadsheetConfig(), repository.spreadsheetConfig.first())
+    }
+
     private fun createRepository(
         scope: CoroutineScope,
         initialUser: FirebaseUser?

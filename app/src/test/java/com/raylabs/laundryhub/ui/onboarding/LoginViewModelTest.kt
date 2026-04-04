@@ -183,4 +183,24 @@ class LoginViewModelTest {
         assertEquals("Failed to sign out", vm.errorState.value)
         assertFalse(vm.isLoading.value)
     }
+
+    @Test
+    fun `signOut exception keeps user and exposes exception message`() = runTest {
+        whenever(mockCheckUserLoggedInUseCase.invoke()).thenReturn(true)
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(dummyUser)
+        whenever(mockUserUseCase.signOut()).thenThrow(IllegalStateException("Session revoke failed"))
+
+        val vm = LoginViewModel(
+            mockSignInWithGoogleUseCase,
+            mockCheckUserLoggedInUseCase,
+            mockUserUseCase
+        )
+
+        val result = vm.signOut()
+
+        assertFalse(result)
+        assertEquals(dummyUser, vm.userState.value)
+        assertEquals("Session revoke failed", vm.errorState.value)
+        assertFalse(vm.isLoading.value)
+    }
 }
