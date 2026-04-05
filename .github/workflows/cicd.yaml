@@ -78,8 +78,20 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
+
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       - name: Build APK
         run: ./gradlew assembleRelease
@@ -160,9 +172,21 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       # Step 4: Grant execute permission for Gradlew
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
+
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       # Step 5: Build APK (Release)
       - name: Build APK (Release)
@@ -206,16 +230,20 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       - name: Run tests and generate Jacoco report
         run: ./gradlew clean testDebugUnitTest jacocoTestReport
@@ -236,13 +264,6 @@ jobs:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
-          restore-keys: ${{ runner.os }}-gradle
 
       - name: Sonar analysis
         env:
