@@ -12,11 +12,13 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.DropdownMenu
@@ -54,9 +56,12 @@ import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.home.dummyState
 import com.raylabs.laundryhub.ui.component.GreetingWithImageBackground
 import com.raylabs.laundryhub.ui.component.InfoCard
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.OrderStatusCard
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
@@ -65,13 +70,16 @@ import com.raylabs.laundryhub.ui.home.state.TransactionItem
 @Composable
 fun HomeScreen(
     viewModel: HomeViewModel = hiltViewModel(),
+    bannerState: InlineAdaptiveBannerAdState? = null,
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
     onGrossCardClick: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("home_inline")
     HomeScreenContent(
         state = state,
+        bannerState = resolvedBannerState,
         onRefresh = viewModel::refreshAllData,
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onToggleSearch = viewModel::toggleSearch,
@@ -86,6 +94,7 @@ fun HomeScreen(
 @Composable
 fun HomeScreenContent(
     state: HomeUiState,
+    bannerState: InlineAdaptiveBannerAdState,
     onRefresh: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
     onToggleSearch: () -> Unit,
@@ -117,12 +126,19 @@ fun HomeScreenContent(
             item {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     GreetingWithImageBackground(
-                        username = state.user.data?.displayName ?: stringResource(R.string.guest)
+                        username = state.user.data?.displayName ?: stringResource(R.string.guest),
+                        imageSeed = state.user.data?.uid
+                            ?.takeIf { it.isNotBlank() }
+                            ?: state.user.data?.email
+                            ?.takeIf { it.isNotBlank() }
+                            ?: state.user.data?.displayName
+                            ?: stringResource(R.string.guest)
                     )
 
                     SectionOrLoading(
                         isLoading = state.summary.isLoading,
                         error = state.summary.errorMessage,
+                        hasContent = !state.summary.data.isNullOrEmpty(),
                         content = {
                             InfoCardSection(
                                 summary = state.summary.data.orEmpty(),
@@ -154,6 +170,7 @@ fun HomeScreenContent(
                 SectionOrLoading(
                     isLoading = state.todayIncome.isLoading,
                     error = state.todayIncome.errorMessage,
+                    hasContent = !state.todayIncome.data.isNullOrEmpty(),
                     content = {
                         val list = state.todayIncome.data.orEmpty()
                         if (list.isEmpty()) {
@@ -169,6 +186,10 @@ fun HomeScreenContent(
             }
 
             item { Spacer(Modifier.height(24.dp)) }
+
+            item(key = "home_inline_banner") {
+                InlineAdaptiveBannerAd(state = bannerState)
+            }
 
             // Pending Orders Section Title / Search Bar
             item {
@@ -272,8 +293,11 @@ fun HomeScreenContent(
             }
 
             // Pending Orders List or Loading Indicator
-            item {
-                if (state.unpaidOrder.isLoading && !state.isRefreshing) {
+            val ordersToDisplay = state.unpaidOrder.data.orEmpty()
+            val orderRows = ordersToDisplay.chunked(2)
+
+            if (state.unpaidOrder.isLoading && !state.isRefreshing && ordersToDisplay.isEmpty()) {
+                item {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -282,39 +306,55 @@ fun HomeScreenContent(
                     ) {
                         CircularProgressIndicator()
                     }
-                } else if (!state.isRefreshing) {
-                    val ordersToDisplay = state.unpaidOrder.data
-                    if (ordersToDisplay.isNullOrEmpty()) {
+                }
+            }
+
+            if (!state.isRefreshing && state.unpaidOrder.isLoading && ordersToDisplay.isNotEmpty()) {
+                item(key = "pending_orders_loading_overlay") {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 8.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                    }
+                }
+            }
+
+            if (!state.isRefreshing) {
+                if (ordersToDisplay.isEmpty()) {
+                    item {
                         Text(
                             text = if (state.isSearchActive && state.searchQuery.isNotEmpty()) stringResource(R.string.no_search_results, state.searchQuery)
-                                   else stringResource(R.string.no_data),
+                            else stringResource(R.string.no_data),
                             textAlign = TextAlign.Center,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 8.dp)
                         )
-                    } else {
-                        val chunked = ordersToDisplay.chunked(2)
-                        Column(
+                    }
+                } else {
+                    items(
+                        items = orderRows,
+                        key = { row -> row.joinToString(separator = "_") { it.orderID } },
+                        contentType = { "pending_order_row" }
+                    ) { rowItems ->
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            chunked.forEach { rowItems ->
-                                Row(
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                                ) {
-                                    rowItems.forEach { item ->
-                                        OrderStatusCard(
-                                            item = item, onClick = { onOrderCardClick(item.orderID) },
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                    }
-                                    if (rowItems.size == 1) {
-                                        Spacer(modifier = Modifier.weight(1f))
-                                    }
-                                }
+                            rowItems.forEach { item ->
+                                OrderStatusCard(
+                                    item = item,
+                                    onClick = { onOrderCardClick(item.orderID) },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                            if (rowItems.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
                             }
                         }
                     }
@@ -342,7 +382,10 @@ fun InfoCardSection(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         content = {
-            items(summary) { mData ->
+            items(
+                items = summary,
+                key = { it.title }
+            ) { mData ->
                 InfoCard(
                     summaryItem = mData,
                     onClick = if (mData.isInteractive) onGrossCardClick else null
@@ -369,9 +412,11 @@ fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
 @Preview(showBackground = true, name = "Default View")
 @Composable
 fun PreviewHomeScreenContent_Default() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_default_inline")
     MaterialTheme {
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = false),
+            bannerState = bannerState,
             onRefresh = {},
             onSearchQueryChanged = {},
             onToggleSearch = {},
@@ -386,9 +431,11 @@ fun PreviewHomeScreenContent_Default() {
 @Preview(showBackground = true, name = "Search Active View - Dark Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveDark() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_dark_inline")
     MaterialTheme(colors = MaterialTheme.colors.copy(isLight = false)) { // Force dark theme for preview
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
+            bannerState = bannerState,
             onRefresh = {},
             onSearchQueryChanged = {},
             onToggleSearch = {},
@@ -403,9 +450,11 @@ fun PreviewHomeScreenContent_SearchActiveDark() {
 @Preview(showBackground = true, name = "Search Active View - Light Theme")
 @Composable
 fun PreviewHomeScreenContent_SearchActiveLight() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_light_inline")
     MaterialTheme(colors = MaterialTheme.colors.copy(isLight = true)) { // Force light theme for preview
         HomeScreenContent(
             state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
+            bannerState = bannerState,
             onRefresh = {},
             onSearchQueryChanged = {},
             onToggleSearch = {},

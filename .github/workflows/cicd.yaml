@@ -19,34 +19,29 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Decode LaundryHub.jks
-        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/laundry_hub_key.jks
-
-      - name: Decode auth_token.json
-        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/auth_token.json
+        run: echo "${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE_B64 }}" | base64 --decode > ./app/laundry_hub_key.jks
 
       - name: Decode google-services.json
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > ./app/google-services.json
 
-      - name: Create raw resource folder
-        run: mkdir -p ./app/src/main/res/raw/
-
-      - name: Decode google-sheet-key.json
-        run: echo "${{ secrets.GSHEET_KEY }}" | base64 --decode > ./app/src/main/res/raw/gsheetkey.json
-
-      - name: Decode service-account.json
-        run: echo "${{ secrets.SERVICE_ACC }}" | base64 --decode > ./app/src/main/res/raw/serviceacc.json
-
       # Step 3: Create config.properties
       - name: Create config.properties
         run: |
-          echo "WEB_CLIENT_ID=${{ secrets.WEB_CLIENT_ID }}" >> config.properties
-          echo "SPREAD_SHEET_ID=${{ secrets.SPREAD_SHEET_ID }}" >> config.properties
-          echo "MYAPP_RELEASE_KEYSTORE_FILE=${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}" >> config.properties
-          echo "MYAPP_RELEASE_KEYSTORE_PASSWORD=${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}" >> config.properties
-          echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}" >> config.properties
-          echo "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}" >> config.properties
-          echo "SONAR_PROJECT_KEY=${{ secrets.SONAR_PROJECT_KEY }}" >> config.properties
-          echo "SONAR_ORGANIZATION=${{ secrets.SONAR_ORGANIZATION }}" >> config.properties
+          cat > config.properties <<EOF
+          WEB_CLIENT_ID=${{ secrets.WEB_CLIENT_ID }}
+          SPREAD_SHEET_ID=${{ secrets.SPREAD_SHEET_ID }}
+          ADMOB_APP_ID_DEBUG=${{ secrets.ADMOB_APP_ID_DEBUG }}
+          ADMOB_BANNER_AD_UNIT_ID_DEBUG=${{ secrets.ADMOB_BANNER_AD_UNIT_ID_DEBUG }}
+          ADMOB_APP_ID_RELEASE=${{ secrets.ADMOB_APP_ID_RELEASE }}
+          ADMOB_BANNER_AD_UNIT_ID_RELEASE=${{ secrets.ADMOB_BANNER_AD_UNIT_ID_RELEASE }}
+          MYAPP_RELEASE_KEYSTORE_FILE=${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}
+          MYAPP_RELEASE_KEYSTORE_PASSWORD=${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_ALIAS=${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}
+          MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}
+          SONAR_PROJECT_KEY=${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION=${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_TOKEN=${{ secrets.SONAR_TOKEN }}
+          EOF
 
       # Step 4: Upload environment files as artifact
       - name: Upload environment files
@@ -57,9 +52,6 @@ jobs:
             ./app/google-services.json
             ./config.properties
             ./app/laundry_hub_key.jks
-            ./app/src/main/res/raw/gsheetkey.json
-            ./app/src/main/res/raw/serviceacc.json
-            ./app/auth_token.json
 
   firebase-distribution:
     if: github.ref == 'refs/heads/master'

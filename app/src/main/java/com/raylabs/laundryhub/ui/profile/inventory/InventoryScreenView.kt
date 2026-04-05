@@ -38,7 +38,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 
@@ -57,6 +59,7 @@ fun InventoryScreenView(
 @Composable
 fun InventoryContent(state: InventoryUiState, modifier: Modifier) {
     val snackbarHostState = remember { SnackbarHostState() }
+    val bannerState = rememberInlineAdaptiveBannerAdState("inventory_inline")
 
     LaunchedEffect(state) {
         state.packages.errorMessage?.let {
@@ -72,6 +75,7 @@ fun InventoryContent(state: InventoryUiState, modifier: Modifier) {
             SectionOrLoading(
                 isLoading = state.packages.isLoading,
                 error = state.packages.errorMessage,
+                hasContent = !state.packages.data.isNullOrEmpty(),
                 content = {
                     SetupPackageSection(
                         packages = state.packages.data.orEmpty(),
@@ -81,10 +85,15 @@ fun InventoryContent(state: InventoryUiState, modifier: Modifier) {
             )
         }
 
+        item(key = "inventory_inline_banner") {
+            InlineAdaptiveBannerAd(state = bannerState)
+        }
+
         item {
             SectionOrLoading(
                 isLoading = state.otherPackages.isLoading,
                 error = state.otherPackages.errorMessage,
+                hasContent = !state.otherPackages.data.isNullOrEmpty(),
                 content = {
                     OtherPackagesSection(state.otherPackages.data.orEmpty(), modifier)
                 }
@@ -124,7 +133,10 @@ fun OtherPackagesSection(data: List<String>, modifier: Modifier) {
                 userScrollEnabled = false,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                items(data) { label ->
+                items(
+                    items = data,
+                    key = { it }
+                ) { label ->
                     Text(
                         text = label,
                         modifier = Modifier

@@ -36,7 +36,10 @@ import androidx.core.view.WindowInsetsControllerCompat
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.home.state.GrossItem
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
 
@@ -61,6 +64,8 @@ fun GrossDetailScreenView(
             }
         }
     }
+
+    val bannerState = rememberInlineAdaptiveBannerAdState("gross_detail_inline")
 
     Scaffold(
         topBar = {
@@ -89,6 +94,7 @@ fun GrossDetailScreenView(
     ) { padding ->
         GrossDetailContent(
             grossState = grossState,
+            bannerState = bannerState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
@@ -99,11 +105,13 @@ fun GrossDetailScreenView(
 @Composable
 fun GrossDetailContent(
     grossState: SectionState<List<GrossItem>>,
+    bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier = Modifier
 ) {
     SectionOrLoading(
         isLoading = grossState.isLoading,
         error = grossState.errorMessage,
+        hasContent = !grossState.data.isNullOrEmpty(),
         content = {
             val items = grossState.data.orEmpty()
             if (items.isEmpty()) {
@@ -121,7 +129,17 @@ fun GrossDetailContent(
                     ),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    items(items) { item ->
+                    item(key = "gross_detail_inline_banner") {
+                        InlineAdaptiveBannerAd(
+                            state = bannerState,
+                            modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp)
+                        )
+                    }
+
+                    items(
+                        items = items,
+                        key = { it.month }
+                    ) { item ->
                         GrossItemCard(item = item)
                     }
                 }
@@ -196,7 +214,9 @@ private fun GrossChip(label: String, value: String) {
 @Preview(showBackground = true)
 @Composable
 fun PreviewGrossDetailContent() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_gross_detail_inline")
     GrossDetailContent(
+        bannerState = bannerState,
         grossState = SectionState(
             data = listOf(
                 GrossItem("november", "Rp3.563.000", "149", "Rp17.815"),

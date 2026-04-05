@@ -57,6 +57,9 @@ import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
 import java.util.Locale
@@ -76,15 +79,18 @@ private val ProfileContentPadding = 16.dp
 fun ProfileScreenView(
     viewModel: ProfileViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel,
+    bannerState: InlineAdaptiveBannerAdState? = null,
     onInventoryClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
+    val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("profile_inline")
 
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
         ProfileScreenContent(
             state = state,
+            bannerState = resolvedBannerState,
             modifier = Modifier.padding(padding),
             onLoggedOut = {
                 viewModel.logOut(onSuccess = {
@@ -108,6 +114,7 @@ fun ProfileScreenView(
 @Composable
 fun ProfileScreenContent(
     state: ProfileUiState,
+    bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier = Modifier,
     onLoggedOut: () -> Unit = {},
     onInventoryClick: () -> Unit = {},
@@ -125,7 +132,6 @@ fun ProfileScreenContent(
         state.cacheSize.errorMessage != null -> stringResource(R.string.cache_size_unavailable)
         else -> formatCacheSize(state.cacheSize.data)
     }
-
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
             onLoggedOut()
@@ -162,6 +168,8 @@ fun ProfileScreenContent(
                 onChangeSpreadsheetClick = onChangeSpreadsheetClick
             )
         }
+
+        InlineAdaptiveBannerAd(state = bannerState)
 
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionHeader(title = stringResource(R.string.settings))
@@ -692,11 +700,13 @@ private fun formatCacheSize(sizeBytes: Long?): String {
 @Preview(showBackground = true)
 @Composable
 fun PreviewProfileScreen() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_profile_inline")
     Scaffold(
         topBar = { DefaultTopAppBar("Profile") }
     ) { padding ->
         ProfileScreenContent(
             state = dummyProfileUiState,
+            bannerState = bannerState,
             modifier = Modifier.padding(padding)
         )
     }

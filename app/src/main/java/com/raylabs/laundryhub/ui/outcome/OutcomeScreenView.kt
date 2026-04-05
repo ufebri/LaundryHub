@@ -36,8 +36,11 @@ import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.component.DateHeader
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.EntryItemCard
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.OutcomeBottomSheet
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
@@ -46,8 +49,12 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
-fun OutcomeScreenView(viewModel: OutcomeViewModel = hiltViewModel()) {
+fun OutcomeScreenView(
+    viewModel: OutcomeViewModel = hiltViewModel(),
+    bannerState: InlineAdaptiveBannerAdState? = null
+) {
     val state = viewModel.uiState
+    val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("outcome_inline")
     val scaffoldState = rememberScaffoldState()
     val bottomSheetState = rememberModalBottomSheetState(
         initialValue = ModalBottomSheetValue.Hidden,
@@ -129,6 +136,7 @@ fun OutcomeScreenView(viewModel: OutcomeViewModel = hiltViewModel()) {
         ) { paddingValues ->
             OutcomeContent(
                 state = state,
+                bannerState = resolvedBannerState,
                 scaffoldState = scaffoldState,
                 modifier = Modifier.padding(paddingValues),
                 isRefreshing = state.outcome.isLoading,
@@ -150,6 +158,7 @@ fun OutcomeScreenView(viewModel: OutcomeViewModel = hiltViewModel()) {
 @Composable
 fun OutcomeContent(
     state: OutcomeUiState,
+    bannerState: InlineAdaptiveBannerAdState,
     scaffoldState: ScaffoldState,
     modifier: Modifier = Modifier,
     isRefreshing: Boolean = false,
@@ -175,8 +184,13 @@ fun OutcomeContent(
         SectionOrLoading(
             isLoading = state.outcome.isLoading,
             error = state.outcome.errorMessage,
+            hasContent = !state.outcome.data.isNullOrEmpty(),
             content = {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
+                    item(key = "outcome_inline_banner") {
+                        InlineAdaptiveBannerAd(state = bannerState)
+                    }
+
                     items(
                         items = state.outcome.data.orEmpty(),
                         key = { item ->
@@ -230,6 +244,7 @@ fun PreviewOutcomeScreen() {
     )
 
     val scaffoldState = rememberScaffoldState()
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_outcome_inline")
     val bottomSheetState = rememberModalBottomSheetState(
         initialValue = ModalBottomSheetValue.Hidden,
         skipHalfExpanded = true
@@ -256,6 +271,7 @@ fun PreviewOutcomeScreen() {
         ) { paddingValues ->
             OutcomeContent(
                 state = previewState,
+                bannerState = bannerState,
                 scaffoldState = scaffoldState,
                 modifier = Modifier.padding(paddingValues)
             )

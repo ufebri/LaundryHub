@@ -106,4 +106,5 @@
     <string name="sign_out">Sign Out</string>
     <string name="spreadsheet_id_label">ID: %1$s</string>
     <string name="spreadsheet_status_not_connected">Not connected</string>
+    <string name="ad_preview_label" translatable="false">Ad space</string>
 </resources>
