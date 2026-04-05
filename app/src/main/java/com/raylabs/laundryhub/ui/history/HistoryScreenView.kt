@@ -18,23 +18,38 @@ import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
 import com.raylabs.laundryhub.ui.component.DateHeader
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.EntryItemCard
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 
 @Composable
-fun HistoryScreenView(viewModel: HistoryViewModel = hiltViewModel()) {
+fun HistoryScreenView(
+    viewModel: HistoryViewModel = hiltViewModel(),
+    bannerState: InlineAdaptiveBannerAdState? = null
+) {
     val state = viewModel.uiState
+    val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("history_inline")
 
     Scaffold(
         topBar = { DefaultTopAppBar(title = stringResource(R.string.history)) }
     ) { padding ->
-        HistoryContent(state, modifier = Modifier.padding(padding))
+        HistoryContent(
+            state,
+            bannerState = resolvedBannerState,
+            modifier = Modifier.padding(padding)
+        )
     }
 }
 
 @Composable
-fun HistoryContent(state: HistoryUiState, modifier: Modifier) {
+fun HistoryContent(
+    state: HistoryUiState,
+    bannerState: InlineAdaptiveBannerAdState,
+    modifier: Modifier
+) {
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(state) {
@@ -46,10 +61,15 @@ fun HistoryContent(state: HistoryUiState, modifier: Modifier) {
     SectionOrLoading(
         isLoading = state.history.isLoading,
         error = state.history.errorMessage,
+        hasContent = !state.history.data.isNullOrEmpty(),
         content = {
             LazyColumn(
                 modifier = modifier.fillMaxSize(),
             ) {
+                item(key = "history_inline_banner") {
+                    InlineAdaptiveBannerAd(state = bannerState)
+                }
+
                 items(
                     items = state.history.data.orEmpty(),
                     key = { item ->
@@ -77,9 +97,14 @@ fun HistoryContent(state: HistoryUiState, modifier: Modifier) {
 @Preview
 @Composable
 fun PreviewHistoryScreen() {
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_history_inline")
     Scaffold(
         topBar = { DefaultTopAppBar(title = "History") }
     ) { padding ->
-        HistoryContent(dummyHistoryUiState, modifier = Modifier.padding(padding))
+        HistoryContent(
+            dummyHistoryUiState,
+            bannerState = bannerState,
+            modifier = Modifier.padding(padding)
+        )
     }
 }

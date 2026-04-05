@@ -15,6 +15,19 @@ if (apikeyPropertiesFile.exists()) {
     apikeyProperties.load(new FileInputStream(apikeyPropertiesFile))
 }
 
+def readConfigValue = { String key ->
+    apikeyProperties.getProperty(key, "").trim()
+}
+
+def escapeBuildConfigValue = { String value ->
+    "\"${value.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+}
+
+def admobAppIdDebug = readConfigValue("ADMOB_APP_ID_DEBUG")
+def admobBannerAdUnitIdDebug = readConfigValue("ADMOB_BANNER_AD_UNIT_ID_DEBUG")
+def admobAppIdRelease = readConfigValue("ADMOB_APP_ID_RELEASE")
+def admobBannerAdUnitIdRelease = readConfigValue("ADMOB_BANNER_AD_UNIT_ID_RELEASE")
+
 def versionPropsFile = rootProject.file('version.properties')
 def versionProps = new Properties()
 versionProps.load(new FileInputStream(versionPropsFile))
@@ -52,10 +65,20 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             debuggable false
             shrinkResources true
+            manifestPlaceholders = [
+                    ADMOB_APP_ID: admobAppIdRelease
+            ]
+            buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdRelease))
+            buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdRelease))
         }
         debug {
             minifyEnabled false
             debuggable true
+            manifestPlaceholders = [
+                    ADMOB_APP_ID: admobAppIdDebug
+            ]
+            buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdDebug))
+            buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdDebug))
         }
     }
 
@@ -243,6 +266,9 @@ dependencies {
     implementation "androidx.credentials:credentials:1.3.0"
     implementation "androidx.credentials:credentials-play-services-auth:1.3.0"
     implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+    // Google Mobile Ads SDK 24.1.0+ requires Kotlin 2.1.0, and 24.0.0 still pulls Kotlin 2.1 metadata.
+    // Keep a Kotlin 1.9-compatible line until the project toolchain is upgraded.
+    implementation "com.google.android.gms:play-services-ads:23.6.0"
 
 
     // Google API Client & Sheets
