@@ -24,6 +24,7 @@ Add a reusable AdMob banner integration that is safe for the current app shell a
 - the SDK is pinned to `play-services-ads:23.6.0` because the current project still uses Kotlin `1.9.23`, while newer Google Mobile Ads SDK lines pull Kotlin `2.1.0` metadata
 - Gradle no longer contains embedded AdMob IDs or sample fallbacks; it only reads the values from `config.properties`
 - if the AdMob values are still placeholders or blank, the app skips SDK initialization and does not attempt to render banners
+- `AdMobConfig` centralizes placeholder detection, and its config guards are covered by unit tests so changes to placeholder handling are easier to catch
 
 ## Placement decisions
 

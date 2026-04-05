@@ -6,16 +6,16 @@ object AdMobConfig {
     private const val PLACEHOLDER_PREFIX = "YOUR_"
 
     val hasConfiguredAppId: Boolean
-        get() = BuildConfig.ADMOB_APP_ID.isConfiguredValue()
+        get() = isConfiguredValue(BuildConfig.ADMOB_APP_ID)
 
     val hasConfiguredBannerAdUnit: Boolean
-        get() = BuildConfig.ADMOB_BANNER_AD_UNIT_ID.isConfiguredValue()
+        get() = isConfiguredValue(BuildConfig.ADMOB_BANNER_AD_UNIT_ID)
 
     val bannerAdUnitId: String
         get() = BuildConfig.ADMOB_BANNER_AD_UNIT_ID
 
-    private fun String?.isConfiguredValue(): Boolean {
-        if (this.isNullOrBlank()) return false
-        return !startsWith(PLACEHOLDER_PREFIX)
+    internal fun isConfiguredValue(value: String?): Boolean {
+        if (value.isNullOrBlank()) return false
+        return !value.startsWith(PLACEHOLDER_PREFIX)
     }
 }
