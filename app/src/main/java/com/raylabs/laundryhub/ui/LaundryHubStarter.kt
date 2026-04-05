@@ -58,6 +58,7 @@ import com.raylabs.laundryhub.core.di.GoogleAuthEntryPoint
 import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.GrossDetailScreenView
 import com.raylabs.laundryhub.ui.home.HomeScreen
@@ -338,6 +339,10 @@ fun LaundryHubStarter(
             BottomNavItem.Profile.screenRoute
         )
     }
+    val homeBannerState = rememberInlineAdaptiveBannerAdState("home_inline")
+    val historyBannerState = rememberInlineAdaptiveBannerAdState("history_inline")
+    val outcomeBannerState = rememberInlineAdaptiveBannerAdState("outcome_inline")
+    val profileBannerState = rememberInlineAdaptiveBannerAdState("profile_inline")
 
     fun dismissSheet() {
         scope.launch {
@@ -412,6 +417,7 @@ fun LaundryHubStarter(
                 composable(BottomNavItem.Home.screenRoute) {
                     HomeScreen(
                         viewModel = homeViewModel,
+                        bannerState = homeBannerState,
                         onOrderCardClick = { orderId ->
                             orderViewModel.resetForm()
                             orderViewModel.onOrderEditClick(orderId) {
@@ -432,14 +438,15 @@ fun LaundryHubStarter(
                     )
                 }
                 composable(BottomNavItem.History.screenRoute) {
-                    HistoryScreenView()
+                    HistoryScreenView(bannerState = historyBannerState)
                 }
                 composable(BottomNavItem.Outcome.screenRoute) {
-                    OutcomeScreenView()
+                    OutcomeScreenView(bannerState = outcomeBannerState)
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
                     ProfileScreenView(
                         loginViewModel = loginViewModel,
+                        bannerState = profileBannerState,
                         onInventoryClick = { navController.navigate("inventory") }
                     )
                 }
@@ -559,6 +566,12 @@ fun BottomBar(
     onOrderClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    LaunchedEffect(navController) {
+        navController.currentBackStackEntryFlow.collect { entry ->
+            Log.d("BottomNavDebug", "Back stack route=${entry.destination.route}")
+        }
+    }
+
     BottomNavigation(
         modifier = modifier.background(Color.White),
         backgroundColor = Color.White,
@@ -595,8 +608,16 @@ fun BottomBar(
                 selected = currentRoute == item.screenRoute,
                 onClick = {
                     if (item.screenRoute == BottomNavItem.Order.screenRoute) {
+                        Log.d(
+                            "BottomNavDebug",
+                            "Bottom nav click route=${item.screenRoute} action=open_order_sheet currentRoute=$currentRoute"
+                        )
                         onOrderClick()
                     } else {
+                        Log.d(
+                            "BottomNavDebug",
+                            "Bottom nav click route=${item.screenRoute} currentRoute=$currentRoute restoreState=true launchSingleTop=true"
+                        )
                         navController.navigate(item.screenRoute) {
                             navController.graph.startDestinationRoute?.let { screenRoute ->
                                 popUpTo(screenRoute) {

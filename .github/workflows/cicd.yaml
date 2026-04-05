@@ -16,50 +16,60 @@ jobs:
     steps:
       # Step 1: Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
 
       - name: Decode LaundryHub.jks
-        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/laundry_hub_key.jks
-
-      - name: Decode auth_token.json
-        run: echo "${{ secrets.KEYSTORE_FILE }}" | base64 --decode > ./app/auth_token.json
+        env:
+          MYAPP_RELEASE_KEYSTORE_FILE_B64: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE_B64 }}
+        run: printf '%s' "$MYAPP_RELEASE_KEYSTORE_FILE_B64" | base64 --decode > ./app/laundry_hub_key.jks
 
       - name: Decode google-services.json
-        run: echo "${{ secrets.GOOGLE_SERVICES_JSON_B64 }}" | base64 --decode > ./app/google-services.json
-
-      - name: Create raw resource folder
-        run: mkdir -p ./app/src/main/res/raw/
-
-      - name: Decode google-sheet-key.json
-        run: echo "${{ secrets.GSHEET_KEY }}" | base64 --decode > ./app/src/main/res/raw/gsheetkey.json
-
-      - name: Decode service-account.json
-        run: echo "${{ secrets.SERVICE_ACC }}" | base64 --decode > ./app/src/main/res/raw/serviceacc.json
+        env:
+          GOOGLE_SERVICES_JSON_B64: ${{ secrets.GOOGLE_SERVICES_JSON_B64 }}
+        run: printf '%s' "$GOOGLE_SERVICES_JSON_B64" | base64 --decode > ./app/google-services.json
 
       # Step 3: Create config.properties
       - name: Create config.properties
+        env:
+          WEB_CLIENT_ID: ${{ secrets.WEB_CLIENT_ID }}
+          SPREAD_SHEET_ID: ${{ secrets.SPREAD_SHEET_ID }}
+          ADMOB_APP_ID_DEBUG: ${{ secrets.ADMOB_APP_ID_DEBUG }}
+          ADMOB_BANNER_AD_UNIT_ID_DEBUG: ${{ secrets.ADMOB_BANNER_AD_UNIT_ID_DEBUG }}
+          ADMOB_APP_ID_RELEASE: ${{ secrets.ADMOB_APP_ID_RELEASE }}
+          ADMOB_BANNER_AD_UNIT_ID_RELEASE: ${{ secrets.ADMOB_BANNER_AD_UNIT_ID_RELEASE }}
+          MYAPP_RELEASE_KEYSTORE_FILE: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}
+          MYAPP_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}
+          MYAPP_RELEASE_KEY_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}
+          SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
+          SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          echo "WEB_CLIENT_ID=${{ secrets.WEB_CLIENT_ID }}" >> config.properties
-          echo "SPREAD_SHEET_ID=${{ secrets.SPREAD_SHEET_ID }}" >> config.properties
-          echo "MYAPP_RELEASE_KEYSTORE_FILE=${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}" >> config.properties
-          echo "MYAPP_RELEASE_KEYSTORE_PASSWORD=${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}" >> config.properties
-          echo "MYAPP_RELEASE_KEY_ALIAS=${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}" >> config.properties
-          echo "MYAPP_RELEASE_KEY_PASSWORD=${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}" >> config.properties
-          echo "SONAR_PROJECT_KEY=${{ secrets.SONAR_PROJECT_KEY }}" >> config.properties
-          echo "SONAR_ORGANIZATION=${{ secrets.SONAR_ORGANIZATION }}" >> config.properties
+          cat > config.properties <<EOF
+          WEB_CLIENT_ID=$WEB_CLIENT_ID
+          SPREAD_SHEET_ID=$SPREAD_SHEET_ID
+          ADMOB_APP_ID_DEBUG=$ADMOB_APP_ID_DEBUG
+          ADMOB_BANNER_AD_UNIT_ID_DEBUG=$ADMOB_BANNER_AD_UNIT_ID_DEBUG
+          ADMOB_APP_ID_RELEASE=$ADMOB_APP_ID_RELEASE
+          ADMOB_BANNER_AD_UNIT_ID_RELEASE=$ADMOB_BANNER_AD_UNIT_ID_RELEASE
+          MYAPP_RELEASE_KEYSTORE_FILE=$MYAPP_RELEASE_KEYSTORE_FILE
+          MYAPP_RELEASE_KEYSTORE_PASSWORD=$MYAPP_RELEASE_KEYSTORE_PASSWORD
+          MYAPP_RELEASE_KEY_ALIAS=$MYAPP_RELEASE_KEY_ALIAS
+          MYAPP_RELEASE_KEY_PASSWORD=$MYAPP_RELEASE_KEY_PASSWORD
+          SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY
+          SONAR_ORGANIZATION=$SONAR_ORGANIZATION
+          SONAR_TOKEN=$SONAR_TOKEN
+          EOF
 
       # Step 4: Upload environment files as artifact
       - name: Upload environment files
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: env-files
           path: |
             ./app/google-services.json
             ./config.properties
             ./app/laundry_hub_key.jks
-            ./app/src/main/res/raw/gsheetkey.json
-            ./app/src/main/res/raw/serviceacc.json
-            ./app/auth_token.json
 
   firebase-distribution:
     if: github.ref == 'refs/heads/master'
@@ -68,32 +78,44 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
 
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@3235b876344d2a9aa001b8d1453c930bba69e610 # v3
         with:
           node-version: '18'
 
       - name: Download environment files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: env-files
 
       - name: Setup JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
         with:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
+
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       - name: Build APK
         run: ./gradlew assembleRelease
 
       - name: Generate Release Notes from PR commits
-        uses: actions/github-script@v6
+        uses: actions/github-script@00f12e3e20659f42342b1c0226afda7f7c042325 # v6
         with:
           script: |
             let notes = '';
@@ -137,7 +159,7 @@ jobs:
           git push origin $(git rev-parse --abbrev-ref HEAD)
 
       - name: Distribute APK to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1
+        uses: wzieba/Firebase-Distribution-Github-Action@bd494989dd4bec0343f78adee87fe66e48279ad6 # v1
         with:
           appId: ${{ secrets.FIREBASE_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.CREDENTIAL_FILE_CONTENT }}
@@ -153,24 +175,36 @@ jobs:
     steps:
       # Step 1: Checkout the code
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
 
       # Step 2: Download environment files
       - name: Download environment files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: env-files
 
       # Step 3: Setup JDK
       - name: Setup JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
         with:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
       # Step 4: Grant execute permission for Gradlew
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
+
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       # Step 5: Build APK (Release)
       - name: Build APK (Release)
@@ -182,7 +216,9 @@ jobs:
 
       # Step 7: Authenticate GitHub CLI
       - name: Authenticate GitHub CLI
-        run: echo "${{ secrets.GITHUB_TOKEN }}" | gh auth login --with-token
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: printf '%s' "$GITHUB_TOKEN" | gh auth login --with-token
 
       # Step 8: Create GitHub Release
       - name: Create GitHub Release with CLI
@@ -199,31 +235,35 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3
         with:
           fetch-depth: 0
 
       - name: Download environment files
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: env-files
 
       - name: Setup JDK
-        uses: actions/setup-java@v3
+        uses: actions/setup-java@17f84c3641ba7b8f6deff6309fc4c864478f5d62 # v3
         with:
           distribution: 'zulu'
           java-version: '18'
 
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
+
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
 
-      - name: Cache Gradle dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle
+      - name: Warm Gradle wrapper
+        run: |
+          for attempt in 1 2 3; do
+            ./gradlew --version && exit 0
+            echo "Gradle wrapper bootstrap failed on attempt $attempt"
+            sleep 10
+          done
+          exit 1
 
       - name: Run tests and generate Jacoco report
         run: ./gradlew clean testDebugUnitTest jacocoTestReport
@@ -232,25 +272,18 @@ jobs:
         run: ls -lh app/build/reports/jacoco/jacocoTestReport/
 
       - name: Upload coverage to Coveralls
-        uses: coverallsapp/github-action@v2
+        uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           file: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           format: jacoco
 
       - name: Cache SonarQube packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.sonar/cache
           key: ${{ runner.os }}-sonar
           restore-keys: ${{ runner.os }}-sonar
-
-      - name: Cache Gradle packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.gradle/caches
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle') }}
-          restore-keys: ${{ runner.os }}-gradle
 
       - name: Sonar analysis
         env:
