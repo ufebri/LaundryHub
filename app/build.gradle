@@ -33,7 +33,7 @@ def versionProps = new Properties()
 versionProps.load(new FileInputStream(versionPropsFile))
 
 android {
-    namespace 'com.raylabs.laundryhub'
+    namespace = 'com.raylabs.laundryhub'
     compileSdkVersion 36
     defaultConfig {
         applicationId "com.raylabs.laundryhub"
@@ -51,20 +51,21 @@ android {
 
     signingConfigs {
         release {
-            storeFile file(apikeyProperties["MYAPP_RELEASE_KEYSTORE_FILE"])
-            storePassword apikeyProperties["MYAPP_RELEASE_KEYSTORE_PASSWORD"]
-            keyAlias apikeyProperties["MYAPP_RELEASE_KEY_ALIAS"]
-            keyPassword apikeyProperties["MYAPP_RELEASE_KEY_PASSWORD"]
+            storeFile = file(apikeyProperties["MYAPP_RELEASE_KEYSTORE_FILE"])
+            storePassword = apikeyProperties["MYAPP_RELEASE_KEYSTORE_PASSWORD"]
+            keyAlias = apikeyProperties["MYAPP_RELEASE_KEY_ALIAS"]
+            keyPassword = apikeyProperties["MYAPP_RELEASE_KEY_PASSWORD"]
+            storeType = "jks"
         }
     }
 
     buildTypes {
         release {
-            signingConfig signingConfigs.release
+            signingConfig = signingConfigs.release
             minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
             debuggable false
-            shrinkResources true
+            shrinkResources = true
             manifestPlaceholders = [
                     ADMOB_APP_ID: admobAppIdRelease
             ]
@@ -83,8 +84,8 @@ android {
     }
 
     buildFeatures {
-        compose true
-        buildConfig true
+        compose = true
+        buildConfig = true
     }
 
     composeOptions {
