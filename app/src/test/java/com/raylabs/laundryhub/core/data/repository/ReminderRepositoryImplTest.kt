@@ -150,6 +150,26 @@ class ReminderRepositoryImplTest {
         )
     }
 
+    @Test
+    fun `guest reminder state uses isolated guest keys when no user is signed in`() = runTest {
+        val (repository, _, _) = createRepository(
+            scope = backgroundScope,
+            initialUser = null
+        )
+
+        repository.setReminderEnabled(true)
+        repository.markChecked(orderId = "guest-order", timestampMillis = 99L)
+
+        assertEquals(
+            ReminderSettings(isReminderEnabled = true),
+            repository.reminderSettings.first()
+        )
+        assertEquals(
+            mapOf("guest-order" to ReminderLocalState(checkedAtEpochMillis = 99L)),
+            repository.reminderLocalStates.first()
+        )
+    }
+
     private fun createRepository(
         scope: CoroutineScope,
         initialUser: FirebaseUser?

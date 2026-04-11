@@ -167,6 +167,24 @@ class ReminderIntroViewModelTest {
         verifyNoMoreInteractions(scheduler)
     }
 
+    @Test
+    fun `setDailyNotificationTime does not reschedule when daily notifications are off`() = runTest {
+        val viewModel = createViewModel(
+            initialSettings = ReminderSettings(
+                isReminderEnabled = true,
+                isDailyNotificationEnabled = false
+            )
+        )
+        advanceUntilIdle()
+
+        viewModel.setDailyNotificationTime(14, 5)
+        advanceUntilIdle()
+
+        assertTrue(repository.currentSettings().notificationHour == 14)
+        assertTrue(repository.currentSettings().notificationMinute == 5)
+        verifyNoMoreInteractions(scheduler)
+    }
+
     private fun createViewModel(initialSettings: ReminderSettings): ReminderIntroViewModel {
         repository = FakeReminderRepository(initialSettings = initialSettings)
         return ReminderIntroViewModel(

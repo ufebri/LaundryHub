@@ -75,13 +75,20 @@ Each reminder item can:
 - the daily notification is a single summary, not one notification per order
 - reminder settings also provide a local `Send test notification` action so users can preview the notification on demand
 - notification scheduling is restored on app start and after device reboot
+- the boot restore receiver is now declared `android:exported="false"` because it only needs system delivery for `BOOT_COMPLETED`
 
 ### Coverage status
 
 - reminder repository, use case wrappers, view models, and UI-state mapping now have dedicated unit coverage
 - daily reminder time persistence and scheduler trigger calculation now have dedicated unit coverage
-- `core/reminder/**` is excluded from JaCoCo because it is Android notification glue rather than the primary reminder decision logic
-- reminder testable coverage remains above the repo quality gate target of `>80%` after the latest settings and notification-time changes
+- reminder notification plumbing now also has dedicated Robolectric-style coverage for:
+  - notification config/channel creation
+  - notification publishing and cancel behavior
+  - notification permission support
+  - reminder sheet reader wiring
+  - status-bar styling helper used by reminder screens
+- JaCoCo now keeps `core/reminder/**` in the report and enables `includeNoLocationClasses` so Robolectric-backed reminder coverage is counted
+- some reminder receiver and scheduler branches still sit below 100% in the local full-file report, but the package is no longer effectively uncovered
 
 ## Important Decisions
 
@@ -89,16 +96,16 @@ Each reminder item can:
 - `Home` is used for feature discovery instead of first-run onboarding
 - `Profile` acts as the entry point, while the dedicated reminder settings screen is the actual control surface
 - reminder resolution actions are stored locally so users can clear noisy items without mutating sheet data
-- the JaCoCo target for reminder is focused on testable business and state logic rather than Android receiver/scheduler plumbing
+- the boot-completed receiver is treated as system-only plumbing and should stay non-exported unless Android behavior proves otherwise on-device
+- receiver logic now delegates into testable internal helpers so security hardening and notification branching can be covered without fighting Hilt wiring in every test
 
 ## Verification
 
 These commands passed after the reminder feature integration:
 
 ```bash
-./gradlew assembleDebug --no-daemon
-./gradlew testDebugUnitTest --no-daemon
-./gradlew jacocoTestReport --no-daemon
+./gradlew testDebugUnitTest --tests com.raylabs.laundryhub.core.reminder.ReminderBootReceiverTest --tests com.raylabs.laundryhub.core.reminder.ReminderAlarmReceiverTest --tests com.raylabs.laundryhub.core.reminder.ReminderNotificationConfigTest --tests com.raylabs.laundryhub.core.reminder.ReminderNotificationPublisherTest --tests com.raylabs.laundryhub.core.reminder.ReminderNotificationSheetReaderTest --tests com.raylabs.laundryhub.core.reminder.ReminderNotificationSupportTest --tests com.raylabs.laundryhub.ui.common.SystemBarStyleTest --tests com.raylabs.laundryhub.ui.common.util.DateUtilTest --tests com.raylabs.laundryhub.core.data.repository.ReminderRepositoryImplTest --tests com.raylabs.laundryhub.ui.order.OrderViewModelTest --tests com.raylabs.laundryhub.ui.reminder.ReminderIntroViewModelTest --tests com.raylabs.laundryhub.core.domain.usecase.reminder.ReminderUseCasesTest
+./gradlew cleanTestDebugUnitTest testDebugUnitTest jacocoTestReport
 ```
 
 ## Follow-Up Notes

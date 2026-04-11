@@ -6,6 +6,7 @@ import com.raylabs.laundryhub.core.reminder.ReminderNotificationScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.mockito.kotlin.mock
@@ -132,5 +133,10 @@ class ReminderUseCasesTest {
         assertTrue(ReminderLocalState(checkedAtEpochMillis = 10L).isResolved)
         assertTrue(ReminderLocalState(assumedPickedUpAtEpochMillis = 10L).isResolved)
         assertTrue(ReminderLocalState(dismissedAtEpochMillis = 10L).isResolved)
+    }
+
+    @Test
+    fun `empty local state reports as unresolved`() {
+        assertFalse(ReminderLocalState().isResolved)
     }
 }

@@ -22,6 +22,13 @@ class DateUtilTest {
     }
 
     @Test
+    fun `getTodayDate supports patterns that include time`() {
+        val actualDate = DateUtil.getTodayDate("yyyy-MM-dd HH:mm")
+
+        assertTrue(actualDate.matches(Regex("\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}")))
+    }
+
+    @Test
     fun `isToday returns true for today's date`() {
         val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
         assertTrue(DateUtil.isToday(date = today, formatedDate = "yyyy-MM-dd"))
@@ -50,6 +57,31 @@ class DateUtilTest {
         val invalidInput = "invalid-date"
         val result = DateUtil.parseDate(invalidInput)
         assertNull(result)
+    }
+
+    @Test
+    fun `parseSupportedAppDate accepts all supported reminder date formats`() {
+        val inputs = listOf(
+            "11/04/2026",
+            "11-04-2026",
+            "2026-04-11",
+            "11/04/2026 08:30",
+            "11-04-2026 08:30",
+            "2026-04-11 08:30"
+        )
+
+        inputs.forEach { input ->
+            val parsed = DateUtil.parseSupportedAppDate(input)
+
+            assertEquals("11/04/2026", parsed?.let { DateUtil.formatDate(it) })
+        }
+    }
+
+    @Test
+    fun `parseSupportedAppDate returns null for blank or unsupported formats`() {
+        assertNull(DateUtil.parseSupportedAppDate(null))
+        assertNull(DateUtil.parseSupportedAppDate("   "))
+        assertNull(DateUtil.parseSupportedAppDate("2026/04/11"))
     }
 
     @Test

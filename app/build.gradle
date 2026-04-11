@@ -127,7 +127,7 @@ android {
 
 // Ensure unit tests always produce coverage data (CI friendly)
 tasks.withType(Test).configureEach {
-    jacoco.includeNoLocationClasses = false
+    jacoco.includeNoLocationClasses = true
     jacoco.excludes = ['jdk.internal.*', 'jdk.proxy*', 'java.*', 'sun.*', 'com.sun.*']
 }
 
@@ -171,8 +171,6 @@ tasks.register("jacocoTestReport", JacocoReport) {
             '**/com/raylabs/laundryhub/ui/component/**',
             '**/com/raylabs/laundryhub/ui/theme/**',
             '**/com/raylabs/laundryhub/core/di/**',
-            // Android notification glue is validated through the reminder domain/viewmodel tests
-            '**/com/raylabs/laundryhub/core/reminder/**',
 
             // 🔽 library eksternal
             'androidx/**',
@@ -304,5 +302,7 @@ dependencies {
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
+    testImplementation 'androidx.test:core-ktx:1.6.1'
+    testImplementation 'org.robolectric:robolectric:4.14.1'
     implementation "androidx.compose.material3:material3:1.4.0"
 }

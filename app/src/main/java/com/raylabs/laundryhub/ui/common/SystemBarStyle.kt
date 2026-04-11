@@ -1,5 +1,7 @@
 package com.raylabs.laundryhub.ui.common
 
+import android.view.View
+import android.view.Window
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.graphics.Color
@@ -17,16 +19,29 @@ fun ApplyStatusBarStyle(backgroundColor: Color) {
     val useDarkStatusIcons = backgroundColor.luminance() > 0.5f
 
     DisposableEffect(view, backgroundColor, useDarkStatusIcons) {
-        val window = (view.context as? android.app.Activity)?.window
-        if (window == null) return@DisposableEffect onDispose {}
-
-        val controller = WindowInsetsControllerCompat(window, view)
-        val previousAppearance = controller.isAppearanceLightStatusBars
-
-        controller.isAppearanceLightStatusBars = useDarkStatusIcons
-
+        val restoreStatusBarAppearance = updateStatusBarAppearance(
+            window = (view.context as? android.app.Activity)?.window,
+            view = view,
+            useDarkStatusIcons = useDarkStatusIcons
+        )
         onDispose {
-            controller.isAppearanceLightStatusBars = previousAppearance
+            restoreStatusBarAppearance()
         }
+    }
+}
+
+internal fun updateStatusBarAppearance(
+    window: Window?,
+    view: View,
+    useDarkStatusIcons: Boolean
+): () -> Unit {
+    if (window == null) return {}
+
+    val controller = WindowInsetsControllerCompat(window, view)
+    val previousAppearance = controller.isAppearanceLightStatusBars
+    controller.isAppearanceLightStatusBars = useDarkStatusIcons
+
+    return {
+        controller.isAppearanceLightStatusBars = previousAppearance
     }
 }

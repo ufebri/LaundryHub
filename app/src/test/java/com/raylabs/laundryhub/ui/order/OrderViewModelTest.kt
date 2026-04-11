@@ -641,4 +641,30 @@ class OrderViewModelTest {
         val expectedDue = DateUtil.getDueDate("3d", "02-09-2025 08:00")
         assertEquals(expectedDue, state.dueDate)
     }
+
+    @Test
+    fun `onOrderDateSelected normalizes supported app date formats before recalculating due date`() = runTest {
+        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-11"))
+        whenever(mockPackageListUseCase.invoke()).thenReturn(
+            Resource.Success(
+                listOf(PackageData(name = "Express", price = "10000", duration = "3d", unit = "kg"))
+            )
+        )
+        vm = OrderViewModel(
+            mockGetLastOrderIdUseCase,
+            mockSubmitOrderUseCase,
+            mockPackageListUseCase,
+            mockGetOrderByIdUseCase,
+            mockUpdateOrderUseCase,
+            mockObserveShowWhatsAppSettingUseCase
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.onPackageSelected(PackageItem(name = "Express", price = "10000", work = "3d"))
+        vm.onOrderDateSelected("2025-09-02")
+
+        val state = vm.uiState.value
+        assertEquals("02/09/2025", state.orderDate)
+        assertEquals(DateUtil.getDueDate("3d", "02-09-2025 08:00"), state.dueDate)
+    }
 }
