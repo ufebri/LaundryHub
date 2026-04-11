@@ -2,8 +2,13 @@ package com.raylabs.laundryhub.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
@@ -16,6 +21,7 @@ import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.GrossItem
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import com.raylabs.laundryhub.ui.home.state.toUI
@@ -36,6 +42,9 @@ class HomeViewModel @Inject constructor(
     private val grossUseCase: ReadGrossDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
     private val userUseCase: UserUseCase,
+    private val observeReminderSettingsUseCase: ObserveReminderSettingsUseCase,
+    private val observeReminderLocalStatesUseCase: ObserveReminderLocalStatesUseCase,
+    private val evaluateReminderCandidatesUseCase: EvaluateReminderCandidatesUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState())
@@ -45,13 +54,18 @@ class HomeViewModel @Inject constructor(
     private var orderUpdateCounter: Long = 0
     private var summaryDataCache: List<SpreadsheetData>? = null
     private var grossItemsCache: List<GrossItem> = emptyList()
+    private var allTransactionsCache: List<TransactionData> = emptyList()
+    private var reminderEnabled: Boolean = false
+    private var reminderLocalStates: Map<String, ReminderLocalState> = emptyMap()
 
     init {
         fetchUser()
+        observeReminderInputs()
         fetchTodayIncomeFromInit()
         fetchSummaryFromInit()
         fetchOrderFromInit()
         fetchGrossFromInit()
+        fetchReminderDiscoveryFromInit()
     }
 
     private fun fetchUser() {
@@ -139,6 +153,41 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { fetchGross() }
     }
 
+    private fun observeReminderInputs() {
+        viewModelScope.launch {
+            observeReminderSettingsUseCase().collect { settings ->
+                reminderEnabled = settings.isReminderEnabled
+                updateReminderDiscovery()
+            }
+        }
+        viewModelScope.launch {
+            observeReminderLocalStatesUseCase().collect { states ->
+                reminderLocalStates = states
+                updateReminderDiscovery()
+            }
+        }
+    }
+
+    private fun fetchReminderDiscoveryFromInit() {
+        viewModelScope.launch { fetchReminderDiscoveryData() }
+    }
+
+    private suspend fun fetchReminderDiscoveryData() {
+        when (val result = readIncomeUseCase(filter = FILTER.SHOW_ALL_DATA)) {
+            is Resource.Success -> {
+                allTransactionsCache = result.data
+                updateReminderDiscovery()
+            }
+
+            is Resource.Empty -> {
+                allTransactionsCache = emptyList()
+                updateReminderDiscovery()
+            }
+
+            else -> Unit
+        }
+    }
+
     suspend fun fetchGross() {
         _uiState.update {
             it.copy(gross = it.gross.loading())
@@ -222,19 +271,7 @@ class HomeViewModel @Inject constructor(
 
 
     private fun parseDateForSorting(dateString: String?): Date? {
-        if (dateString.isNullOrBlank()) return null
-        val patterns = listOf(
-            "dd/MM/yyyy",
-            "dd-MM-yyyy",
-            "dd-MM-yyyy HH:mm",
-            "yyyy-MM-dd",
-            "yyyy-MM-dd HH:mm"
-        )
-
-        for (pattern in patterns) {
-            DateUtil.parseDate(dateString, pattern)?.let { return it }
-        }
-        return null
+        return DateUtil.parseSupportedAppDate(dateString)
     }
 
     private fun applySort(
@@ -324,12 +361,54 @@ class HomeViewModel @Inject constructor(
                     async { fetchTodayIncome() },
                     async { fetchSummary() },
                     async { fetchGross() },
-                    async { fetchOrder() } // fetchOrder will call updateDisplayedUnpaidOrders
+                    async { fetchOrder() }, // fetchOrder will call updateDisplayedUnpaidOrders
+                    async { fetchReminderDiscoveryData() }
                 )
                 jobs.awaitAll()
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
             }
+        }
+    }
+
+    private fun updateReminderDiscovery() {
+        val candidates = evaluateReminderCandidatesUseCase(
+            transactions = allTransactionsCache,
+            localStates = reminderLocalStates
+        )
+        if (candidates.isEmpty()) {
+            _uiState.update { it.copy(reminderDiscovery = null) }
+            return
+        }
+
+        val topCandidate = candidates.first()
+        val headline = if (candidates.size == 1) {
+            "1 order needs a cross-check"
+        } else {
+            "${candidates.size} orders need a cross-check"
+        }
+        val supportingText = when {
+            reminderEnabled && topCandidate.overdueDays <= 0 ->
+                "Open Reminder Inbox to review the orders that reached their due date."
+            reminderEnabled ->
+                "Open Reminder Inbox. The oldest one is already ${topCandidate.overdueDays} days past the due date."
+            topCandidate.overdueDays <= 0 ->
+                "Turn on reminders to review orders that may need a status update after the due date."
+            else ->
+                "Turn on reminders. The oldest one is already ${topCandidate.overdueDays} days past the due date."
+        }
+        val ctaLabel = if (reminderEnabled) "Open Reminder Inbox" else "Turn on reminder"
+
+        _uiState.update {
+            it.copy(
+                reminderDiscovery = ReminderDiscoveryUiState(
+                    eligibleCount = candidates.size,
+                    headline = headline,
+                    supportingText = supportingText,
+                    isReminderEnabled = reminderEnabled,
+                    ctaLabel = ctaLabel
+                )
+            )
         }
     }
 }

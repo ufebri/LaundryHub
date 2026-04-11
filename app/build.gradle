@@ -27,6 +27,10 @@ def admobAppIdDebug = readConfigValue("ADMOB_APP_ID_DEBUG")
 def admobBannerAdUnitIdDebug = readConfigValue("ADMOB_BANNER_AD_UNIT_ID_DEBUG")
 def admobAppIdRelease = readConfigValue("ADMOB_APP_ID_RELEASE")
 def admobBannerAdUnitIdRelease = readConfigValue("ADMOB_BANNER_AD_UNIT_ID_RELEASE")
+def releaseKeystorePath = readConfigValue("MYAPP_RELEASE_KEYSTORE_FILE")
+def releaseKeystorePassword = readConfigValue("MYAPP_RELEASE_KEYSTORE_PASSWORD")
+def releaseKeyAlias = readConfigValue("MYAPP_RELEASE_KEY_ALIAS")
+def releaseKeyPassword = readConfigValue("MYAPP_RELEASE_KEY_PASSWORD")
 
 def versionPropsFile = rootProject.file('version.properties')
 def versionProps = new Properties()
@@ -51,10 +55,10 @@ android {
 
     signingConfigs {
         release {
-            storeFile = file(apikeyProperties["MYAPP_RELEASE_KEYSTORE_FILE"])
-            storePassword = apikeyProperties["MYAPP_RELEASE_KEYSTORE_PASSWORD"]
-            keyAlias = apikeyProperties["MYAPP_RELEASE_KEY_ALIAS"]
-            keyPassword = apikeyProperties["MYAPP_RELEASE_KEY_PASSWORD"]
+            storeFile = releaseKeystorePath ? file(releaseKeystorePath) : null
+            storePassword = releaseKeystorePassword
+            keyAlias = releaseKeyAlias
+            keyPassword = releaseKeyPassword ?: releaseKeystorePassword
             storeType = "jks"
         }
     }
@@ -167,6 +171,8 @@ tasks.register("jacocoTestReport", JacocoReport) {
             '**/com/raylabs/laundryhub/ui/component/**',
             '**/com/raylabs/laundryhub/ui/theme/**',
             '**/com/raylabs/laundryhub/core/di/**',
+            // Android notification glue is validated through the reminder domain/viewmodel tests
+            '**/com/raylabs/laundryhub/core/reminder/**',
 
             // 🔽 library eksternal
             'androidx/**',

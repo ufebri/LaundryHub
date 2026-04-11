@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +20,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.DropdownMenu
@@ -63,6 +65,7 @@ import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.Transaction
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
@@ -73,7 +76,8 @@ fun HomeScreen(
     bannerState: InlineAdaptiveBannerAdState? = null,
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
-    onGrossCardClick: () -> Unit
+    onGrossCardClick: () -> Unit,
+    onReminderDiscoveryClick: (Boolean) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("home_inline")
@@ -86,7 +90,8 @@ fun HomeScreen(
         onChangeSortOrder = viewModel::changeSortOrder,
         onOrderCardClick = onOrderCardClick,
         onTodayActivityClick = onTodayActivityClick,
-        onGrossCardClick = onGrossCardClick
+        onGrossCardClick = onGrossCardClick,
+        onReminderDiscoveryClick = onReminderDiscoveryClick
     )
 }
 
@@ -101,7 +106,8 @@ fun HomeScreenContent(
     onChangeSortOrder: (SortOption) -> Unit,
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
-    onGrossCardClick: () -> Unit
+    onGrossCardClick: () -> Unit,
+    onReminderDiscoveryClick: (Boolean) -> Unit
 ) {
     val snackBarHostState = remember { SnackbarHostState() }
     var showMenu by remember { mutableStateOf(false) }
@@ -186,6 +192,16 @@ fun HomeScreenContent(
             }
 
             item { Spacer(Modifier.height(24.dp)) }
+
+            state.reminderDiscovery?.let { discovery ->
+                item(key = "home_reminder_discovery") {
+                    ReminderDiscoveryCard(
+                        state = discovery,
+                        onClick = { onReminderDiscoveryClick(discovery.isReminderEnabled) }
+                    )
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
 
             item(key = "home_inline_banner") {
                 InlineAdaptiveBannerAd(state = bannerState)
@@ -371,6 +387,44 @@ fun HomeScreenContent(
 }
 
 @Composable
+private fun ReminderDiscoveryCard(
+    state: ReminderDiscoveryUiState,
+    onClick: () -> Unit
+) {
+    Card(
+        backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
+        elevation = 0.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clickable(onClick = onClick)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = state.headline,
+                style = MaterialTheme.typography.subtitle1
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = state.supportingText,
+                style = MaterialTheme.typography.body2
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = state.ctaLabel,
+                style = MaterialTheme.typography.subtitle2,
+                color = MaterialTheme.colors.primary,
+                modifier = Modifier.align(Alignment.End)
+            )
+        }
+    }
+}
+
+@Composable
 fun InfoCardSection(
     summary: List<SummaryItem>,
     onGrossCardClick: () -> Unit,
@@ -423,7 +477,8 @@ fun PreviewHomeScreenContent_Default() {
             onChangeSortOrder = {},
             onOrderCardClick = {},
             onTodayActivityClick = {},
-            onGrossCardClick = {}
+            onGrossCardClick = {},
+            onReminderDiscoveryClick = {}
         )
     }
 }
@@ -442,7 +497,8 @@ fun PreviewHomeScreenContent_SearchActiveDark() {
             onChangeSortOrder = {},
             onOrderCardClick = {},
             onTodayActivityClick = {},
-            onGrossCardClick = {}
+            onGrossCardClick = {},
+            onReminderDiscoveryClick = {}
         )
     }
 }
@@ -461,7 +517,8 @@ fun PreviewHomeScreenContent_SearchActiveLight() {
             onChangeSortOrder = {},
             onOrderCardClick = {},
             onTodayActivityClick = {},
-            onGrossCardClick = {}
+            onGrossCardClick = {},
+            onReminderDiscoveryClick = {}
         )
     }
 }

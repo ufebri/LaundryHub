@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.profile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearCacheUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.GetCacheSizeUseCase
@@ -29,6 +30,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val userUseCase: UserUseCase,
+    private val observeReminderSettingsUseCase: ObserveReminderSettingsUseCase,
     private val observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase,
     private val setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase,
     private val getCacheSizeUseCase: GetCacheSizeUseCase,
@@ -46,6 +48,7 @@ class ProfileViewModel @Inject constructor(
 
     init {
         fetchUser()
+        observeReminderSettings()
         observeSettings()
         observeSpreadsheetConfig()
         fetchCacheSize()
@@ -62,6 +65,14 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             observeShowWhatsAppSettingUseCase().collect { isEnabled ->
                 _uiState.update { it.copy(showWhatsAppOption = isEnabled) }
+            }
+        }
+    }
+
+    private fun observeReminderSettings() {
+        viewModelScope.launch {
+            observeReminderSettingsUseCase().collect { settings ->
+                _uiState.update { it.copy(reminderSettings = settings) }
             }
         }
     }

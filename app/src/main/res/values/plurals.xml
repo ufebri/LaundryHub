@@ -1,0 +1,6 @@
+<resources>
+    <plurals name="reminder_notification_title">
+        <item quantity="one">%d order needs a cross-check</item>
+        <item quantity="other">%d orders need a cross-check</item>
+    </plurals>
+</resources>
