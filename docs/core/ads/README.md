@@ -43,6 +43,7 @@ Reason:
 - `Onboarding`: no ads
 - `Spreadsheet Setup`: no ads
 - `Order bottom sheet / order form`: no ads
+- `Reminder intro / reminder inbox`: no ads
 - `Home`: inline banner between Today Activity and Pending Orders
 - `History`: inline banner near the top of the history list
 - `Outcome`: inline banner near the top of the outcome list
@@ -54,6 +55,7 @@ Reason:
 
 - placeholders stay safe by using official Google sample IDs until real AdMob IDs are generated
 - screens remain compatible with ads, but focused flows stay clean
+- reminder review surfaces stay ad-free because they are decision-heavy, stateful maintenance flows
 - all placements reuse one component so future placement or style changes do not require duplicated ad code
 - when a banner lives inside lazy content, its ad state should be remembered at screen level so the ad can reattach after the user scrolls away and back
 - banner debugging currently uses Logcat tags `InlineAdaptiveBanner` and `BottomNavDebug`

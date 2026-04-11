@@ -91,6 +91,12 @@ fastlane/readme.md
 *.enc                       # Encrypted secrets
 *.zip                       # Zipped artifacts if generated locally
 
+# Local cross-session notes
+docs/session-handoff/
+
+# Local content drafting notes
+docs/content/medium-drafts/
+
 # --- MacOS/Linux/Windows system files ---
 Thumbs.db
 ehthumbs.db

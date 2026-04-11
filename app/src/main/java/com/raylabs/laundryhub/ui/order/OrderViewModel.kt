@@ -26,8 +26,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
-import java.util.Locale
 import javax.inject.Inject
 
 @HiltViewModel
@@ -324,13 +322,8 @@ class OrderViewModel @Inject constructor(
         val sanitized = raw.trim()
         if (sanitized.isEmpty()) return DateUtil.getTodayDate("dd/MM/yyyy")
 
-        val formats = listOf("dd/MM/yyyy", "dd-MM-yyyy", "yyyy-MM-dd")
-        val parser = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-        formats.forEach { pattern ->
-            val parsed = DateUtil.parseDate(sanitized, pattern)
-            if (parsed != null) {
-                return parser.format(parsed)
-            }
+        DateUtil.parseSupportedAppDate(sanitized)?.let { parsed ->
+            return DateUtil.formatDate(parsed)
         }
 
         return sanitized

@@ -107,4 +107,70 @@
     <string name="spreadsheet_id_label">ID: %1$s</string>
     <string name="spreadsheet_status_not_connected">Not connected</string>
     <string name="ad_preview_label" translatable="false">Ad space</string>
+
+    <string name="activate_reminder_cta">Turn on reminder</string>
+    <string name="reminder_section_title">Reminder &amp; Cross-check</string>
+    <string name="reminder_enabled_title">Reminder active</string>
+    <string name="reminder_enabled_description">Show cross-check reminders for orders that reach or pass the due date.</string>
+    <string name="reminder_daily_notifications_title">Daily notifications</string>
+    <string name="reminder_daily_notifications_description">Send one summary notification each day when there are orders worth double-checking.</string>
+    <string name="reminder_notification_time_title">Notification time</string>
+    <string name="reminder_notification_time_description">Daily summary will be sent around %1$s.</string>
+    <string name="reminder_notification_time_inactive_description">Saved for %1$s. Turn on daily notifications when you want to use it.</string>
+    <string name="reminder_open_inbox_title">Open Reminder Inbox</string>
+    <string name="reminder_open_inbox_description">Review orders that may need a status update.</string>
+    <string name="reminder_open_inbox_disabled_description">Reminder is still off, but you can open the inbox to check the current state.</string>
+    <string name="reminder_send_test_notification_title">Send test notification</string>
+    <string name="reminder_send_test_notification_description">Preview how the reminder notification will look on this device.</string>
+    <string name="reminder_settings_heading">Keep reminder close to the work</string>
+    <string name="reminder_settings_body">Set the toggle once, choose your preferred daily time, and jump to Reminder Inbox whenever you need it.</string>
+    <string name="reminder_settings_summary_off">Off</string>
+    <string name="reminder_settings_summary_on_without_notifications">On, daily notifications off</string>
+    <string name="reminder_settings_summary_on_with_time">On, daily at %1$s</string>
+
+    <string name="reminder_intro_title">Reminder</string>
+    <string name="reminder_intro_heading">Cross-check order updates</string>
+    <string name="reminder_intro_body">Reminder helps you revisit orders whose due date is today or already passed. It is a prompt to double-check whether the order status has been updated, not a claim that the order is definitely still pending pickup.</string>
+    <string name="reminder_intro_note">Start from Home or Profile, then use Reminder Inbox to review and clear items locally.</string>
+    <string name="reminder_intro_enable">Enable reminder</string>
+    <string name="reminder_intro_enabled_state">Reminder is active for this account.</string>
+    <string name="reminder_intro_enable_daily">Enable daily notification</string>
+    <string name="reminder_intro_open_inbox">Open Reminder Inbox</string>
+    <string name="reminder_status_on">On</string>
+    <string name="reminder_status_off">Off</string>
+    <string name="reminder_how_it_works_title">How it works</string>
+    <string name="reminder_how_it_works_point_due">Orders appear when the due date is today or already passed.</string>
+    <string name="reminder_how_it_works_point_local">Checked, snoozed, dismissed, and assumed picked-up states are stored locally on this device.</string>
+    <string name="reminder_how_it_works_point_open_order">Use Open order when you want to jump into the existing edit flow and update the sheet data.</string>
+
+    <string name="reminder_inbox_title">Reminder Inbox</string>
+    <string name="reminder_disabled_title">Reminder is turned off</string>
+    <string name="reminder_disabled_body">Turn reminder on from Reminder settings or use the Home card when you are ready to review orders here.</string>
+    <string name="reminder_empty_title">Nothing needs a cross-check right now</string>
+    <string name="reminder_empty_body">Once an order reaches its due date, it will appear here unless you already marked it as checked, dismissed it, or snoozed it.</string>
+    <string name="reminder_refresh">Refresh</string>
+    <string name="reminder_due_date_label">Due date</string>
+    <string name="reminder_action_checked">Reviewed</string>
+    <string name="reminder_action_snooze">Remind tomorrow</string>
+    <string name="reminder_action_assumed_picked">Likely picked up</string>
+    <string name="reminder_action_dismiss">Dismiss</string>
+    <string name="reminder_action_open_order">Open order</string>
+    <string name="reminder_overview_title">Need a quick review?</string>
+    <string name="reminder_overview_body">%1$d orders currently need a cross-check.</string>
+    <string name="reminder_overview_hint">Reviewed and Likely picked up only clear the reminder here. Use Open order when you want to update the sheet.</string>
+    <string name="reminder_overview_notifications_on">Daily notifications are on for this account.</string>
+    <string name="reminder_overview_notifications_off">Daily notifications are still off. You can turn them on from Reminder settings.</string>
+    <string name="reminder_section_title_with_count">%1$s (%2$d)</string>
+
+    <string name="reminder_notification_channel_description">Daily cross-check reminders for orders that may need a status update.</string>
+    <string name="reminder_notification_message">Top priority: %1$s. Open Reminder Inbox to review the order updates that may need attention.</string>
+    <string name="reminder_test_notification_title">Reminder test</string>
+    <string name="reminder_test_notification_message">This is a sample reminder notification. Open Reminder Inbox whenever you want to review active cross-check items.</string>
+    <string name="reminder_bucket_due_today">due today</string>
+    <string name="reminder_bucket_overdue_1_2">overdue 1-2 days</string>
+    <string name="reminder_bucket_overdue_3_6">overdue 3-6 days</string>
+    <string name="reminder_bucket_overdue_1_week">overdue 1 week</string>
+    <string name="reminder_bucket_overdue_2_weeks">overdue 2 weeks</string>
+    <string name="reminder_bucket_overdue_3_weeks">overdue 3 weeks</string>
+    <string name="reminder_bucket_overdue_1_month">overdue 1 month or more</string>
 </resources>

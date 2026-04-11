@@ -44,6 +44,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -80,7 +81,8 @@ fun ProfileScreenView(
     viewModel: ProfileViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel,
     bannerState: InlineAdaptiveBannerAdState? = null,
-    onInventoryClick: () -> Unit = {}
+    onInventoryClick: () -> Unit = {},
+    onReminderSettingsClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("profile_inline")
@@ -99,6 +101,7 @@ fun ProfileScreenView(
                 })
             },
             onInventoryClick = onInventoryClick,
+            onReminderSettingsClick = onReminderSettingsClick,
             onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption,
             onRevalidateSpreadsheet = viewModel::revalidateSpreadsheet,
             onChangeSpreadsheetClick = viewModel::openChangeSpreadsheetDialog,
@@ -118,6 +121,7 @@ fun ProfileScreenContent(
     modifier: Modifier = Modifier,
     onLoggedOut: () -> Unit = {},
     onInventoryClick: () -> Unit = {},
+    onReminderSettingsClick: () -> Unit = {},
     onWhatsAppOptionChanged: (Boolean) -> Unit = {},
     onRevalidateSpreadsheet: () -> Unit = {},
     onChangeSpreadsheetClick: () -> Unit = {},
@@ -176,6 +180,7 @@ fun ProfileScreenContent(
             SettingsCard(
                 state = state,
                 cacheSizeText = cacheSizeText,
+                onReminderSettingsClick = onReminderSettingsClick,
                 onWhatsAppOptionChanged = onWhatsAppOptionChanged,
                 onClearCacheClick = onClearCacheClick
             )
@@ -476,6 +481,7 @@ private fun SpreadsheetManagementCard(
 private fun SettingsCard(
     state: ProfileUiState,
     cacheSizeText: String,
+    onReminderSettingsClick: () -> Unit,
     onWhatsAppOptionChanged: (Boolean) -> Unit,
     onClearCacheClick: () -> Unit
 ) {
@@ -486,6 +492,33 @@ private fun SettingsCard(
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onReminderSettingsClick)
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProfileVectorBadge(imageVector = Icons.Default.Build)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = stringResource(R.string.reminder_section_title),
+                        color = Color.White,
+                        style = MaterialTheme.typography.body1,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = rememberReminderSettingsSummary(state.reminderSettings),
+                        color = ProfileMutedText,
+                        style = MaterialTheme.typography.caption
+                    )
+                }
+            }
+
+            Divider(color = ProfileCardLine)
+
             Row(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 18.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -579,6 +612,30 @@ private fun SettingsCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun rememberReminderSettingsSummary(
+    settings: com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
+): String {
+    val context = LocalContext.current
+
+    if (!settings.isReminderEnabled) {
+        return stringResource(R.string.reminder_settings_summary_off)
+    }
+
+    return if (settings.isDailyNotificationEnabled) {
+        stringResource(
+            R.string.reminder_settings_summary_on_with_time,
+            com.raylabs.laundryhub.ui.reminder.formatReminderTime(
+                context = context,
+                hourOfDay = settings.notificationHour,
+                minute = settings.notificationMinute
+            )
+        )
+    } else {
+        stringResource(R.string.reminder_settings_summary_on_without_notifications)
     }
 }
 
@@ -707,7 +764,8 @@ fun PreviewProfileScreen() {
         ProfileScreenContent(
             state = dummyProfileUiState,
             bannerState = bannerState,
-            modifier = Modifier.padding(padding)
+            modifier = Modifier.padding(padding),
+            onReminderSettingsClick = {}
         )
     }
 }

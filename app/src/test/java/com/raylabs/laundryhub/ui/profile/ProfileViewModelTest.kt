@@ -1,8 +1,10 @@
 package com.raylabs.laundryhub.ui.profile
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
 import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
 import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetValidationResult
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearCacheUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ClearSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.GetCacheSizeUseCase
@@ -38,6 +40,7 @@ import org.mockito.Mockito.`when`
 class ProfileViewModelTest {
 
     private lateinit var userUseCase: UserUseCase
+    private lateinit var observeReminderSettingsUseCase: ObserveReminderSettingsUseCase
     private lateinit var observeShowWhatsAppSettingUseCase: ObserveShowWhatsAppSettingUseCase
     private lateinit var setShowWhatsAppSettingUseCase: SetShowWhatsAppSettingUseCase
     private lateinit var getCacheSizeUseCase: GetCacheSizeUseCase
@@ -53,6 +56,7 @@ class ProfileViewModelTest {
     fun setup() {
         Dispatchers.setMain(testDispatcher)
         userUseCase = mock(UserUseCase::class.java)
+        observeReminderSettingsUseCase = mock(ObserveReminderSettingsUseCase::class.java)
         observeShowWhatsAppSettingUseCase = mock(ObserveShowWhatsAppSettingUseCase::class.java)
         setShowWhatsAppSettingUseCase = mock(SetShowWhatsAppSettingUseCase::class.java)
         getCacheSizeUseCase = mock(GetCacheSizeUseCase::class.java)
@@ -62,6 +66,7 @@ class ProfileViewModelTest {
         saveSpreadsheetConnectionUseCase = mock(SaveSpreadsheetConnectionUseCase::class.java)
         validateSpreadsheetUseCase = mock(ValidateSpreadsheetUseCase::class.java)
 
+        `when`(observeReminderSettingsUseCase.invoke()).thenReturn(flowOf(ReminderSettings()))
         `when`(observeShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(true))
         `when`(observeSpreadsheetConfigUseCase.invoke()).thenReturn(flowOf(SpreadsheetConfig()))
         runBlocking {
@@ -130,6 +135,28 @@ class ProfileViewModelTest {
         advanceUntilIdle()
 
         assertEquals(false, viewModel.uiState.value.showWhatsAppOption)
+    }
+
+    @Test
+    fun `observe reminder settings updates reminder state`() = runTest {
+        `when`(observeReminderSettingsUseCase.invoke()).thenReturn(
+            flowOf(
+                ReminderSettings(
+                    isReminderEnabled = true,
+                    isDailyNotificationEnabled = true,
+                    notificationHour = 8,
+                    notificationMinute = 45
+                )
+            )
+        )
+
+        viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertTrue(viewModel.uiState.value.reminderSettings.isReminderEnabled)
+        assertTrue(viewModel.uiState.value.reminderSettings.isDailyNotificationEnabled)
+        assertEquals(8, viewModel.uiState.value.reminderSettings.notificationHour)
+        assertEquals(45, viewModel.uiState.value.reminderSettings.notificationMinute)
     }
 
     @Test
@@ -321,6 +348,7 @@ class ProfileViewModelTest {
     private fun createViewModel(): ProfileViewModel {
         return ProfileViewModel(
             userUseCase = userUseCase,
+            observeReminderSettingsUseCase = observeReminderSettingsUseCase,
             observeShowWhatsAppSettingUseCase = observeShowWhatsAppSettingUseCase,
             setShowWhatsAppSettingUseCase = setShowWhatsAppSettingUseCase,
             getCacheSizeUseCase = getCacheSizeUseCase,

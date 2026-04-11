@@ -1,10 +1,14 @@
 package com.raylabs.laundryhub.ui.home
 
 import com.raylabs.laundryhub.core.domain.model.auth.User
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
@@ -17,6 +21,7 @@ import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -42,6 +47,9 @@ class HomeViewModelTest {
     private val mockGrossUseCase: ReadGrossDataUseCase = mock()
     private val mockReadIncomeUseCase: ReadIncomeTransactionUseCase = mock()
     private val mockUserUseCase: UserUseCase = mock()
+    private val mockObserveReminderSettingsUseCase: ObserveReminderSettingsUseCase = mock()
+    private val mockObserveReminderLocalStatesUseCase: ObserveReminderLocalStatesUseCase = mock()
+    private val evaluateReminderCandidatesUseCase = EvaluateReminderCandidatesUseCase()
 
     private val unpaidOrderItemsForSort = listOf(
         DUMMY_UNPAID_ORDER_ITEM_EMY,
@@ -87,12 +95,28 @@ class HomeViewModelTest {
                 .invoke()
             doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
                 .invoke(filter = FILTER.SHOW_UNPAID_DATA)
+            doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+                .invoke(filter = FILTER.SHOW_ALL_DATA)
         }
+        whenever(mockObserveReminderSettingsUseCase.invoke()).thenReturn(flowOf(ReminderSettings()))
+        whenever(mockObserveReminderLocalStatesUseCase.invoke()).thenReturn(flowOf(emptyMap()))
     }
 
     @After
     fun tearDown() {
         Dispatchers.resetMain()
+    }
+
+    private fun createViewModel(): HomeViewModel {
+        return HomeViewModel(
+            mockSummaryUseCase,
+            mockGrossUseCase,
+            mockReadIncomeUseCase,
+            mockUserUseCase,
+            mockObserveReminderSettingsUseCase,
+            mockObserveReminderLocalStatesUseCase,
+            evaluateReminderCandidatesUseCase
+        )
     }
 
     @Test
@@ -111,12 +135,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -130,6 +149,145 @@ class HomeViewModelTest {
         assertFalse(state.summary.isLoading)
         assertFalse(state.gross.isLoading)
         assertFalse(state.unpaidOrder.isLoading)
+    }
+
+    @Test
+    fun `init exposes reminder discovery when reminders are off and due items exist`() = runTest {
+        whenever(mockObserveReminderSettingsUseCase.invoke()).thenReturn(
+            flowOf(ReminderSettings(isReminderEnabled = false))
+        )
+        doReturn(
+            Resource.Success(
+                listOf(
+                    TransactionData(
+                        orderID = "1",
+                        date = "01/04/2026",
+                        name = "Customer",
+                        weight = "2",
+                        pricePerKg = "12000",
+                        totalPrice = "24000",
+                        paymentStatus = "belum",
+                        packageType = "Regular",
+                        remark = "",
+                        paymentMethod = "cash",
+                        phoneNumber = "08123",
+                        dueDate = "07/04/2026"
+                    )
+                )
+            )
+        ).whenever(mockReadIncomeUseCase).invoke(filter = FILTER.SHOW_ALL_DATA)
+
+        val vm = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val reminderDiscovery = vm.uiState.value.reminderDiscovery
+        assertNotNull(reminderDiscovery)
+        assertEquals(1, reminderDiscovery?.eligibleCount)
+        assertEquals("1 order needs a cross-check", reminderDiscovery?.headline)
+        assertEquals("Turn on reminder", reminderDiscovery?.ctaLabel)
+        assertFalse(reminderDiscovery?.isReminderEnabled ?: true)
+    }
+
+    @Test
+    fun `init keeps reminder discovery visible when reminders are already enabled`() = runTest {
+        whenever(mockObserveReminderSettingsUseCase.invoke()).thenReturn(
+            flowOf(ReminderSettings(isReminderEnabled = true))
+        )
+        doReturn(
+            Resource.Success(
+                listOf(
+                    TransactionData(
+                        orderID = "1",
+                        date = "01/04/2026",
+                        name = "Customer",
+                        weight = "2",
+                        pricePerKg = "12000",
+                        totalPrice = "24000",
+                        paymentStatus = "belum",
+                        packageType = "Regular",
+                        remark = "",
+                        paymentMethod = "cash",
+                        phoneNumber = "08123",
+                        dueDate = "07/04/2026"
+                    )
+                )
+            )
+        ).whenever(mockReadIncomeUseCase).invoke(filter = FILTER.SHOW_ALL_DATA)
+
+        val vm = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val reminderDiscovery = vm.uiState.value.reminderDiscovery
+        assertNotNull(reminderDiscovery)
+        assertEquals(1, reminderDiscovery?.eligibleCount)
+        assertEquals("Open Reminder Inbox", reminderDiscovery?.ctaLabel)
+        assertTrue(reminderDiscovery?.isReminderEnabled == true)
+    }
+
+    @Test
+    fun `init ignores reminder discovery when due date is blank`() = runTest {
+        whenever(mockObserveReminderSettingsUseCase.invoke()).thenReturn(
+            flowOf(ReminderSettings(isReminderEnabled = false))
+        )
+        doReturn(
+            Resource.Success(
+                listOf(
+                    TransactionData(
+                        orderID = "missing-due-date",
+                        date = "01/04/2026",
+                        name = "Customer Missing Due Date",
+                        weight = "2",
+                        pricePerKg = "12000",
+                        totalPrice = "24000",
+                        paymentStatus = "belum",
+                        packageType = "Regular",
+                        remark = "",
+                        paymentMethod = "cash",
+                        phoneNumber = "08123",
+                        dueDate = "   "
+                    )
+                )
+            )
+        ).whenever(mockReadIncomeUseCase).invoke(filter = FILTER.SHOW_ALL_DATA)
+
+        val vm = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertNull(vm.uiState.value.reminderDiscovery)
+    }
+
+    @Test
+    fun `init supports reminder discovery for legacy due date formats`() = runTest {
+        whenever(mockObserveReminderSettingsUseCase.invoke()).thenReturn(
+            flowOf(ReminderSettings(isReminderEnabled = false))
+        )
+        doReturn(
+            Resource.Success(
+                listOf(
+                    TransactionData(
+                        orderID = "legacy-dash-date",
+                        date = "01/04/2026",
+                        name = "Customer Legacy Dash Date",
+                        weight = "2",
+                        pricePerKg = "12000",
+                        totalPrice = "24000",
+                        paymentStatus = "belum",
+                        packageType = "Regular",
+                        remark = "",
+                        paymentMethod = "cash",
+                        phoneNumber = "08123",
+                        dueDate = "07-04-2026"
+                    )
+                )
+            )
+        ).whenever(mockReadIncomeUseCase).invoke(filter = FILTER.SHOW_ALL_DATA)
+
+        val vm = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val reminderDiscovery = vm.uiState.value.reminderDiscovery
+        assertNotNull(reminderDiscovery)
+        assertEquals(1, reminderDiscovery?.eligibleCount)
     }
 
     @Test
@@ -153,12 +311,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -174,12 +327,7 @@ class HomeViewModelTest {
         doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -198,12 +346,7 @@ class HomeViewModelTest {
         whenever(mockSummaryUseCase.invoke())
             .thenReturn(Resource.Empty)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         // THEN
@@ -222,12 +365,7 @@ class HomeViewModelTest {
         )
         doReturn(Resource.Success(summaryList)).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -243,12 +381,7 @@ class HomeViewModelTest {
         val grossList = listOf(GrossData("januari", "Rp801.000", "31", "Rp4.005"))
         doReturn(Resource.Success(grossList)).whenever(mockGrossUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -279,12 +412,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(transactionList)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -298,12 +426,7 @@ class HomeViewModelTest {
     fun `init sets user to null when getCurrentUser returns null`() = runTest {
         whenever(mockUserUseCase.getCurrentUser()).thenReturn(null)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertNull(vm.uiState.value.user.data)
@@ -314,12 +437,7 @@ class HomeViewModelTest {
         val errorMessage = "Summary fetch error"
         doReturn(Resource.Error(errorMessage)).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -334,12 +452,7 @@ class HomeViewModelTest {
         whenever(mockSummaryUseCase.invoke()).thenReturn(Resource.Empty) // atau Empty() jika class
         whenever(mockReadIncomeUseCase.invoke()).thenReturn(Resource.Empty)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         // THEN
@@ -356,12 +469,7 @@ class HomeViewModelTest {
         doReturn(Resource.Error(errorMessage)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -375,12 +483,7 @@ class HomeViewModelTest {
         doReturn(Resource.Empty).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -396,12 +499,7 @@ class HomeViewModelTest {
             mockReadIncomeUseCase
         ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val initialOrderUpdateKey = vm.uiState.value.orderUpdateKey
@@ -426,12 +524,7 @@ class HomeViewModelTest {
             mockReadIncomeUseCase
         ).invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_ASC)
@@ -449,12 +542,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_DESC)
@@ -511,12 +599,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(unpaidOrderData)).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.refreshAllData()
@@ -555,12 +638,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.refreshAllData()
@@ -587,12 +665,7 @@ class HomeViewModelTest {
             .whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.changeSortOrder(SortOption.DUE_DATE_ASC)
@@ -612,12 +685,7 @@ class HomeViewModelTest {
             .whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         vm.onSearchQueryChanged("BO")
@@ -637,12 +705,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<SpreadsheetData>()))
             .whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         // WHEN: user mencari "emy" (match Ny Emy)
@@ -674,12 +737,7 @@ class HomeViewModelTest {
         doReturn(Resource.Success(emptyList<SpreadsheetData>()))
             .whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         // Set query & aktifkan search
@@ -718,12 +776,7 @@ class HomeViewModelTest {
         doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -735,12 +788,7 @@ class HomeViewModelTest {
     fun `fetchSummary sets loading state when use case returns Loading`() = runTest {
         doReturn(Resource.Loading).whenever(mockSummaryUseCase).invoke()
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
@@ -753,12 +801,7 @@ class HomeViewModelTest {
         doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
-        val vm = HomeViewModel(
-            mockSummaryUseCase,
-            mockGrossUseCase,
-            mockReadIncomeUseCase,
-            mockUserUseCase
-        )
+        val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
