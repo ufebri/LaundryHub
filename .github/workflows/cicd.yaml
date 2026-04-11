@@ -37,14 +37,14 @@ jobs:
           ADMOB_BANNER_AD_UNIT_ID_DEBUG: ${{ secrets.ADMOB_BANNER_AD_UNIT_ID_DEBUG }}
           ADMOB_APP_ID_RELEASE: ${{ secrets.ADMOB_APP_ID_RELEASE }}
           ADMOB_BANNER_AD_UNIT_ID_RELEASE: ${{ secrets.ADMOB_BANNER_AD_UNIT_ID_RELEASE }}
-          MYAPP_RELEASE_KEYSTORE_FILE: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}
           MYAPP_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}
           MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}
-          MYAPP_RELEASE_KEY_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEY_PASSWORD }}
           SONAR_PROJECT_KEY: ${{ secrets.SONAR_PROJECT_KEY }}
           SONAR_ORGANIZATION: ${{ secrets.SONAR_ORGANIZATION }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
+          RELEASE_KEYSTORE_FILE=./laundry_hub_key.jks
+          RELEASE_KEY_PASSWORD="$MYAPP_RELEASE_KEYSTORE_PASSWORD"
           cat > config.properties <<EOF
           WEB_CLIENT_ID=$WEB_CLIENT_ID
           SPREAD_SHEET_ID=$SPREAD_SHEET_ID
@@ -52,10 +52,10 @@ jobs:
           ADMOB_BANNER_AD_UNIT_ID_DEBUG=$ADMOB_BANNER_AD_UNIT_ID_DEBUG
           ADMOB_APP_ID_RELEASE=$ADMOB_APP_ID_RELEASE
           ADMOB_BANNER_AD_UNIT_ID_RELEASE=$ADMOB_BANNER_AD_UNIT_ID_RELEASE
-          MYAPP_RELEASE_KEYSTORE_FILE=$MYAPP_RELEASE_KEYSTORE_FILE
+          MYAPP_RELEASE_KEYSTORE_FILE=$RELEASE_KEYSTORE_FILE
           MYAPP_RELEASE_KEYSTORE_PASSWORD=$MYAPP_RELEASE_KEYSTORE_PASSWORD
           MYAPP_RELEASE_KEY_ALIAS=$MYAPP_RELEASE_KEY_ALIAS
-          MYAPP_RELEASE_KEY_PASSWORD=$MYAPP_RELEASE_KEY_PASSWORD
+          MYAPP_RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD
           SONAR_PROJECT_KEY=$SONAR_PROJECT_KEY
           SONAR_ORGANIZATION=$SONAR_ORGANIZATION
           SONAR_TOKEN=$SONAR_TOKEN
@@ -110,6 +110,12 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Verify release keystore metadata
+        env:
+          MYAPP_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}
+        run: keytool -list -keystore ./app/laundry_hub_key.jks -alias "$MYAPP_RELEASE_KEY_ALIAS" -storepass "$MYAPP_RELEASE_KEYSTORE_PASSWORD" > /dev/null
 
       - name: Build APK
         run: ./gradlew assembleRelease
@@ -205,6 +211,12 @@ jobs:
             sleep 10
           done
           exit 1
+
+      - name: Verify release keystore metadata
+        env:
+          MYAPP_RELEASE_KEYSTORE_PASSWORD: ${{ secrets.MYAPP_RELEASE_KEYSTORE_PASSWORD }}
+          MYAPP_RELEASE_KEY_ALIAS: ${{ secrets.MYAPP_RELEASE_KEY_ALIAS }}
+        run: keytool -list -keystore ./app/laundry_hub_key.jks -alias "$MYAPP_RELEASE_KEY_ALIAS" -storepass "$MYAPP_RELEASE_KEYSTORE_PASSWORD" > /dev/null
 
       # Step 5: Build APK (Release)
       - name: Build APK (Release)

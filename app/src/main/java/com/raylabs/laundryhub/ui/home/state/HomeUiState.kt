@@ -18,8 +18,17 @@ data class HomeUiState(
     val gross: SectionState<List<GrossItem>> = SectionState(),
     val unpaidOrder: SectionState<List<UnpaidOrderItem>> = SectionState(),
     val detailOrder: SectionState<TransactionItem> = SectionState(),
+    val reminderDiscovery: ReminderDiscoveryUiState? = null,
     val currentSortOption: SortOption = SortOption.ORDER_DATE_DESC, // Default sort option
     val isRefreshing: Boolean = false, // Added for swipe-to-refresh
     val searchQuery: String = "", // Added for search functionality
     val isSearchActive: Boolean = false // Added for search functionality
+)
+
+data class ReminderDiscoveryUiState(
+    val eligibleCount: Int,
+    val headline: String,
+    val supportingText: String,
+    val isReminderEnabled: Boolean,
+    val ctaLabel: String
 )

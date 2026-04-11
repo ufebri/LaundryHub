@@ -56,6 +56,7 @@ import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
 import com.raylabs.laundryhub.core.data.service.SpreadsheetIdParser
 import com.raylabs.laundryhub.core.di.GoogleAuthEntryPoint
 import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
+import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
@@ -72,6 +73,8 @@ import com.raylabs.laundryhub.ui.order.state.toOrderData
 import com.raylabs.laundryhub.ui.outcome.OutcomeScreenView
 import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import com.raylabs.laundryhub.ui.profile.inventory.InventoryScreenView
+import com.raylabs.laundryhub.ui.reminder.ReminderInboxScreen
+import com.raylabs.laundryhub.ui.reminder.ReminderIntroScreen
 import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupScreen
 import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupViewModel
 import dagger.hilt.android.EntryPointAccessors
@@ -79,6 +82,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+private const val INVENTORY_ROUTE = "inventory"
+private const val GROSS_ROUTE = "gross"
+private const val REMINDER_INTRO_ROUTE = "reminder_intro"
+private const val REMINDER_INBOX_ROUTE = "reminder_inbox"
 
 @Composable
 fun AppRoot(
@@ -94,6 +101,9 @@ fun AppRoot(
             LocalContext.current.applicationContext,
             GoogleAuthEntryPoint::class.java
         ).googleSheetsAuthorizationManager()
+    ,
+    notificationDestination: String? = null,
+    onNotificationDestinationHandled: () -> Unit = {}
 ) {
     val user by loginViewModel.userState.collectAsState()
     val isLoading by loginViewModel.isLoading.collectAsState()
@@ -150,7 +160,11 @@ fun AppRoot(
         }
 
         user != null && hasConfiguredSpreadsheet -> {
-            LaundryHubStarter(loginViewModel = loginViewModel)
+            LaundryHubStarter(
+                loginViewModel = loginViewModel,
+                notificationDestination = notificationDestination,
+                onNotificationDestinationHandled = onNotificationDestinationHandled
+            )
         }
 
         shouldShowSpreadsheetSetup -> {
@@ -318,7 +332,9 @@ fun AppRoot(
 fun LaundryHubStarter(
     modifier: Modifier = Modifier,
     loginViewModel: LoginViewModel,
-    navController: NavHostController = rememberNavController()
+    navController: NavHostController = rememberNavController(),
+    notificationDestination: String? = null,
+    onNotificationDestinationHandled: () -> Unit = {}
 ) {
     val orderViewModel: OrderViewModel = hiltViewModel()
     val homeViewModel: HomeViewModel = hiltViewModel()
@@ -350,6 +366,29 @@ fun LaundryHubStarter(
             showNewOrderSheet.value = false
             showEditOrderSheet.value = false
             orderViewModel.resetForm()
+        }
+    }
+
+    fun openReminderOrder(orderId: String) {
+        orderViewModel.resetForm()
+        orderViewModel.onOrderEditClick(orderId) {
+            showNewOrderSheet.value = false
+            showEditOrderSheet.value = true
+            triggerOpenSheet.value = true
+        }
+    }
+
+    LaunchedEffect(notificationDestination, currentRoute) {
+        when (notificationDestination) {
+            ReminderNotificationConfig.DESTINATION_REMINDER_INBOX -> {
+                if (currentRoute != REMINDER_INBOX_ROUTE) {
+                    navController.navigate(REMINDER_INBOX_ROUTE)
+                }
+                onNotificationDestinationHandled()
+            }
+
+            null -> Unit
+            else -> onNotificationDestinationHandled()
         }
     }
 
@@ -433,7 +472,14 @@ fun LaundryHubStarter(
                             }
                         },
                         onGrossCardClick = {
-                            navController.navigate("gross")
+                            navController.navigate(GROSS_ROUTE)
+                        },
+                        onReminderDiscoveryClick = { isReminderEnabled ->
+                            navController.navigate(
+                                if (isReminderEnabled) REMINDER_INBOX_ROUTE else REMINDER_INTRO_ROUTE
+                            ) {
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
@@ -447,17 +493,38 @@ fun LaundryHubStarter(
                     ProfileScreenView(
                         loginViewModel = loginViewModel,
                         bannerState = profileBannerState,
-                        onInventoryClick = { navController.navigate("inventory") }
+                        onInventoryClick = { navController.navigate(INVENTORY_ROUTE) },
+                        onReminderSettingsClick = {
+                            navController.navigate(REMINDER_INTRO_ROUTE) {
+                                launchSingleTop = true
+                            }
+                        }
                     )
                 }
-                composable("inventory") {
+                composable(INVENTORY_ROUTE) {
                     InventoryScreenView()
                 }
-                composable("gross") {
+                composable(GROSS_ROUTE) {
                     val state by homeViewModel.uiState.collectAsState()
                     GrossDetailScreenView(
                         grossState = state.gross,
                         onBack = { navController.popBackStack() }
+                    )
+                }
+                composable(REMINDER_INTRO_ROUTE) {
+                    ReminderIntroScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenInbox = {
+                            navController.navigate(REMINDER_INBOX_ROUTE) {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                }
+                composable(REMINDER_INBOX_ROUTE) {
+                    ReminderInboxScreen(
+                        onBack = { navController.popBackStack() },
+                        onOpenOrder = ::openReminderOrder
                     )
                 }
             }

@@ -43,6 +43,37 @@ object DateUtil {
         }
     }
 
+    fun parseSupportedAppDate(dateString: String?): Date? {
+        val sanitized = dateString?.trim().orEmpty()
+        if (sanitized.isEmpty()) return null
+
+        val supportedFormats = listOf(
+            STANDARD_DATE_FORMATED,
+            "dd-MM-yyyy",
+            "yyyy-MM-dd",
+            "dd/MM/yyyy HH:mm",
+            "dd-MM-yyyy HH:mm",
+            "yyyy-MM-dd HH:mm"
+        )
+
+        supportedFormats.forEach { pattern ->
+            val parser = SimpleDateFormat(pattern, Locale.getDefault()).apply {
+                isLenient = false
+            }
+            try {
+                parser.parse(sanitized)?.let { return it }
+            } catch (_: Exception) {
+                // Try the next supported format.
+            }
+        }
+
+        return null
+    }
+
+    fun formatDate(date: Date, outputFormat: String = STANDARD_DATE_FORMATED): String {
+        return SimpleDateFormat(outputFormat, Locale.getDefault()).format(date)
+    }
+
     fun formatToLongDate(
         dateString: String,
         inputFormat: String = "yyyy-MM-dd",
