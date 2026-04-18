@@ -25,9 +25,4 @@
         <item name="android:windowBackground">@color/colorAccent</item>
     </style>
 
-    <style name="Theme.SplishSplash.NoActionBar">
-        <item name="windowActionBar">false</item>
-        <item name="windowNoTitle">true</item>
-    </style>
-
 </resources>

@@ -25,7 +25,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalView
@@ -42,6 +41,9 @@ import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.home.state.GrossItem
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
+import com.raylabs.laundryhub.ui.theme.appCardSurface
+import com.raylabs.laundryhub.ui.theme.appMutedInfoContainer
+import com.raylabs.laundryhub.ui.theme.appMutedInfoContent
 
 @Composable
 fun GrossDetailScreenView(
@@ -68,6 +70,7 @@ fun GrossDetailScreenView(
     val bannerState = rememberInlineAdaptiveBannerAdState("gross_detail_inline")
 
     Scaffold(
+        backgroundColor = MaterialTheme.colors.background,
         topBar = {
             Column {
                 Spacer(
@@ -152,8 +155,8 @@ fun GrossDetailContent(
 private fun GrossItemCard(item: GrossItem) {
     Card(
         shape = RoundedCornerShape(16.dp),
-        backgroundColor = Color(0xFFFAFDFB),
-        elevation = 4.dp,
+        backgroundColor = MaterialTheme.colors.appCardSurface,
+        elevation = 2.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(
@@ -195,13 +198,16 @@ private fun GrossItemCard(item: GrossItem) {
 private fun GrossChip(label: String, value: String) {
     Column(
         modifier = Modifier
-            .background(Color(0xFFE6F4EA), RoundedCornerShape(12.dp))
+            .background(
+                color = MaterialTheme.colors.appMutedInfoContainer,
+                shape = RoundedCornerShape(12.dp)
+            )
             .padding(horizontal = 12.dp, vertical = 6.dp)
     ) {
         Text(
             text = label,
             style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f)
+            color = MaterialTheme.colors.appMutedInfoContent
         )
         Text(
             text = value,
@@ -230,6 +236,22 @@ fun PreviewGrossDetailContent() {
 @Composable
 fun PreviewGrossDetailScreen() {
     LaundryHubTheme {
+        GrossDetailScreenView(
+            grossState = SectionState(
+                data = listOf(
+                    GrossItem("maret", "Rp1.038.150", "35", "Rp5.191"),
+                    GrossItem("april", "Rp2.374.200", "77", "Rp11.871")
+                )
+            ),
+            onBack = {}
+        )
+    }
+}
+
+@Preview(showBackground = true)
+@Composable
+fun PreviewGrossDetailScreenDark() {
+    LaundryHubTheme(darkTheme = true) {
         GrossDetailScreenView(
             grossState = SectionState(
                 data = listOf(

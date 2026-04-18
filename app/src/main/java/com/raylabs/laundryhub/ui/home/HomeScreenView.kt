@@ -23,8 +23,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
-import androidx.compose.material.DropdownMenu
-import androidx.compose.material.DropdownMenuItem
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
@@ -62,6 +60,7 @@ import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.OrderStatusCard
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.SelectionSheetInlineOverlay
 import com.raylabs.laundryhub.ui.component.Transaction
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
@@ -110,7 +109,21 @@ fun HomeScreenContent(
     onReminderDiscoveryClick: (Boolean) -> Unit
 ) {
     val snackBarHostState = remember { SnackbarHostState() }
-    var showMenu by remember { mutableStateOf(false) }
+    var showSortSheet by remember { mutableStateOf(false) }
+    val sortOptions = remember {
+        listOf(
+            SortOption.DUE_DATE_ASC,
+            SortOption.DUE_DATE_DESC,
+            SortOption.ORDER_DATE_ASC,
+            SortOption.ORDER_DATE_DESC
+        )
+    }
+    val sortLabels = mapOf(
+        SortOption.DUE_DATE_ASC to stringResource(R.string.due_date_earliest),
+        SortOption.DUE_DATE_DESC to stringResource(R.string.due_date_latest),
+        SortOption.ORDER_DATE_ASC to stringResource(R.string.order_date_oldest),
+        SortOption.ORDER_DATE_DESC to stringResource(R.string.order_date_newest)
+    )
 
     val pullRefreshState = rememberPullRefreshState(
         refreshing = state.isRefreshing,
@@ -269,40 +282,11 @@ fun HomeScreenContent(
                             Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.open_search_view))
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(onClick = { showMenu = !showMenu }) {
+                        IconButton(onClick = { showSortSheet = true }) {
                             Icon(
                                 imageVector = Icons.AutoMirrored.Filled.List,
                                 contentDescription = stringResource(R.string.sort_orders)
                             )
-                        }
-                        DropdownMenu(
-                            expanded = showMenu,
-                            onDismissRequest = { showMenu = false }
-                        ) {
-                            DropdownMenuItem(onClick = {
-                                onChangeSortOrder(SortOption.DUE_DATE_ASC)
-                                showMenu = false
-                            }) {
-                                Text(stringResource(R.string.due_date_earliest))
-                            }
-                            DropdownMenuItem(onClick = {
-                                onChangeSortOrder(SortOption.DUE_DATE_DESC)
-                                showMenu = false
-                            }) {
-                                Text(stringResource(R.string.due_date_latest))
-                            }
-                            DropdownMenuItem(onClick = {
-                                onChangeSortOrder(SortOption.ORDER_DATE_ASC)
-                                showMenu = false
-                            }) {
-                                Text(stringResource(R.string.order_date_oldest))
-                            }
-                            DropdownMenuItem(onClick = {
-                                onChangeSortOrder(SortOption.ORDER_DATE_DESC)
-                                showMenu = false
-                            }) {
-                                Text(stringResource(R.string.order_date_newest))
-                            }
                         }
                     }
                 }
@@ -382,6 +366,16 @@ fun HomeScreenContent(
             refreshing = state.isRefreshing,
             state = pullRefreshState,
             modifier = Modifier.align(Alignment.TopCenter)
+        )
+
+        SelectionSheetInlineOverlay(
+            visible = showSortSheet,
+            title = stringResource(R.string.sort_orders),
+            options = sortOptions,
+            selectedOption = state.currentSortOption,
+            onDismiss = { showSortSheet = false },
+            onOptionSelected = onChangeSortOrder,
+            optionTitle = { sortLabels.getValue(it) }
         )
     }
 }
