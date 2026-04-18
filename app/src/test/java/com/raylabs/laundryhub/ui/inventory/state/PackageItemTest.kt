@@ -15,6 +15,12 @@ class PackageItemTest {
     }
 
     @Test
+    fun `displayRate appends unit when available`() {
+        val item = PackageItem(name = "Express", price = "10000", work = "6h", unit = "kg")
+        assertEquals("10000,-/kg", item.displayRate)
+    }
+
+    @Test
     fun `toUi maps PackageData to PackageItem correctly`() {
         val data = PackageData(name = "Reguler", price = "5000", duration = "3d", unit = "kg")
         val list = listOf(data).toUi()
@@ -23,6 +29,7 @@ class PackageItemTest {
         assertEquals("Reguler", item.name)
         assertEquals("5000", item.price)
         assertEquals("3d", item.work)
+        assertEquals("kg", item.unit)
     }
 
     @Test

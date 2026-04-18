@@ -73,7 +73,6 @@
     <string name="google_sheets_access_required">Allow LaundryHub to open and update spreadsheets with this account.</string>
     <string name="google_sheets_access_ready">Google Sheets is ready for %1$s.</string>
     <string name="grant_google_sheets_access">Connect Google Sheets</string>
-    <string name="spreadsheet_request_status_pending">Access request status: Pending</string>
     <string name="spreadsheet_step_label">Step %1$d</string>
     <string name="spreadsheet_step_done">Google Sheets is ready. Continue to your spreadsheet.</string>
     <string name="spreadsheet_step_grant_access_title">Connect Google Sheets</string>
@@ -89,15 +88,17 @@
     <string name="spreadsheet_status_next">Next</string>
     <string name="spreadsheet_status_locked">Locked</string>
     <string name="spreadsheet_status_needed">Needed</string>
-    <string name="spreadsheet_setup_badge">Workspace Setup</string>
     <string name="spreadsheet_settings">Spreadsheet</string>
     <string name="spreadsheet_not_connected">No spreadsheet connected</string>
     <string name="spreadsheet_not_connected_description">Connect a spreadsheet from setup before using sheet-based features.</string>
     <string name="revalidate_spreadsheet">Revalidate</string>
-    <string name="change_spreadsheet">Change Spreadsheet</string>
     <string name="change_spreadsheet_short">Change</string>
-    <string name="change_spreadsheet_confirmation">You will return to spreadsheet setup and reconnect another spreadsheet.</string>
-    <string name="spreadsheet_request_status_label">Request status: %1$s</string>
+    <string name="change_spreadsheet_sheet_title">Use another spreadsheet?</string>
+    <string name="change_spreadsheet_sheet_message">You\'ll return to setup and reconnect another spreadsheet.</string>
+    <string name="change_spreadsheet_sheet_point_connection">Current spreadsheet connection will be cleared</string>
+    <string name="change_spreadsheet_sheet_point_local">Local app settings stay on this device</string>
+    <string name="not_now">Not now</string>
+    <string name="continue_label">Continue</string>
     <string name="store_title">Store</string>
     <string name="account_section_title">Account</string>
     <string name="inventory_title">Inventory</string>
@@ -108,7 +109,6 @@
     <string name="spreadsheet_status_not_connected">Not connected</string>
     <string name="ad_preview_label" translatable="false">Ad space</string>
 
-    <string name="activate_reminder_cta">Turn on reminder</string>
     <string name="reminder_section_title">Reminder &amp; Cross-check</string>
     <string name="reminder_enabled_title">Reminder active</string>
     <string name="reminder_enabled_description">Show cross-check reminders for orders that reach or pass the due date.</string>
@@ -129,19 +129,6 @@
     <string name="reminder_settings_summary_on_with_time">On, daily at %1$s</string>
 
     <string name="reminder_intro_title">Reminder</string>
-    <string name="reminder_intro_heading">Cross-check order updates</string>
-    <string name="reminder_intro_body">Reminder helps you revisit orders whose due date is today or already passed. It is a prompt to double-check whether the order status has been updated, not a claim that the order is definitely still pending pickup.</string>
-    <string name="reminder_intro_note">Start from Home or Profile, then use Reminder Inbox to review and clear items locally.</string>
-    <string name="reminder_intro_enable">Enable reminder</string>
-    <string name="reminder_intro_enabled_state">Reminder is active for this account.</string>
-    <string name="reminder_intro_enable_daily">Enable daily notification</string>
-    <string name="reminder_intro_open_inbox">Open Reminder Inbox</string>
-    <string name="reminder_status_on">On</string>
-    <string name="reminder_status_off">Off</string>
-    <string name="reminder_how_it_works_title">How it works</string>
-    <string name="reminder_how_it_works_point_due">Orders appear when the due date is today or already passed.</string>
-    <string name="reminder_how_it_works_point_local">Checked, snoozed, dismissed, and assumed picked-up states are stored locally on this device.</string>
-    <string name="reminder_how_it_works_point_open_order">Use Open order when you want to jump into the existing edit flow and update the sheet data.</string>
 
     <string name="reminder_inbox_title">Reminder Inbox</string>
     <string name="reminder_disabled_title">Reminder is turned off</string>

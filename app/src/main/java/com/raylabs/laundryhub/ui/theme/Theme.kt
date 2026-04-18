@@ -11,24 +11,28 @@ private val DarkColorPalette = darkColors(
     primary = PurpleLaundryHub,
     primaryVariant = Purple700,
     secondary = PurpleLaundryHub,
-    background = Color(0xFF181829),
-    surface = Color(0xFFF5F5F5), // abu-abu terang agar bottom sheet tidak putih polos di dark mode
+    background = DarkBackgroundLaundryHub,
+    surface = DarkSurfaceLaundryHub,
+    error = RedLaundryHub,
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onBackground = Color.White, // Teks di atas background utama (gelap) adalah PUTIH
-    onSurface = Color.Black    // Teks di atas surface (bottom sheet terang) adalah HITAM
+    onBackground = DarkOnSurfaceLaundryHub,
+    onSurface = DarkOnSurfaceLaundryHub,
+    onError = Color.White
 )
 
 private val LightColorPalette = lightColors(
     primary = PurpleLaundryHub,
     primaryVariant = Purple700,
     secondary = PurpleLaundryHub,
-    background = Color.White,
-    surface = Color.White, 
+    background = LightBackgroundLaundryHub,
+    surface = LightSurfaceLaundryHub,
+    error = RedLaundryHub,
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onBackground = Color.Black, // Teks di atas background utama (terang) adalah HITAM
-    onSurface = Color.Black    // Teks di atas surface (terang) adalah HITAM
+    onBackground = LightOnSurfaceLaundryHub,
+    onSurface = LightOnSurfaceLaundryHub,
+    onError = Color.White
 )
 
 @Composable

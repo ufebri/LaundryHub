@@ -8,11 +8,13 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Text
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material3.Icon
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.mutableStateOf
@@ -98,7 +100,17 @@ fun DatePickerField(
             readOnly = true,
             label = { Text(label) },
             trailingIcon = { Icon(Icons.Default.DateRange, contentDescription = null) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            colors = TextFieldDefaults.outlinedTextFieldColors(
+                textColor = MaterialTheme.colors.onSurface,
+                focusedBorderColor = MaterialTheme.colors.primary,
+                unfocusedBorderColor = MaterialTheme.colors.onSurface.copy(alpha = 0.24f),
+                focusedLabelColor = MaterialTheme.colors.primary,
+                unfocusedLabelColor = MaterialTheme.colors.onSurface.copy(alpha = 0.70f),
+                cursorColor = MaterialTheme.colors.primary,
+                trailingIconColor = MaterialTheme.colors.onSurface.copy(alpha = 0.70f),
+                backgroundColor = MaterialTheme.colors.surface
+            )
         )
 
         Spacer(

@@ -6,9 +6,19 @@ data class PackageItem(
     val name: String,
     val price: String,
     val work: String,
+    val unit: String = "",
 ) {
     val displayPrice: String
         get() = "$price,-"
+
+    val displayRate: String
+        get() = buildString {
+            append(displayPrice)
+            if (unit.isNotBlank()) {
+                append("/")
+                append(unit)
+            }
+        }
 }
 
 fun List<PackageData>.toUi(): List<PackageItem> {
@@ -16,7 +26,8 @@ fun List<PackageData>.toUi(): List<PackageItem> {
         PackageItem(
             name = it.name,
             price = it.price,
-            work = it.duration
+            work = it.duration,
+            unit = it.unit
         )
     }
 }
