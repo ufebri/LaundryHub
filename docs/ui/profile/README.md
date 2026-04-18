@@ -28,9 +28,11 @@ Profile can now:
 - show the connected spreadsheet name
 - show a shortened spreadsheet ID
 - revalidate the current spreadsheet
-- change spreadsheet through a confirmation flow
+- change spreadsheet through a bottom confirmation sheet flow
 
-`Change Spreadsheet` clears the saved connection and lets the app return to setup.
+`Change Spreadsheet` now uses an in-app bottom confirmation sheet with a small Lottie visual, a shorter explanation, and two quick bullets so the impact is easier to scan before continuing.
+
+The action still clears the saved connection and lets the app return to setup.
 
 ### Access request review
 
@@ -57,6 +59,8 @@ Important limitation:
 
 - no separate `Disconnect Spreadsheet` action yet because the current next state is the same as `Change Spreadsheet`
 - Profile should stay utility-first, so copy is intentionally brief
+- spreadsheet confirmation now uses a bottom-sheet pattern instead of a generic dialog so it feels more like part of the app flow
+- custom confirmation sheets should keep the current Profile screen visible behind the scrim instead of switching to a blank dialog-style background
 
 ## Verification
 

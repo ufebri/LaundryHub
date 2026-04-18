@@ -14,13 +14,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.BottomNavigation
 import androidx.compose.material.BottomNavigationItem
 import androidx.compose.material.BottomSheetScaffold
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHost
 import androidx.compose.material.SnackbarHostState
@@ -77,6 +77,7 @@ import com.raylabs.laundryhub.ui.reminder.ReminderInboxScreen
 import com.raylabs.laundryhub.ui.reminder.ReminderIntroScreen
 import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupScreen
 import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupViewModel
+import com.raylabs.laundryhub.ui.theme.modalSheetTop
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
@@ -395,7 +396,7 @@ fun LaundryHubStarter(
     BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetPeekHeight = 0.dp,
-        sheetShape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+        sheetShape = MaterialTheme.shapes.modalSheetTop,
         sheetContent = {
             when {
                 showNewOrderSheet.value -> ShowOrderBottomSheet(

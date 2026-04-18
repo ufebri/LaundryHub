@@ -18,7 +18,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
@@ -31,7 +30,6 @@ import androidx.compose.material.Scaffold
 import androidx.compose.material.Switch
 import androidx.compose.material.SwitchDefaults
 import androidx.compose.material.Text
-import androidx.compose.material.TextButton
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Build
@@ -57,6 +55,8 @@ import coil.compose.AsyncImage
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
+import com.raylabs.laundryhub.ui.component.AppConfirmationDialog
+import com.raylabs.laundryhub.ui.component.AppConfirmationSheet
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
@@ -144,95 +144,89 @@ fun ProfileScreenContent(
 
     val scrollState = rememberScrollState()
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colors.background)
-            .verticalScroll(scrollState)
-            .padding(horizontal = ProfileContentPadding, vertical = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        ProfileHeroCard(state = state)
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(scrollState)
+                .padding(horizontal = ProfileContentPadding, vertical = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            ProfileHeroCard(state = state)
 
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionHeader(title = stringResource(R.string.store_title))
-            ProfileActionCard(
-                title = stringResource(R.string.inventory_title),
-                description = stringResource(R.string.inventory_description),
-                iconRes = R.drawable.ic_admin,
-                onClick = onInventoryClick
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionHeader(title = stringResource(R.string.spreadsheet_settings))
-            SpreadsheetManagementCard(
-                state = state,
-                onRevalidateSpreadsheet = onRevalidateSpreadsheet,
-                onChangeSpreadsheetClick = onChangeSpreadsheetClick
-            )
-        }
-
-        InlineAdaptiveBannerAd(state = bannerState)
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionHeader(title = stringResource(R.string.settings))
-            SettingsCard(
-                state = state,
-                cacheSizeText = cacheSizeText,
-                onReminderSettingsClick = onReminderSettingsClick,
-                onWhatsAppOptionChanged = onWhatsAppOptionChanged,
-                onClearCacheClick = onClearCacheClick
-            )
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            SectionHeader(title = stringResource(R.string.account_section_title))
-            AccountCard(
-                state = state,
-                onLoggedOut = onLoggedOut
-            )
-        }
-
-        Spacer(modifier = Modifier.height(12.dp))
-    }
-
-    if (state.showClearCacheDialog) {
-        AlertDialog(
-            onDismissRequest = onDismissClearCache,
-            title = { Text(text = stringResource(R.string.clear_cache)) },
-            text = { Text(text = stringResource(R.string.clear_cache_confirmation)) },
-            confirmButton = {
-                TextButton(onClick = onConfirmClearCache) {
-                    Text(text = stringResource(R.string.clear))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissClearCache) {
-                    Text(text = stringResource(R.string.cancel))
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(title = stringResource(R.string.store_title))
+                ProfileActionCard(
+                    title = stringResource(R.string.inventory_title),
+                    description = stringResource(R.string.inventory_description),
+                    iconRes = R.drawable.ic_admin,
+                    onClick = onInventoryClick
+                )
             }
-        )
-    }
 
-    if (state.showChangeSpreadsheetDialog) {
-        AlertDialog(
-            onDismissRequest = onDismissChangeSpreadsheet,
-            title = { Text(text = stringResource(R.string.change_spreadsheet)) },
-            text = {
-                Text(text = stringResource(R.string.change_spreadsheet_confirmation))
-            },
-            confirmButton = {
-                TextButton(onClick = onConfirmChangeSpreadsheet) {
-                    Text(text = stringResource(R.string.change_spreadsheet))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = onDismissChangeSpreadsheet) {
-                    Text(text = stringResource(R.string.cancel))
-                }
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(title = stringResource(R.string.spreadsheet_settings))
+                SpreadsheetManagementCard(
+                    state = state,
+                    onRevalidateSpreadsheet = onRevalidateSpreadsheet,
+                    onChangeSpreadsheetClick = onChangeSpreadsheetClick
+                )
             }
-        )
+
+            InlineAdaptiveBannerAd(state = bannerState)
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(title = stringResource(R.string.settings))
+                SettingsCard(
+                    state = state,
+                    cacheSizeText = cacheSizeText,
+                    onReminderSettingsClick = onReminderSettingsClick,
+                    onWhatsAppOptionChanged = onWhatsAppOptionChanged,
+                    onClearCacheClick = onClearCacheClick
+                )
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHeader(title = stringResource(R.string.account_section_title))
+                AccountCard(
+                    state = state,
+                    onLoggedOut = onLoggedOut
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        if (state.showClearCacheDialog) {
+            AppConfirmationDialog(
+                title = stringResource(R.string.clear_cache),
+                message = stringResource(R.string.clear_cache_confirmation),
+                confirmLabel = stringResource(R.string.clear),
+                dismissLabel = stringResource(R.string.cancel),
+                onConfirm = onConfirmClearCache,
+                onDismiss = onDismissClearCache
+            )
+        }
+
+        if (state.showChangeSpreadsheetDialog) {
+            AppConfirmationSheet(
+                title = stringResource(R.string.change_spreadsheet_sheet_title),
+                message = stringResource(R.string.change_spreadsheet_sheet_message),
+                confirmLabel = stringResource(R.string.continue_label),
+                dismissLabel = stringResource(R.string.not_now),
+                onConfirm = onConfirmChangeSpreadsheet,
+                onDismiss = onDismissChangeSpreadsheet,
+                animationRes = R.raw.lottie_report,
+                bulletPoints = listOf(
+                    stringResource(R.string.change_spreadsheet_sheet_point_connection),
+                    stringResource(R.string.change_spreadsheet_sheet_point_local)
+                )
+            )
+        }
     }
 }
 

@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
@@ -46,7 +45,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowInsetsControllerCompat
 import com.airbnb.lottie.compose.LottieAnimation
 import com.airbnb.lottie.compose.LottieCompositionSpec
@@ -55,6 +53,30 @@ import com.airbnb.lottie.compose.rememberLottieComposition
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.spreadsheet.state.SpreadsheetSetupUiState
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
+import com.raylabs.laundryhub.ui.theme.appAccentContainer
+import com.raylabs.laundryhub.ui.theme.appBorderSoft
+import com.raylabs.laundryhub.ui.theme.appCardSurface
+import com.raylabs.laundryhub.ui.theme.appChromeTopTint
+import com.raylabs.laundryhub.ui.theme.appErrorContainer
+import com.raylabs.laundryhub.ui.theme.appErrorContent
+import com.raylabs.laundryhub.ui.theme.appInfoContainer
+import com.raylabs.laundryhub.ui.theme.appInfoContent
+import com.raylabs.laundryhub.ui.theme.appMutedContainer
+import com.raylabs.laundryhub.ui.theme.appMutedContent
+import com.raylabs.laundryhub.ui.theme.appMutedInfoContainer
+import com.raylabs.laundryhub.ui.theme.appMutedInfoContent
+import com.raylabs.laundryhub.ui.theme.appPanelElevated
+import com.raylabs.laundryhub.ui.theme.appPanelTranslucent
+import com.raylabs.laundryhub.ui.theme.appScreenBackground
+import com.raylabs.laundryhub.ui.theme.appScreenGradientBottom
+import com.raylabs.laundryhub.ui.theme.appSuccessContainer
+import com.raylabs.laundryhub.ui.theme.appSuccessContent
+import com.raylabs.laundryhub.ui.theme.pill
+import com.raylabs.laundryhub.ui.theme.sectionEyebrow
+import com.raylabs.laundryhub.ui.theme.statusPill
+import com.raylabs.laundryhub.ui.theme.stepBadge
+import com.raylabs.laundryhub.ui.theme.surfaceHero
+import com.raylabs.laundryhub.ui.theme.surfacePanel
 
 @Composable
 fun SpreadsheetSetupScreen(
@@ -69,9 +91,26 @@ fun SpreadsheetSetupScreen(
     modifier: Modifier = Modifier
 ) {
     val isSheetsAccessReady = !requiresGoogleSheetsAccess
-    val topTint = Color(0xFFF1ECFF)
-    val screenBackground = Color(0xFFFBFAFE)
-    val cardBorder = PurpleLaundryHub.copy(alpha = 0.14f)
+    val colors = MaterialTheme.colors
+    val topTint = colors.appChromeTopTint
+    val screenBackground = colors.appScreenBackground
+    val screenGradientBottom = colors.appScreenGradientBottom
+    val cardBackground = colors.appCardSurface
+    val cardBorder = colors.appBorderSoft
+    val heroPanelBackground = colors.appPanelTranslucent
+    val heroAccountBackground = colors.appPanelElevated
+    val accentContainer = colors.appAccentContainer
+    val successBackground = colors.appSuccessContainer
+    val successContent = colors.appSuccessContent
+    val lockedBackground = colors.appMutedContainer
+    val lockedContent = colors.appMutedContent
+    val infoBackground = colors.appInfoContainer
+    val infoContent = colors.appInfoContent
+    val mutedInfoBackground = colors.appMutedInfoContainer
+    val mutedInfoContent = colors.appMutedInfoContent
+    val errorBackground = colors.appErrorContainer
+    val errorContent = colors.appErrorContent
+    val requestAccessButtonBackground = colors.appCardSurface
     val isPreview = LocalInspectionMode.current
     val view = LocalView.current
     val useDarkStatusIcons = topTint.luminance() > 0.5f
@@ -101,7 +140,7 @@ fun SpreadsheetSetupScreen(
                         colors = listOf(
                             topTint,
                             screenBackground,
-                            Color.White
+                            screenGradientBottom
                         )
                     )
                 )
@@ -114,7 +153,10 @@ fun SpreadsheetSetupScreen(
             SpreadsheetHeroSection(
                 connectedAccountEmail = connectedAccountEmail,
                 onSignOut = onSignOut,
-                borderColor = cardBorder
+                borderColor = cardBorder,
+                panelBackground = heroPanelBackground,
+                accountBackground = heroAccountBackground,
+                accentContainer = accentContainer
             )
 
             SpreadsheetStepCard(
@@ -133,14 +175,14 @@ fun SpreadsheetSetupScreen(
                     stringResource(R.string.spreadsheet_status_needed)
                 },
                 statusContainerColor = if (isSheetsAccessReady) {
-                    Color(0xFFE8F5E9)
+                    successBackground
                 } else {
-                    PurpleLaundryHub.copy(alpha = 0.12f)
+                    infoBackground
                 },
                 statusContentColor = if (isSheetsAccessReady) {
-                    Color(0xFF2E7D32)
+                    successContent
                 } else {
-                    PurpleLaundryHub
+                    infoContent
                 },
                 description = if (isSheetsAccessReady) {
                     stringResource(
@@ -150,13 +192,15 @@ fun SpreadsheetSetupScreen(
                 } else {
                     stringResource(R.string.google_sheets_access_required)
                 },
-                borderColor = cardBorder
+                borderColor = cardBorder,
+                cardBackground = cardBackground,
+                accentContainer = accentContainer
             ) {
                 if (isSheetsAccessReady) {
                     SetupInlineMessage(
                         text = stringResource(R.string.spreadsheet_step_done),
-                        backgroundColor = Color(0xFFEFF8F1),
-                        contentColor = Color(0xFF2E7D32)
+                        backgroundColor = successBackground,
+                        contentColor = successContent
                     )
                 } else {
                     Button(
@@ -167,7 +211,7 @@ fun SpreadsheetSetupScreen(
                             .height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = PurpleLaundryHub,
-                            contentColor = Color.White
+                            contentColor = MaterialTheme.colors.onPrimary
                         )
                     ) {
                         Text(stringResource(R.string.grant_google_sheets_access))
@@ -191,27 +235,29 @@ fun SpreadsheetSetupScreen(
                     stringResource(R.string.spreadsheet_status_locked)
                 },
                 statusContainerColor = if (isSheetsAccessReady) {
-                    Color(0xFFF1ECFF)
+                    infoBackground
                 } else {
-                    Color(0xFFF2F2F6)
+                    lockedBackground
                 },
                 statusContentColor = if (isSheetsAccessReady) {
-                    PurpleLaundryHub
+                    infoContent
                 } else {
-                    Color(0xFF6F6F76)
+                    lockedContent
                 },
                 description = if (isSheetsAccessReady) {
                     stringResource(R.string.spreadsheet_step_choose_sheet_description)
                 } else {
                     stringResource(R.string.spreadsheet_step_choose_sheet_locked_description)
                 },
-                borderColor = cardBorder
+                borderColor = cardBorder,
+                cardBackground = cardBackground,
+                accentContainer = accentContainer
             ) {
                 if (!isSheetsAccessReady) {
                     SetupInlineMessage(
                         text = stringResource(R.string.spreadsheet_step_choose_sheet_locked_hint),
-                        backgroundColor = Color(0xFFF4F2F8),
-                        contentColor = Color(0xFF5F5F67)
+                        backgroundColor = mutedInfoBackground,
+                        contentColor = mutedInfoContent
                     )
                 } else {
                     if (!state.configuredSpreadsheetName.isNullOrBlank()) {
@@ -220,8 +266,8 @@ fun SpreadsheetSetupScreen(
                                 R.string.current_spreadsheet_connected,
                                 state.configuredSpreadsheetName
                             ),
-                            backgroundColor = PurpleLaundryHub.copy(alpha = 0.08f),
-                            contentColor = PurpleLaundryHub
+                            backgroundColor = infoBackground,
+                            contentColor = infoContent
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
@@ -234,12 +280,15 @@ fun SpreadsheetSetupScreen(
                         placeholder = { Text(stringResource(R.string.spreadsheet_input_placeholder)) },
                         enabled = !state.isBusy,
                         singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
+                        shape = MaterialTheme.shapes.medium,
                         colors = TextFieldDefaults.outlinedTextFieldColors(
                             focusedBorderColor = PurpleLaundryHub,
                             focusedLabelColor = PurpleLaundryHub,
                             cursorColor = PurpleLaundryHub,
-                            backgroundColor = Color.White
+                            backgroundColor = cardBackground,
+                            textColor = MaterialTheme.colors.onSurface,
+                            unfocusedLabelColor = MaterialTheme.colors.onSurface.copy(alpha = 0.70f),
+                            placeholderColor = MaterialTheme.colors.onSurface.copy(alpha = 0.45f)
                         )
                     )
 
@@ -254,8 +303,8 @@ fun SpreadsheetSetupScreen(
                         Spacer(modifier = Modifier.height(10.dp))
                         SetupInlineMessage(
                             text = state.errorMessage,
-                            backgroundColor = Color(0xFFFFF0F0),
-                            contentColor = MaterialTheme.colors.error
+                            backgroundColor = errorBackground,
+                            contentColor = errorContent
                         )
                     }
 
@@ -263,8 +312,8 @@ fun SpreadsheetSetupScreen(
                         Spacer(modifier = Modifier.height(10.dp))
                         SetupInlineMessage(
                             text = state.infoMessage,
-                            backgroundColor = PurpleLaundryHub.copy(alpha = 0.08f),
-                            contentColor = PurpleLaundryHub
+                            backgroundColor = infoBackground,
+                            contentColor = infoContent
                         )
                     }
 
@@ -278,7 +327,7 @@ fun SpreadsheetSetupScreen(
                             .height(48.dp),
                         colors = ButtonDefaults.buttonColors(
                             backgroundColor = PurpleLaundryHub,
-                            contentColor = Color.White
+                            contentColor = MaterialTheme.colors.onPrimary
                         )
                     ) {
                         if (state.isValidating) {
@@ -287,7 +336,7 @@ fun SpreadsheetSetupScreen(
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 CircularProgressIndicator(
-                                    color = Color.White,
+                                    color = MaterialTheme.colors.onPrimary,
                                     strokeWidth = 2.dp,
                                     modifier = Modifier.size(18.dp)
                                 )
@@ -312,15 +361,17 @@ fun SpreadsheetSetupScreen(
                     },
                     title = stringResource(R.string.spreadsheet_step_request_access_title),
                     statusLabel = stringResource(R.string.spreadsheet_status_needed),
-                    statusContainerColor = PurpleLaundryHub.copy(alpha = 0.10f),
-                    statusContentColor = PurpleLaundryHub,
+                    statusContainerColor = infoBackground,
+                    statusContentColor = infoContent,
                     description = stringResource(R.string.spreadsheet_step_request_access_description),
-                    borderColor = cardBorder
+                    borderColor = cardBorder,
+                    cardBackground = cardBackground,
+                    accentContainer = accentContainer
                 ) {
                     SetupInlineMessage(
                         text = stringResource(R.string.spreadsheet_step_request_access_hint),
-                        backgroundColor = Color(0xFFF7F2FF),
-                        contentColor = PurpleLaundryHub
+                        backgroundColor = infoBackground,
+                        contentColor = infoContent
                     )
                     Spacer(modifier = Modifier.height(12.dp))
 
@@ -331,10 +382,10 @@ fun SpreadsheetSetupScreen(
                             .fillMaxWidth()
                             .height(46.dp),
                         colors = ButtonDefaults.buttonColors(
-                            backgroundColor = Color.White,
-                            contentColor = PurpleLaundryHub,
-                            disabledBackgroundColor = Color(0xFFF2F2F6),
-                            disabledContentColor = Color(0xFF8B8B95)
+                            backgroundColor = requestAccessButtonBackground,
+                            contentColor = infoContent,
+                            disabledBackgroundColor = lockedBackground,
+                            disabledContentColor = lockedContent
                         ),
                         border = BorderStroke(1.dp, cardBorder),
                         elevation = ButtonDefaults.elevation(defaultElevation = 0.dp, pressedElevation = 0.dp)
@@ -351,7 +402,10 @@ fun SpreadsheetSetupScreen(
 private fun SpreadsheetHeroSection(
     connectedAccountEmail: String?,
     onSignOut: () -> Unit,
-    borderColor: Color
+    borderColor: Color,
+    panelBackground: Color,
+    accountBackground: Color,
+    accentContainer: Color
 ) {
     val composition = rememberLottieComposition(
         LottieCompositionSpec.RawRes(R.raw.lottie_report)
@@ -386,12 +440,12 @@ private fun SpreadsheetHeroSection(
             Box(
                 modifier = Modifier
                     .size(96.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(Color.White.copy(alpha = 0.74f))
+                    .clip(MaterialTheme.shapes.surfaceHero)
+                    .background(panelBackground)
                     .border(
                         width = 1.dp,
                         color = borderColor,
-                        shape = RoundedCornerShape(24.dp)
+                        shape = MaterialTheme.shapes.surfaceHero
                     ),
                 contentAlignment = Alignment.Center
             ) {
@@ -407,12 +461,12 @@ private fun SpreadsheetHeroSection(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White.copy(alpha = 0.92f))
+                    .clip(MaterialTheme.shapes.surfacePanel)
+                    .background(accountBackground)
                     .border(
                         width = 1.dp,
                         color = borderColor,
-                        shape = RoundedCornerShape(18.dp)
+                        shape = MaterialTheme.shapes.surfacePanel
                     )
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -422,7 +476,7 @@ private fun SpreadsheetHeroSection(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(PurpleLaundryHub.copy(alpha = 0.14f)),
+                        .background(accentContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -454,7 +508,7 @@ private fun SpreadsheetHeroSection(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(PurpleLaundryHub.copy(alpha = 0.10f)),
+                        .background(accentContainer),
                     contentAlignment = Alignment.Center
                 ) {
                     IconButton(
@@ -484,14 +538,16 @@ private fun SpreadsheetStepCard(
     statusContentColor: Color,
     description: String,
     borderColor: Color,
+    cardBackground: Color,
+    accentContainer: Color,
     content: @Composable () -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
+        shape = MaterialTheme.shapes.large,
         border = BorderStroke(1.dp, borderColor),
         elevation = 3.dp,
-        backgroundColor = Color.White
+        backgroundColor = cardBackground
     ) {
         Row(
             modifier = Modifier
@@ -504,8 +560,8 @@ private fun SpreadsheetStepCard(
             Box(
                 modifier = Modifier
                     .size(46.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(PurpleLaundryHub.copy(alpha = 0.10f)),
+                    .clip(MaterialTheme.shapes.medium)
+                    .background(accentContainer),
                 contentAlignment = Alignment.Center
             ) {
                 leadingIcon()
@@ -516,7 +572,7 @@ private fun SpreadsheetStepCard(
                         .padding(2.dp)
                         .size(16.dp)
                         .clip(CircleShape)
-                        .background(Color.White)
+                        .background(cardBackground)
                         .border(
                             width = 1.dp,
                             color = PurpleLaundryHub.copy(alpha = 0.14f),
@@ -526,7 +582,7 @@ private fun SpreadsheetStepCard(
                 ) {
                     Text(
                         text = stepNumber.toString(),
-                        style = MaterialTheme.typography.caption.copy(fontSize = 10.sp),
+                        style = MaterialTheme.typography.stepBadge,
                         color = PurpleLaundryHub,
                         fontWeight = FontWeight.Bold
                     )
@@ -545,7 +601,7 @@ private fun SpreadsheetStepCard(
                     ) {
                         Text(
                             text = stringResource(R.string.spreadsheet_step_label, stepNumber),
-                            style = MaterialTheme.typography.caption,
+                            style = MaterialTheme.typography.sectionEyebrow,
                             color = PurpleLaundryHub,
                             fontWeight = FontWeight.Bold
                         )
@@ -591,13 +647,13 @@ private fun SpreadsheetStatusPill(
 ) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
+            .clip(MaterialTheme.shapes.pill)
             .background(backgroundColor)
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(
             text = label,
-            style = MaterialTheme.typography.caption.copy(fontSize = 11.sp),
+            style = MaterialTheme.typography.statusPill,
             color = contentColor,
             fontWeight = FontWeight.SemiBold,
             maxLines = 1
@@ -614,7 +670,7 @@ private fun SetupInlineMessage(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(MaterialTheme.shapes.medium)
             .background(backgroundColor)
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
@@ -25,6 +24,7 @@ import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.outcome.state.isUpdateEnabled
+import com.raylabs.laundryhub.ui.theme.modalSheetTop
 
 @Composable
 fun OutcomeBottomSheet(
@@ -43,7 +43,7 @@ fun OutcomeBottomSheet(
             .wrapContentHeight(unbounded = true)
             .background(
                 color = MaterialTheme.colors.surface,
-                shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+                shape = MaterialTheme.shapes.modalSheetTop
             )
             .padding(16.dp)
     ) {
@@ -101,10 +101,10 @@ fun OutcomeBottomSheet(
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        DropdownMenuField(
+        SingleSelectChipRow(
             label = stringResource(R.string.payment_method),
-            value = state.paymentStatus,
             options = state.paymentOption,
+            selectedValue = state.paymentStatus,
             onOptionSelected = onPaymentMethodSelected,
             modifier = Modifier.fillMaxWidth()
         )
