@@ -374,6 +374,24 @@ class GoogleSheetRepositoryImplTest {
     }
 
     @Test
+    fun `readPackageData returns error when sheet read throws`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val get = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(get)
+        whenever(get.execute()).thenThrow(RuntimeException("package read failed"))
+
+        val result = repo.readPackageData()
+
+        assertTrue(result is Resource.Error)
+        assertTrue((result as Resource.Error).message.contains("package read failed"))
+    }
+
+    @Test
     fun `readOtherPackage returns success when data exists`() = runTest {
         val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
         val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
@@ -423,6 +441,28 @@ class GoogleSheetRepositoryImplTest {
     }
 
     @Test
+    fun `addPackage returns error when append fails`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val valuesApi = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val append = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Append>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(valuesApi)
+        whenever(valuesApi.append(any(), any(), any())).thenReturn(append)
+        whenever(append.setValueInputOption(any())).thenReturn(append)
+        whenever(append.execute()).thenThrow(RuntimeException("append failed"))
+
+        val result = repo.addPackage(
+            PackageData(price = "5000", name = "Regular", duration = "3d", unit = "kg")
+        )
+
+        assertTrue(result is Resource.Error)
+        assertTrue((result as Resource.Error).message.contains("append failed"))
+    }
+
+    @Test
     fun `updatePackage updates targeted notes row`() = runTest {
         val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
         val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
@@ -454,6 +494,22 @@ class GoogleSheetRepositoryImplTest {
                 range.getValues() == listOf(listOf("8000", "Express", "1d", "kg"))
             }
         )
+    }
+
+    @Test
+    fun `updatePackage rejects invalid row index`() = runTest {
+        val result = repo.updatePackage(
+            PackageData(
+                price = "8000",
+                name = "Express",
+                duration = "1d",
+                unit = "kg",
+                sheetRowIndex = 1
+            )
+        )
+
+        assertTrue(result is Resource.Error)
+        assertEquals("Package row not found.", (result as Resource.Error).message)
     }
 
     @Test
@@ -493,6 +549,14 @@ class GoogleSheetRepositoryImplTest {
                     range.endIndex == 4
             }
         )
+    }
+
+    @Test
+    fun `deletePackage rejects invalid row index`() = runTest {
+        val result = repo.deletePackage(sheetRowIndex = 1)
+
+        assertTrue(result is Resource.Error)
+        assertEquals("Package row not found.", (result as Resource.Error).message)
     }
 
     @Test

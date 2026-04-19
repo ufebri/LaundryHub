@@ -7,6 +7,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
@@ -64,74 +66,25 @@ fun InventoryPackageActionSheet(
 ) {
     if (!visible || packageItem == null) return
 
-    Box(
+    InventoryPackageBottomSheet(
+        visible = true,
+        onDismissRequest = onDismiss,
         modifier = modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colors.onSurface.copy(alpha = 0.38f))
     ) {
-        Spacer(
-            modifier = Modifier
-                .fillMaxSize()
-                .clickable(
-                    indication = null,
-                    interactionSource = remember { MutableInteractionSource() }
-                ) {
-                    onDismiss()
-                }
+        InventoryPackageSheetHeader(
+            title = packageItem.name,
+            supportingText = packageItem.displayRate
         )
 
-        Surface(
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .navigationBarsPadding(),
-            shape = MaterialTheme.shapes.modalSheetTop,
-            color = MaterialTheme.colors.surface,
-            contentColor = MaterialTheme.colors.onSurface,
-            elevation = 10.dp
-        ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(width = 40.dp, height = 4.dp)
-                        .background(
-                            MaterialTheme.colors.onSurface.copy(alpha = 0.18f),
-                            shape = CircleShape
-                        )
-                )
+        InventoryPackageActionRow(
+            action = InventoryPackageAction.Edit,
+            onClick = onEdit
+        )
 
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Text(
-                        text = packageItem.name,
-                        style = MaterialTheme.typography.h6,
-                        color = MaterialTheme.colors.onSurface
-                    )
-                    Text(
-                        text = packageItem.displayRate,
-                        style = MaterialTheme.typography.body2,
-                        color = MaterialTheme.colors.onSurface.copy(alpha = 0.72f)
-                    )
-                }
-
-                InventoryPackageActionRow(
-                    action = InventoryPackageAction.Edit,
-                    onClick = onEdit
-                )
-
-                InventoryPackageActionRow(
-                    action = InventoryPackageAction.Delete,
-                    onClick = onDelete
-                )
-            }
-        }
+        InventoryPackageActionRow(
+            action = InventoryPackageAction.Delete,
+            onClick = onDelete
+        )
     }
 }
 
@@ -191,6 +144,128 @@ fun InventoryPackageEditorSheet(
 ) {
     if (!visible) return
 
+    InventoryPackageBottomSheet(
+        visible = true,
+        onDismissRequest = {
+            if (!isSubmitting) onDismiss()
+        },
+        modifier = modifier,
+        verticalSpacing = 12.dp
+    ) {
+        InventoryPackageSheetHeader(
+            title = stringResource(
+                if (isEditMode) {
+                    R.string.inventory_package_editor_update_title
+                } else {
+                    R.string.inventory_package_editor_add_title
+                }
+            )
+        )
+
+        OutlinedTextField(
+            value = packageName,
+            onValueChange = { onPackageNameChange(it.take(40)) },
+            label = { Text(stringResource(R.string.inventory_package_field_name)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+            enabled = !isSubmitting
+        )
+
+        OutlinedTextField(
+            value = packagePrice,
+            onValueChange = { rawInput ->
+                onPackagePriceChange(rawInput.filter(Char::isDigit).take(8))
+            },
+            label = { Text(stringResource(R.string.inventory_package_field_price)) },
+            modifier = Modifier.fillMaxWidth(),
+            leadingIcon = {
+                Text(
+                    text = stringResource(R.string.currency_prefix_rupiah),
+                    modifier = Modifier.padding(start = 4.dp)
+                )
+            },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(
+                imeAction = ImeAction.Next,
+                keyboardType = KeyboardType.Number
+            ),
+            enabled = !isSubmitting
+        )
+
+        OutlinedTextField(
+            value = packageDuration,
+            onValueChange = { onPackageDurationChange(it.take(20)) },
+            label = { Text(stringResource(R.string.inventory_package_field_duration)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
+            enabled = !isSubmitting
+        )
+
+        Text(
+            text = stringResource(R.string.inventory_package_duration_hint),
+            style = MaterialTheme.typography.caption,
+            color = MaterialTheme.colors.onSurface.copy(alpha = 0.68f)
+        )
+
+        OutlinedTextField(
+            value = packageUnit,
+            onValueChange = { onPackageUnitChange(it.take(10)) },
+            label = { Text(stringResource(R.string.inventory_package_field_unit)) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
+            enabled = !isSubmitting
+        )
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            OutlinedButton(
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+                enabled = !isSubmitting,
+                border = BorderStroke(1.dp, MaterialTheme.colors.appBorderSoft)
+            ) {
+                Text(text = stringResource(R.string.cancel))
+            }
+
+            Button(
+                onClick = onSave,
+                modifier = Modifier.weight(1f),
+                enabled = isSaveEnabled && !isSubmitting,
+                colors = ButtonDefaults.buttonColors(
+                    backgroundColor = MaterialTheme.colors.primary,
+                    contentColor = MaterialTheme.colors.onPrimary
+                )
+            ) {
+                Text(
+                    text = stringResource(
+                        when {
+                            isSubmitting && isEditMode -> R.string.updating
+                            isSubmitting -> R.string.inventory_package_adding
+                            isEditMode -> R.string.update
+                            else -> R.string.inventory_package_add
+                        }
+                    )
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InventoryPackageBottomSheet(
+    visible: Boolean,
+    onDismissRequest: () -> Unit,
+    modifier: Modifier = Modifier,
+    verticalSpacing: Dp = 14.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    if (!visible) return
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -203,7 +278,7 @@ fun InventoryPackageEditorSheet(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() }
                 ) {
-                    if (!isSubmitting) onDismiss()
+                    onDismissRequest()
                 }
         )
 
@@ -221,122 +296,49 @@ fun InventoryPackageEditorSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 18.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(verticalSpacing)
             ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterHorizontally)
-                        .size(width = 40.dp, height = 4.dp)
-                        .background(
-                            MaterialTheme.colors.onSurface.copy(alpha = 0.18f),
-                            shape = CircleShape
-                        )
-                )
-
-                Text(
-                    text = stringResource(
-                        if (isEditMode) {
-                            R.string.inventory_package_editor_update_title
-                        } else {
-                            R.string.inventory_package_editor_add_title
-                        }
-                    ),
-                    style = MaterialTheme.typography.h6,
-                    fontWeight = FontWeight.Bold
-                )
-
-                OutlinedTextField(
-                    value = packageName,
-                    onValueChange = { onPackageNameChange(it.take(40)) },
-                    label = { Text(stringResource(R.string.inventory_package_field_name)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                    enabled = !isSubmitting
-                )
-
-                OutlinedTextField(
-                    value = packagePrice,
-                    onValueChange = { rawInput ->
-                        onPackagePriceChange(rawInput.filter(Char::isDigit).take(8))
-                    },
-                    label = { Text(stringResource(R.string.inventory_package_field_price)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    leadingIcon = {
-                        Text(
-                            text = stringResource(R.string.currency_prefix_rupiah),
-                            modifier = Modifier.padding(start = 4.dp)
-                        )
-                    },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default.copy(
-                        imeAction = ImeAction.Next,
-                        keyboardType = KeyboardType.Number
-                    ),
-                    enabled = !isSubmitting
-                )
-
-                OutlinedTextField(
-                    value = packageDuration,
-                    onValueChange = { onPackageDurationChange(it.take(20)) },
-                    label = { Text(stringResource(R.string.inventory_package_field_duration)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Next),
-                    enabled = !isSubmitting
-                )
-
-                Text(
-                    text = stringResource(R.string.inventory_package_duration_hint),
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.68f)
-                )
-
-                OutlinedTextField(
-                    value = packageUnit,
-                    onValueChange = { onPackageUnitChange(it.take(10)) },
-                    label = { Text(stringResource(R.string.inventory_package_field_unit)) },
-                    modifier = Modifier.fillMaxWidth(),
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions.Default.copy(imeAction = ImeAction.Done),
-                    enabled = !isSubmitting
-                )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedButton(
-                        onClick = onDismiss,
-                        modifier = Modifier.weight(1f),
-                        enabled = !isSubmitting,
-                        border = BorderStroke(1.dp, MaterialTheme.colors.appBorderSoft)
-                    ) {
-                        Text(text = stringResource(R.string.cancel))
-                    }
-
-                    Button(
-                        onClick = onSave,
-                        modifier = Modifier.weight(1f),
-                        enabled = isSaveEnabled && !isSubmitting,
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = MaterialTheme.colors.primary,
-                            contentColor = MaterialTheme.colors.onPrimary
-                        )
-                    ) {
-                        Text(
-                            text = stringResource(
-                                when {
-                                    isSubmitting && isEditMode -> R.string.updating
-                                    isSubmitting -> R.string.inventory_package_adding
-                                    isEditMode -> R.string.update
-                                    else -> R.string.inventory_package_add
-                                }
-                            )
-                        )
-                    }
-                }
+                InventoryPackageSheetHandle()
+                content()
             }
+        }
+    }
+}
+
+@Composable
+private fun ColumnScope.InventoryPackageSheetHandle() {
+    Box(
+        modifier = Modifier
+            .align(Alignment.CenterHorizontally)
+            .size(width = 40.dp, height = 4.dp)
+            .background(
+                MaterialTheme.colors.onSurface.copy(alpha = 0.18f),
+                shape = CircleShape
+            )
+    )
+}
+
+@Composable
+private fun InventoryPackageSheetHeader(
+    title: String,
+    supportingText: String? = null
+) {
+    Column(
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.h6,
+            color = MaterialTheme.colors.onSurface,
+            fontWeight = FontWeight.Bold
+        )
+
+        if (!supportingText.isNullOrBlank()) {
+            Text(
+                text = supportingText,
+                style = MaterialTheme.typography.body2,
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.72f)
+            )
         }
     }
 }
