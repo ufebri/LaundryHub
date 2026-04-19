@@ -20,8 +20,8 @@ jobs:
 
       - name: Decode LaundryHub.jks
         env:
-          MYAPP_RELEASE_KEYSTORE_FILE_B64: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}
-        run: printf '%s' "$MYAPP_RELEASE_KEYSTORE_FILE" | base64 --decode > ./app/laundry_hub_key.jks
+          KEYSTORE_FILE: ${{ secrets.KEYSTORE_FILE }}
+        run: printf '%s' "$KEYSTORE_FILE" | base64 --decode > ./app/laundry_hub_key.jks
 
       - name: Decode google-services.json
         env:
@@ -97,67 +97,8 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
-
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
-
-      - name: Warm Gradle wrapper
-        run: |
-          for attempt in 1 2 3; do
-            ./gradlew --version && exit 0
-            echo "Gradle wrapper bootstrap failed on attempt $attempt"
-            sleep 10
-          done
-          exit 1
-
-      - name: Verify release keystore metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          get_config_value() {
-            local key="$1"
-            local value
-            value="$(grep "^${key}=" config.properties | cut -d= -f2- || true)"
-            printf '%s' "$value"
-          }
-
-          KEYSTORE_FILE="$(get_config_value MYAPP_RELEASE_KEYSTORE_FILE)"
-          KEYSTORE_PASSWORD="$(get_config_value MYAPP_RELEASE_KEYSTORE_PASSWORD)"
-          KEY_ALIAS="$(get_config_value MYAPP_RELEASE_KEY_ALIAS)"
-
-          if [[ -z "$KEYSTORE_FILE" || -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" ]]; then
-            echo "Release signing config is incomplete in config.properties."
-            exit 1
-          fi
-
-          KEYSTORE_PATH="$KEYSTORE_FILE"
-          if [[ ! -f "$KEYSTORE_PATH" ]]; then
-            KEYSTORE_PATH="./app/${KEYSTORE_FILE#./}"
-          fi
-
-          if [[ ! -f "$KEYSTORE_PATH" ]]; then
-            echo "Keystore file not found. Expected one of:"
-            echo "- $KEYSTORE_FILE"
-            echo "- ./app/${KEYSTORE_FILE#./}"
-            exit 1
-          fi
-
-          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" > /dev/null 2>&1; then
-            echo "Release keystore could not be opened."
-            echo "Check whether MYAPP_RELEASE_KEYSTORE_FILE_B64 and MYAPP_RELEASE_KEYSTORE_PASSWORD match the same keystore."
-            exit 1
-          fi
-
-          if ! keytool -list -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" > /dev/null 2>&1; then
-            echo "Release keystore opened, but the configured alias was not found."
-            echo "Check whether MYAPP_RELEASE_KEY_ALIAS matches the alias inside the uploaded keystore."
-            exit 1
-          fi
-
-          echo "Release keystore metadata verified."
 
       - name: Build APK
         run: ./gradlew assembleRelease
@@ -239,68 +180,9 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
-
       # Step 4: Grant execute permission for Gradlew
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
-
-      - name: Warm Gradle wrapper
-        run: |
-          for attempt in 1 2 3; do
-            ./gradlew --version && exit 0
-            echo "Gradle wrapper bootstrap failed on attempt $attempt"
-            sleep 10
-          done
-          exit 1
-
-      - name: Verify release keystore metadata
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          get_config_value() {
-            local key="$1"
-            local value
-            value="$(grep "^${key}=" config.properties | cut -d= -f2- || true)"
-            printf '%s' "$value"
-          }
-
-          KEYSTORE_FILE="$(get_config_value MYAPP_RELEASE_KEYSTORE_FILE)"
-          KEYSTORE_PASSWORD="$(get_config_value MYAPP_RELEASE_KEYSTORE_PASSWORD)"
-          KEY_ALIAS="$(get_config_value MYAPP_RELEASE_KEY_ALIAS)"
-
-          if [[ -z "$KEYSTORE_FILE" || -z "$KEYSTORE_PASSWORD" || -z "$KEY_ALIAS" ]]; then
-            echo "Release signing config is incomplete in config.properties."
-            exit 1
-          fi
-
-          KEYSTORE_PATH="$KEYSTORE_FILE"
-          if [[ ! -f "$KEYSTORE_PATH" ]]; then
-            KEYSTORE_PATH="./app/${KEYSTORE_FILE#./}"
-          fi
-
-          if [[ ! -f "$KEYSTORE_PATH" ]]; then
-            echo "Keystore file not found. Expected one of:"
-            echo "- $KEYSTORE_FILE"
-            echo "- ./app/${KEYSTORE_FILE#./}"
-            exit 1
-          fi
-
-          if ! keytool -list -keystore "$KEYSTORE_PATH" -storepass "$KEYSTORE_PASSWORD" > /dev/null 2>&1; then
-            echo "Release keystore could not be opened."
-            echo "Check whether MYAPP_RELEASE_KEYSTORE_FILE_B64 and MYAPP_RELEASE_KEYSTORE_PASSWORD match the same keystore."
-            exit 1
-          fi
-
-          if ! keytool -list -keystore "$KEYSTORE_PATH" -alias "$KEY_ALIAS" -storepass "$KEYSTORE_PASSWORD" > /dev/null 2>&1; then
-            echo "Release keystore opened, but the configured alias was not found."
-            echo "Check whether MYAPP_RELEASE_KEY_ALIAS matches the alias inside the uploaded keystore."
-            exit 1
-          fi
-
-          echo "Release keystore metadata verified."
 
       # Step 5: Build APK (Release)
       - name: Build APK (Release)
@@ -346,20 +228,8 @@ jobs:
           distribution: 'zulu'
           java-version: '18'
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@0b6dd653ba04f4f93bf581ec31e66cbd7dcb644d # v4
-
       - name: Grant execute permission for Gradlew
         run: chmod +x ./gradlew
-
-      - name: Warm Gradle wrapper
-        run: |
-          for attempt in 1 2 3; do
-            ./gradlew --version && exit 0
-            echo "Gradle wrapper bootstrap failed on attempt $attempt"
-            sleep 10
-          done
-          exit 1
 
       - name: Run tests and generate Jacoco report
         run: ./gradlew clean testDebugUnitTest jacocoTestReport

@@ -8,6 +8,7 @@ import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
 import com.raylabs.laundryhub.ui.common.util.Resource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -351,6 +352,8 @@ class GoogleSheetRepositoryImplTest {
         assertEquals("Regular", data[0].name)
         assertEquals("5000", data[0].price)
         assertEquals("Express", data[1].name)
+        assertEquals(2, data[0].sheetRowIndex)
+        assertEquals(3, data[1].sheetRowIndex)
     }
 
     @Test
@@ -389,6 +392,107 @@ class GoogleSheetRepositoryImplTest {
         assertTrue(result is Resource.Success)
         val data = (result as Resource.Success).data
         assertEquals(listOf("Note A", "Note B"), data)
+    }
+
+    @Test
+    fun `addPackage appends package row to notes sheet`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val valuesApi = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val append = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Append>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(valuesApi)
+        whenever(valuesApi.append(any(), any(), any())).thenReturn(append)
+        whenever(append.setValueInputOption(any())).thenReturn(append)
+        whenever(append.execute()).thenReturn(mock())
+
+        val result = repo.addPackage(
+            PackageData(price = "5000", name = "Regular", duration = "3d", unit = "kg")
+        )
+
+        assertTrue(result is Resource.Success)
+        verify(valuesApi).append(
+            eq(TEST_SPREADSHEET_ID),
+            eq("notes!A:D"),
+            argThat { range ->
+                range.getValues() == listOf(listOf("5000", "Regular", "3d", "kg"))
+            }
+        )
+    }
+
+    @Test
+    fun `updatePackage updates targeted notes row`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val valuesApi = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val update = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Update>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(valuesApi)
+        whenever(valuesApi.update(any(), any(), any())).thenReturn(update)
+        whenever(update.setValueInputOption(any())).thenReturn(update)
+        whenever(update.execute()).thenReturn(mock())
+
+        val result = repo.updatePackage(
+            PackageData(
+                price = "8000",
+                name = "Express",
+                duration = "1d",
+                unit = "kg",
+                sheetRowIndex = 4
+            )
+        )
+
+        assertTrue(result is Resource.Success)
+        verify(valuesApi).update(
+            eq(TEST_SPREADSHEET_ID),
+            eq("notes!A4:D"),
+            argThat { range ->
+                range.getValues() == listOf(listOf("8000", "Express", "1d", "kg"))
+            }
+        )
+    }
+
+    @Test
+    fun `deletePackage removes targeted notes row via batch update`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val getSpreadsheet = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Get>()
+        val batchUpdate = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.BatchUpdate>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.get(any())).thenReturn(getSpreadsheet)
+        whenever(spreadsheets.batchUpdate(any(), any())).thenReturn(batchUpdate)
+        whenever(batchUpdate.execute()).thenReturn(mock())
+        whenever(getSpreadsheet.execute()).thenReturn(
+            Spreadsheet().setSheets(
+                listOf(
+                    Sheet().setProperties(
+                        SheetProperties()
+                            .setTitle("notes")
+                            .setSheetId(13)
+                    )
+                )
+            )
+        )
+
+        val result = repo.deletePackage(sheetRowIndex = 4)
+
+        assertTrue(result is Resource.Success)
+        verify(spreadsheets).batchUpdate(
+            eq(TEST_SPREADSHEET_ID),
+            argThat { request ->
+                val range = request.requests.single().deleteDimension.range
+                range.sheetId == 13 &&
+                    range.dimension == "ROWS" &&
+                    range.startIndex == 3 &&
+                    range.endIndex == 4
+            }
+        )
     }
 
     @Test

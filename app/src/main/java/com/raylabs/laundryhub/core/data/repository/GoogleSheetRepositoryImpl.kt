@@ -48,9 +48,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         private const val GROSS_RANGE = "gross!A1:D"
         private const val INCOME_RANGE = "income!A1:N"
         private const val PACKAGE_RANGE = "notes!A1:D"
+        private const val PACKAGE_WRITE_RANGE = "notes!A:D"
         private const val INCOME_REMARKS_RANGE = "income!I2:I"
         private const val ORDER_ID_RANGE = "income!A2:A"
         private const val OUTCOME_RANGE = "outcome!A1:F"
+        private const val PACKAGE_SHEET_NAME = "notes"
 
         private const val SHEET_APPEND_DATA = "USER_ENTERED"
     }
@@ -169,11 +171,11 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         val headers = response.getValues().firstOrNull() ?: emptyList()
                         val dataRows = response.getValues().drop(1)
 
-                        val data = dataRows.map { row ->
+                        val data = dataRows.mapIndexed { index, row ->
                             val mappedRow = headers.zip(row).associate {
                                 it.first.toString() to it.second?.toString().orEmpty()
                             }
-                            mappedRow.toPackageData()
+                            mappedRow.toPackageData(sheetRowIndex = index + 2)
                         }
 
                         if (data.isEmpty()) Resource.Empty else Resource.Success(data)
@@ -181,6 +183,66 @@ class GoogleSheetRepositoryImpl @Inject constructor(
                         GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(e)
                     } catch (e: Exception) {
                         GSheetRepositoryErrorHandling.handleReadSheetResponseException(e)
+                    }
+                } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+            }
+        }
+    }
+
+    override suspend fun addPackage(packageData: PackageData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            withConfiguredSpreadsheetId { spreadsheetId ->
+                retry {
+                    try {
+                        val body = ValueRange().setValues(packageData.toSheetValues())
+                        handlingSuccessAppendSheet(spreadsheetId, body, PACKAGE_WRITE_RANGE)
+                    } catch (e: Exception) {
+                        GSheetRepositoryErrorHandling.handleFailedAddOrder(e)
+                    }
+                } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+            }
+        }
+    }
+
+    override suspend fun updatePackage(packageData: PackageData): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            withConfiguredSpreadsheetId { spreadsheetId ->
+                retry {
+                    try {
+                        if (packageData.sheetRowIndex < 2) {
+                            return@retry Resource.Error("Package row not found.")
+                        }
+
+                        val body = ValueRange().setValues(packageData.toSheetValues())
+                        handlingSuccessUpdateSheet(
+                            spreadsheetId = spreadsheetId,
+                            valueRange = body,
+                            range = "notes!A${packageData.sheetRowIndex}:D"
+                        )
+                    } catch (e: Exception) {
+                        GSheetRepositoryErrorHandling.handleFailedUpdate(e)
+                    }
+                } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+            }
+        }
+    }
+
+    override suspend fun deletePackage(sheetRowIndex: Int): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            withConfiguredSpreadsheetId { spreadsheetId ->
+                retry {
+                    try {
+                        if (sheetRowIndex < 2) {
+                            return@retry Resource.Error("Package row not found.")
+                        }
+
+                        deleteSheetRow(
+                            spreadsheetId = spreadsheetId,
+                            sheetName = PACKAGE_SHEET_NAME,
+                            rowIndex = sheetRowIndex - 2
+                        )
+                    } catch (e: Exception) {
+                        GSheetRepositoryErrorHandling.handleFailedDelete(e)
                     }
                 } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
             }

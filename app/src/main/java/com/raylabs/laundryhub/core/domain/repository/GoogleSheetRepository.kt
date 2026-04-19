@@ -19,6 +19,9 @@ interface GoogleSheetRepository {
     ): Resource<List<TransactionData>>
 
     suspend fun readPackageData(): Resource<List<PackageData>>
+    suspend fun addPackage(packageData: PackageData): Resource<Boolean>
+    suspend fun updatePackage(packageData: PackageData): Resource<Boolean>
+    suspend fun deletePackage(sheetRowIndex: Int): Resource<Boolean>
     suspend fun readOtherPackage(): Resource<List<String>>
     suspend fun getLastOrderId(): Resource<String>
     suspend fun addOrder(order: OrderData): Resource<Boolean>

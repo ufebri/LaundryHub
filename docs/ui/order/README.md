@@ -29,12 +29,14 @@ The current order flow now:
 - shows `Payment Method` as horizontally scrollable choice chips inside the form
 - makes selected payment chips use higher-contrast text so the active state is easier to read
 - keeps the whole interaction in one form surface without opening a second popup or pseudo-page
+- reflects package master updates coming from Inventory package CRUD, because order selection still reads from the shared spreadsheet-backed package list
 
 ## Important Decisions
 
 - platform popup dropdowns are no longer the preferred pattern for order form selection because the dark-mode result was inconsistent across devices
 - `Package` uses cards instead of chips because the package choice needs more context than a short label
 - package cards now preserve the package `unit` from sheet data so the rate can be shown as `price/unit` inside the selection UI
+- Inventory package CRUD intentionally affects future order selection only; past order history still keeps the package text that was already saved at the time
 - `Payment Method` uses chips because the option count is small and the labels are short enough to scan quickly
 - shared selection building blocks now live in `ui/component/SelectionControls.kt`
 
