@@ -20,8 +20,8 @@ jobs:
 
       - name: Decode LaundryHub.jks
         env:
-          MYAPP_RELEASE_KEYSTORE_FILE_B64: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE_B64 }}
-        run: printf '%s' "$MYAPP_RELEASE_KEYSTORE_FILE_B64" | base64 --decode > ./app/laundry_hub_key.jks
+          MYAPP_RELEASE_KEYSTORE_FILE_B64: ${{ secrets.MYAPP_RELEASE_KEYSTORE_FILE }}
+        run: printf '%s' "$MYAPP_RELEASE_KEYSTORE_FILE" | base64 --decode > ./app/laundry_hub_key.jks
 
       - name: Decode google-services.json
         env:
