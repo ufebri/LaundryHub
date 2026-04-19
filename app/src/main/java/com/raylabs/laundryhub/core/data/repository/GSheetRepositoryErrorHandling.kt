@@ -56,6 +56,9 @@ object GSheetRepositoryErrorHandling {
     fun handleFailedUpdate(e: Exception): Resource.Error =
         handleWriteException(e, fallbackMessage = "Failed to update order.")
 
+    fun handleFailedDelete(e: Exception): Resource.Error =
+        handleWriteException(e, fallbackMessage = "Failed to delete data.")
+
     fun handleIDNotFound(): Resource.Error =
         Resource.Error("ID not found.")
 

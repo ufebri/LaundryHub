@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.Button
 import androidx.compose.material.ButtonDefaults
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Surface
@@ -26,6 +27,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -49,6 +51,7 @@ fun AppConfirmationSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
     @RawRes animationRes: Int? = null,
+    icon: ImageVector? = null,
     bulletPoints: List<String> = emptyList()
 ) {
     Box(
@@ -93,7 +96,10 @@ fun AppConfirmationSheet(
                         )
                 )
 
-                ConfirmationSheetVisual(animationRes = animationRes)
+                ConfirmationSheetVisual(
+                    animationRes = animationRes,
+                    icon = icon
+                )
 
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -178,7 +184,8 @@ fun AppConfirmationSheet(
 
 @Composable
 private fun ConfirmationSheetVisual(
-    @RawRes animationRes: Int?
+    @RawRes animationRes: Int?,
+    icon: ImageVector?
 ) {
     val isPreview = LocalInspectionMode.current
     if (animationRes == null || isPreview) {
@@ -188,8 +195,18 @@ private fun ConfirmationSheetVisual(
                 .background(
                     MaterialTheme.colors.primary.copy(alpha = if (MaterialTheme.colors.isLight) 0.14f else 0.24f),
                     CircleShape
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colors.primary,
+                    modifier = Modifier.size(32.dp)
                 )
-        )
+            }
+        }
         return
     }
 

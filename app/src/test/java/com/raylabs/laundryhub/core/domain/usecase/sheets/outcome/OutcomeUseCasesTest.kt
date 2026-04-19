@@ -18,6 +18,7 @@ class OutcomeUseCasesTest {
     private lateinit var readOutcomeTransactionUseCase: ReadOutcomeTransactionUseCase
     private lateinit var submitOutcomeUseCase: SubmitOutcomeUseCase
     private lateinit var updateOutcomeUseCase: UpdateOutcomeUseCase
+    private lateinit var deleteOutcomeUseCase: DeleteOutcomeUseCase
     private lateinit var getOutcomeUseCase: GetOutcomeUseCase
     private lateinit var getLastOutcomeIdUseCase: GetLastOutcomeIdUseCase
 
@@ -36,6 +37,7 @@ class OutcomeUseCasesTest {
         readOutcomeTransactionUseCase = ReadOutcomeTransactionUseCase(repository)
         submitOutcomeUseCase = SubmitOutcomeUseCase(repository)
         updateOutcomeUseCase = UpdateOutcomeUseCase(repository)
+        deleteOutcomeUseCase = DeleteOutcomeUseCase(repository)
         getOutcomeUseCase = GetOutcomeUseCase(repository)
         getLastOutcomeIdUseCase = GetLastOutcomeIdUseCase(repository)
     }
@@ -129,6 +131,36 @@ class OutcomeUseCasesTest {
 
         assertTrue(result is Resource.Error)
         assertEquals("update fail", (result as Resource.Error).message)
+    }
+
+    @Test
+    fun `deleteOutcome returns success`() = runTest {
+        whenever(repository.deleteOutcome("1")).thenReturn(Resource.Success(true))
+
+        val result = deleteOutcomeUseCase.invoke(outcomeId = "1")
+
+        assertTrue(result is Resource.Success)
+        assertTrue((result as Resource.Success).data)
+    }
+
+    @Test
+    fun `deleteOutcome returns error when null`() = runTest {
+        whenever(repository.deleteOutcome("1")).thenReturn(null)
+
+        val result = deleteOutcomeUseCase.invoke(outcomeId = "1")
+
+        assertTrue(result is Resource.Error)
+        assertEquals("Failed to submit data", (result as Resource.Error).message)
+    }
+
+    @Test
+    fun `deleteOutcome returns error`() = runTest {
+        whenever(repository.deleteOutcome("1")).thenReturn(Resource.Error("delete fail"))
+
+        val result = deleteOutcomeUseCase.invoke(outcomeId = "1")
+
+        assertTrue(result is Resource.Error)
+        assertEquals("delete fail", (result as Resource.Error).message)
     }
 
     @Test

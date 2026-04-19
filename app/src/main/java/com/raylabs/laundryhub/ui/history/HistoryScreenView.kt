@@ -4,12 +4,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Scaffold
-import androidx.compose.material.SnackbarHostState
+import androidx.compose.material.SnackbarHost
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -21,77 +30,166 @@ import com.raylabs.laundryhub.ui.component.EntryItemCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.TransactionDeleteConfirmationSheet
+import com.raylabs.laundryhub.ui.component.TransactionEntryActionSheet
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
+import com.raylabs.laundryhub.ui.outcome.state.EntryItem
+import kotlinx.coroutines.launch
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun HistoryScreenView(
     viewModel: HistoryViewModel = hiltViewModel(),
-    bannerState: InlineAdaptiveBannerAdState? = null
+    bannerState: InlineAdaptiveBannerAdState? = null,
+    onEditOrderRequest: (String) -> Unit = {},
+    onOrderChanged: () -> Unit = {}
 ) {
     val state = viewModel.uiState
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("history_inline")
+    val scaffoldState = rememberScaffoldState()
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selectedEntry by remember { mutableStateOf<EntryItem?>(null) }
+    var pendingDeleteEntry by remember { mutableStateOf<EntryItem?>(null) }
 
     Scaffold(
-        topBar = { DefaultTopAppBar(title = stringResource(R.string.history)) }
+        scaffoldState = scaffoldState,
+        topBar = { DefaultTopAppBar(title = stringResource(R.string.history)) },
+        snackbarHost = { SnackbarHost(hostState = scaffoldState.snackbarHostState) }
     ) { padding ->
-        HistoryContent(
-            state,
-            bannerState = resolvedBannerState,
-            modifier = Modifier.padding(padding)
-        )
+        androidx.compose.foundation.layout.Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            HistoryContent(
+                state = state,
+                bannerState = resolvedBannerState,
+                modifier = Modifier.fillMaxSize(),
+                isRefreshing = state.history.isLoading,
+                onRefresh = { viewModel.refreshHistory() },
+                onEntryClick = { selectedEntry = it }
+            )
+
+            TransactionEntryActionSheet(
+                visible = selectedEntry != null,
+                entry = selectedEntry,
+                onUpdate = {
+                    selectedEntry?.let { entry ->
+                        selectedEntry = null
+                        onEditOrderRequest(entry.id)
+                    }
+                },
+                onDelete = {
+                    pendingDeleteEntry = selectedEntry
+                    selectedEntry = null
+                },
+                onDismiss = { selectedEntry = null }
+            )
+
+            TransactionDeleteConfirmationSheet(
+                visible = pendingDeleteEntry != null,
+                entry = pendingDeleteEntry,
+                isDeleting = state.deleteOrder.isLoading,
+                onConfirm = {
+                    pendingDeleteEntry?.let { entry ->
+                        coroutineScope.launch {
+                            viewModel.deleteOrder(
+                                orderId = entry.id,
+                                onComplete = {
+                                    pendingDeleteEntry = null
+                                    onOrderChanged()
+                                    scaffoldState.snackbarHostState.showSnackbar(
+                                        context.getString(R.string.order_delete_success, entry.id)
+                                    )
+                                },
+                                onError = { message ->
+                                    scaffoldState.snackbarHostState.showSnackbar(
+                                        message.ifBlank {
+                                            context.getString(R.string.order_delete_failed)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    }
+                },
+                onDismiss = {
+                    if (!state.deleteOrder.isLoading) {
+                        pendingDeleteEntry = null
+                    }
+                }
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun HistoryContent(
     state: HistoryUiState,
     bannerState: InlineAdaptiveBannerAdState,
-    modifier: Modifier
+    modifier: Modifier,
+    isRefreshing: Boolean = false,
+    onRefresh: () -> Unit = {},
+    onEntryClick: (EntryItem) -> Unit = {}
 ) {
-    val snackbarHostState = remember { SnackbarHostState() }
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = onRefresh
+    )
 
-    LaunchedEffect(state) {
-        listOf(state.history).forEach {
-            it.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg) }
-        }
-    }
-
-    SectionOrLoading(
-        isLoading = state.history.isLoading,
-        error = state.history.errorMessage,
-        hasContent = !state.history.data.isNullOrEmpty(),
-        content = {
-            LazyColumn(
-                modifier = modifier.fillMaxSize(),
-            ) {
-                item(key = "history_inline_banner") {
-                    InlineAdaptiveBannerAd(state = bannerState)
-                }
-
-                items(
-                    items = state.history.data.orEmpty(),
-                    key = { item ->
-                        when (item) {
-                            is DateListItemUI.Header -> "header_${item.date}"
-                            is DateListItemUI.Entry -> "entry_${item.item.id}"
-                        }
+    androidx.compose.foundation.layout.Box(
+        modifier = modifier
+            .fillMaxSize()
+            .pullRefresh(pullRefreshState)
+    ) {
+        SectionOrLoading(
+            isLoading = state.history.isLoading,
+            error = state.history.errorMessage,
+            hasContent = !state.history.data.isNullOrEmpty(),
+            content = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    item(key = "history_inline_banner") {
+                        InlineAdaptiveBannerAd(state = bannerState)
                     }
-                ) { item ->
-                    when (item) {
-                        is DateListItemUI.Header -> {
-                            DateHeader(item.date)
-                        }
 
-                        is DateListItemUI.Entry -> {
-                            EntryItemCard(item.item)
+                    items(
+                        items = state.history.data.orEmpty(),
+                        key = { item ->
+                            when (item) {
+                                is DateListItemUI.Header -> "header_${item.date}"
+                                is DateListItemUI.Entry -> "entry_${item.item.id}"
+                            }
+                        }
+                    ) { item ->
+                        when (item) {
+                            is DateListItemUI.Header -> {
+                                DateHeader(item.date)
+                            }
+
+                            is DateListItemUI.Entry -> {
+                                EntryItemCard(
+                                    item = item.item,
+                                    onClick = { onEntryClick(item.item) }
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
-    )
+        )
+
+        PullRefreshIndicator(
+            refreshing = isRefreshing,
+            state = pullRefreshState,
+            modifier = Modifier.align(androidx.compose.ui.Alignment.TopCenter)
+        )
+    }
 }
 
 @Preview

@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.outcome
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.DeleteOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
@@ -24,6 +25,7 @@ import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull
 import org.mockito.kotlin.atLeastOnce
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -38,6 +40,7 @@ class OutcomeViewModelTest {
     private val mockGetLastOutcomeId: GetLastOutcomeIdUseCase = mock()
     private val mockUpdateOutcome: UpdateOutcomeUseCase = mock()
     private val mockGetOutcome: GetOutcomeUseCase = mock()
+    private val mockDeleteOutcome: DeleteOutcomeUseCase = mock()
 
     private val sampleOutcome = OutcomeData(
         id = "1",
@@ -52,8 +55,10 @@ class OutcomeViewModelTest {
     fun setUp() {
         Dispatchers.setMain(dispatcher)
         runTest {
-            whenever(mockReadOutcome.invoke(onRetry = anyOrNull())).thenReturn(Resource.Success(emptyList()))
-            whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull())).thenReturn(Resource.Success("1"))
+            whenever(mockReadOutcome.invoke(onRetry = anyOrNull()))
+                .thenReturn(Resource.Success(emptyList()))
+            whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
+                .thenReturn(Resource.Success("1"))
         }
     }
 
@@ -64,13 +69,7 @@ class OutcomeViewModelTest {
 
     @Test
     fun `init fetches outcome list and last id`() = runTest {
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
 
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -82,14 +81,9 @@ class OutcomeViewModelTest {
 
     @Test
     fun `refreshOutcomeList triggers fetch outcome and last id`() = runTest {
-        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull())).thenReturn(Resource.Success("5"))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Success("5"))
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.refreshOutcomeList()
@@ -104,13 +98,7 @@ class OutcomeViewModelTest {
     fun `onOutcomeEditClick loads outcome and updates state`() = runTest {
         whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
             .thenReturn(Resource.Success(sampleOutcome))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         val success = vm.onOutcomeEditClick("1")
@@ -124,14 +112,9 @@ class OutcomeViewModelTest {
 
     @Test
     fun `buildOutcomeDataForSubmit returns null when last id invalid`() = runTest {
-        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull())).thenReturn(Resource.Success("abc"))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Success("abc"))
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(vm.buildOutcomeDataForSubmit() == null)
@@ -141,13 +124,7 @@ class OutcomeViewModelTest {
     fun `submitOutcome resets submitting flag on success`() = runTest {
         whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
             .thenReturn(Resource.Success(true))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onPurposeChanged("Test")
@@ -172,13 +149,7 @@ class OutcomeViewModelTest {
         whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
             .thenReturn(Resource.Error("fail"))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onPurposeChanged("Test")
@@ -203,13 +174,7 @@ class OutcomeViewModelTest {
         whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
             .thenReturn(Resource.Success(sampleOutcome))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onOutcomeEditClick("1")
@@ -227,13 +192,7 @@ class OutcomeViewModelTest {
         whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
             .thenReturn(Resource.Error("boom"))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         val result = vm.onOutcomeEditClick("1")
@@ -249,13 +208,7 @@ class OutcomeViewModelTest {
         whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
             .thenReturn(Resource.Empty)
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         val result = vm.onOutcomeEditClick("1")
@@ -263,23 +216,14 @@ class OutcomeViewModelTest {
 
         assertFalse(result)
         assertFalse(vm.uiState.isEditMode)
-        assertEquals(
-            "No data found for outcome ID: 1",
-            vm.uiState.editOutcome.errorMessage
-        )
+        assertEquals("No data found for outcome ID: 1", vm.uiState.editOutcome.errorMessage)
     }
 
     @Test
     fun `buildOutcomeDataForSubmit returns data when last id valid`() = runTest {
         whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
             .thenReturn(Resource.Success("123"))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onPurposeChanged("Laundry")
@@ -299,13 +243,7 @@ class OutcomeViewModelTest {
     fun `buildOutcomeDataForUpdate returns data when outcomeID set`() = runTest {
         whenever(mockGetOutcome.invoke(onRetry = anyOrNull(), outcomeID = any()))
             .thenReturn(Resource.Success(sampleOutcome))
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onOutcomeEditClick("1")
@@ -321,13 +259,7 @@ class OutcomeViewModelTest {
 
     @Test
     fun `resetForm clears fields and edit mode`() = runTest {
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         vm.onOutcomeEditClick("1")
@@ -347,13 +279,7 @@ class OutcomeViewModelTest {
         whenever(mockReadOutcome.invoke(onRetry = anyOrNull()))
             .thenReturn(Resource.Error("fail"))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("fail", vm.uiState.outcome.errorMessage)
@@ -365,13 +291,7 @@ class OutcomeViewModelTest {
         whenever(mockReadOutcome.invoke(onRetry = anyOrNull()))
             .thenReturn(Resource.Empty)
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("Data Kosong", vm.uiState.outcome.errorMessage)
@@ -383,13 +303,7 @@ class OutcomeViewModelTest {
         whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
             .thenReturn(Resource.Error("boom"))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals("Error, try again", vm.uiState.lastOutcomeId)
@@ -397,16 +311,10 @@ class OutcomeViewModelTest {
 
     @Test
     fun `buildOutcomeDataForUpdate returns null when outcomeID blank`() = runTest {
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
-        vm.resetForm() // outcomeID kosong
+        vm.resetForm()
         assertTrue(vm.buildOutcomeDataForUpdate() == null)
     }
 
@@ -415,20 +323,63 @@ class OutcomeViewModelTest {
         whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
             .thenReturn(Resource.Error("fail"))
 
-        val vm = OutcomeViewModel(
-            readOutcomeUseCase = mockReadOutcome,
-            submitOutcomeUseCase = mockSubmitOutcome,
-            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
-            updateOutcomeUseCase = mockUpdateOutcome,
-            getOutcomeUseCase = mockGetOutcome
-        )
+        val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
-        vm.onOutcomeEditClick("1") // put into edit mode if possible
+        vm.onOutcomeEditClick("1")
         vm.updateOutcome(sampleOutcome) {}
         dispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(vm.uiState.isSubmitting)
         assertEquals("fail", vm.uiState.updateOutcome.errorMessage)
+    }
+
+    @Test
+    fun `deleteOutcome refreshes list and last id on success`() = runTest {
+        whenever(mockDeleteOutcome.invoke(onRetry = anyOrNull(), outcomeId = eq("1")))
+            .thenReturn(Resource.Success(true))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var completed = false
+        vm.deleteOutcome(outcomeId = "1", onComplete = { completed = true })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(completed)
+        assertEquals(true, vm.uiState.deleteOutcome.data)
+        verify(mockReadOutcome, atLeastOnce()).invoke(onRetry = anyOrNull())
+        verify(mockGetLastOutcomeId, atLeastOnce()).invoke(onRetry = anyOrNull())
+    }
+
+    @Test
+    fun `deleteOutcome stores error and forwards callback when delete fails`() = runTest {
+        whenever(mockDeleteOutcome.invoke(onRetry = anyOrNull(), outcomeId = eq("1")))
+            .thenReturn(Resource.Error("delete fail"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var receivedError: String? = null
+        vm.deleteOutcome(
+            outcomeId = "1",
+            onComplete = {},
+            onError = { receivedError = it }
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("delete fail", receivedError)
+        assertEquals("delete fail", vm.uiState.deleteOutcome.errorMessage)
+    }
+
+    private fun createViewModel(): OutcomeViewModel {
+        return OutcomeViewModel(
+            readOutcomeUseCase = mockReadOutcome,
+            submitOutcomeUseCase = mockSubmitOutcome,
+            getLastOutcomeIdUseCase = mockGetLastOutcomeId,
+            updateOutcomeUseCase = mockUpdateOutcome,
+            getOutcomeUseCase = mockGetOutcome,
+            deleteOutcomeUseCase = mockDeleteOutcome
+        )
     }
 }
