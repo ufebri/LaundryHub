@@ -9,6 +9,7 @@ data class OutcomeUiState(
     val outcome: SectionState<List<DateListItemUI>> = SectionState(),
     val submitNewOutcome: SectionState<Boolean> = SectionState(),
     val updateOutcome: SectionState<Boolean> = SectionState(),
+    val deleteOutcome: SectionState<Boolean> = SectionState(),
 
     //For Edit
     val outcomeID: String = "",

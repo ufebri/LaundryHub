@@ -12,11 +12,13 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.DeleteOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
@@ -115,6 +117,12 @@ object GSheetModule {
         return GetOrderUseCase(repository)
     }
 
+    @Provides
+    @ViewModelScoped
+    fun provideDeleteOrderUseCase(repository: GoogleSheetRepository): DeleteOrderUseCase {
+        return DeleteOrderUseCase(repository)
+    }
+
 
     //Outcome
     @Provides
@@ -143,5 +151,11 @@ object GSheetModule {
     @ViewModelScoped
     fun provideGetOutcomeUseCase(repository: GoogleSheetRepository): GetOutcomeUseCase {
         return GetOutcomeUseCase(repository)
+    }
+
+    @Provides
+    @ViewModelScoped
+    fun provideDeleteOutcomeUseCase(repository: GoogleSheetRepository): DeleteOutcomeUseCase {
+        return DeleteOutcomeUseCase(repository)
     }
 }

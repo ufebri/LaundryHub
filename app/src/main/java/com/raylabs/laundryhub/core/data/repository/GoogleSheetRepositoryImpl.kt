@@ -1,6 +1,10 @@
 package com.raylabs.laundryhub.core.data.repository
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest
+import com.google.api.services.sheets.v4.model.DeleteDimensionRequest
+import com.google.api.services.sheets.v4.model.DimensionRange
+import com.google.api.services.sheets.v4.model.Request
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
@@ -306,6 +310,36 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteOrder(orderId: String): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            withConfiguredSpreadsheetId { spreadsheetId ->
+                retry {
+                    try {
+                        val response = googleSheetService.getSheetsService().spreadsheets().values()
+                            .get(spreadsheetId, INCOME_RANGE).execute()
+
+                        val dataRows = response.getValues().drop(1)
+                        val rowIndex = dataRows.indexOfFirst { row ->
+                            row.firstOrNull()?.toString() == orderId
+                        }
+
+                        if (rowIndex == -1) {
+                            return@retry GSheetRepositoryErrorHandling.handleIDNotFound()
+                        }
+
+                        deleteSheetRow(
+                            spreadsheetId = spreadsheetId,
+                            sheetName = "income",
+                            rowIndex = rowIndex
+                        )
+                    } catch (e: Exception) {
+                        GSheetRepositoryErrorHandling.handleFailedDelete(e)
+                    }
+                } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+            }
+        }
+    }
+
     //    Outcome
     override suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>> {
         return withContext(Dispatchers.IO) {
@@ -400,6 +434,36 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun deleteOutcome(outcomeId: String): Resource<Boolean> {
+        return withContext(Dispatchers.IO) {
+            withConfiguredSpreadsheetId { spreadsheetId ->
+                retry {
+                    try {
+                        val response = googleSheetService.getSheetsService().spreadsheets().values()
+                            .get(spreadsheetId, OUTCOME_RANGE).execute()
+
+                        val dataRows = response.getValues().drop(1)
+                        val rowIndex = dataRows.indexOfFirst { row ->
+                            row.firstOrNull()?.toString() == outcomeId
+                        }
+
+                        if (rowIndex == -1) {
+                            return@retry GSheetRepositoryErrorHandling.handleIDNotFound()
+                        }
+
+                        deleteSheetRow(
+                            spreadsheetId = spreadsheetId,
+                            sheetName = "outcome",
+                            rowIndex = rowIndex
+                        )
+                    } catch (e: Exception) {
+                        GSheetRepositoryErrorHandling.handleFailedDelete(e)
+                    }
+                } ?: GSheetRepositoryErrorHandling.handleFailAfterRetry()
+            }
+        }
+    }
+
     override suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData> {
         return withContext(Dispatchers.IO) {
             withConfiguredSpreadsheetId { spreadsheetId ->
@@ -487,6 +551,44 @@ class GoogleSheetRepositoryImpl @Inject constructor(
         googleSheetService.getSheetsService().spreadsheets().values()
             .update(spreadsheetId, range, valueRange)
             .setValueInputOption(SHEET_APPEND_DATA)
+            .execute()
+
+        return Resource.Success(true)
+    }
+
+    private fun deleteSheetRow(
+        spreadsheetId: String,
+        sheetName: String,
+        rowIndex: Int
+    ): Resource<Boolean> {
+        val spreadsheet = googleSheetService.getSheetsService()
+            .spreadsheets()
+            .get(spreadsheetId)
+            .execute()
+
+        val sheetId = spreadsheet.sheets
+            ?.firstOrNull { it.properties?.title == sheetName }
+            ?.properties
+            ?.sheetId
+            ?: return Resource.Error("Sheet not found.")
+
+        val request = BatchUpdateSpreadsheetRequest().setRequests(
+            listOf(
+                Request().setDeleteDimension(
+                    DeleteDimensionRequest().setRange(
+                        DimensionRange()
+                            .setSheetId(sheetId)
+                            .setDimension("ROWS")
+                            .setStartIndex(rowIndex + 1)
+                            .setEndIndex(rowIndex + 2)
+                    )
+                )
+            )
+        )
+
+        googleSheetService.getSheetsService()
+            .spreadsheets()
+            .batchUpdate(spreadsheetId, request)
             .execute()
 
         return Resource.Success(true)

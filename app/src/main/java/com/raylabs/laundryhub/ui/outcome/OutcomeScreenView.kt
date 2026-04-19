@@ -23,9 +23,14 @@ import androidx.compose.material.rememberModalBottomSheetState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -38,6 +43,8 @@ import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.OutcomeBottomSheet
 import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.TransactionDeleteConfirmationSheet
+import com.raylabs.laundryhub.ui.component.TransactionEntryActionSheet
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
@@ -50,7 +57,8 @@ import kotlinx.coroutines.launch
 @Composable
 fun OutcomeScreenView(
     viewModel: OutcomeViewModel = hiltViewModel(),
-    bannerState: InlineAdaptiveBannerAdState? = null
+    bannerState: InlineAdaptiveBannerAdState? = null,
+    onOutcomeChanged: () -> Unit = {}
 ) {
     val state = viewModel.uiState
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("outcome_inline")
@@ -60,6 +68,9 @@ fun OutcomeScreenView(
         skipHalfExpanded = true
     )
     val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var selectedEntry by remember { mutableStateOf<EntryItem?>(null) }
+    var pendingDeleteEntry by remember { mutableStateOf<EntryItem?>(null) }
 
     fun hideSheet() {
         coroutineScope.launch {
@@ -84,7 +95,9 @@ fun OutcomeScreenView(
                     val outcomeData = viewModel.buildOutcomeDataForSubmit()
                     if (outcomeData == null) {
                         coroutineScope.launch {
-                            scaffoldState.snackbarHostState.showSnackbar("Outcome ID unavailable. Try again.")
+                            scaffoldState.snackbarHostState.showSnackbar(
+                                context.getString(R.string.outcome_id_unavailable)
+                            )
                         }
                         return@OutcomeBottomSheet
                     }
@@ -92,7 +105,10 @@ fun OutcomeScreenView(
                     coroutineScope.launch {
                         viewModel.submitOutcome(outcomeData) {
                             hideSheet()
-                            scaffoldState.snackbarHostState.showSnackbar("Outcome #${outcomeData.id} submitted")
+                            onOutcomeChanged()
+                            scaffoldState.snackbarHostState.showSnackbar(
+                                context.getString(R.string.outcome_submit_success, outcomeData.id)
+                            )
                         }
                     }
                 },
@@ -100,7 +116,9 @@ fun OutcomeScreenView(
                     val outcomeData = viewModel.buildOutcomeDataForUpdate()
                     if (outcomeData == null) {
                         coroutineScope.launch {
-                            scaffoldState.snackbarHostState.showSnackbar("Outcome ID unavailable. Try again.")
+                            scaffoldState.snackbarHostState.showSnackbar(
+                                context.getString(R.string.outcome_id_unavailable)
+                            )
                         }
                         return@OutcomeBottomSheet
                     }
@@ -108,7 +126,10 @@ fun OutcomeScreenView(
                     coroutineScope.launch {
                         viewModel.updateOutcome(outcomeData) {
                             hideSheet()
-                            scaffoldState.snackbarHostState.showSnackbar("Outcome #${outcomeData.id} updated")
+                            onOutcomeChanged()
+                            scaffoldState.snackbarHostState.showSnackbar(
+                                context.getString(R.string.outcome_update_success, outcomeData.id)
+                            )
                         }
                     }
                 }
@@ -133,22 +154,80 @@ fun OutcomeScreenView(
             },
             snackbarHost = { SnackbarHost(hostState = scaffoldState.snackbarHostState) }
         ) { paddingValues ->
-            OutcomeContent(
-                state = state,
-                bannerState = resolvedBannerState,
-                scaffoldState = scaffoldState,
-                modifier = Modifier.padding(paddingValues),
-                isRefreshing = state.outcome.isLoading,
-                onRefresh = { viewModel.refreshOutcomeList() },
-                onEntryClick = { entry ->
-                    coroutineScope.launch {
-                        val success = viewModel.onOutcomeEditClick(entry.id)
-                        if (success) {
-                            bottomSheetState.show()
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
+                OutcomeContent(
+                    state = state,
+                    bannerState = resolvedBannerState,
+                    scaffoldState = scaffoldState,
+                    modifier = Modifier.fillMaxSize(),
+                    isRefreshing = state.outcome.isLoading,
+                    onRefresh = { viewModel.refreshOutcomeList() },
+                    onEntryClick = { entry ->
+                        selectedEntry = entry
+                    }
+                )
+
+                TransactionEntryActionSheet(
+                    visible = selectedEntry != null,
+                    entry = selectedEntry,
+                    onUpdate = {
+                        val entry = selectedEntry ?: return@TransactionEntryActionSheet
+                        selectedEntry = null
+                        coroutineScope.launch {
+                            val success = viewModel.onOutcomeEditClick(entry.id)
+                            if (success) {
+                                bottomSheetState.show()
+                            } else {
+                                viewModel.uiState.editOutcome.errorMessage?.let { message ->
+                                    scaffoldState.snackbarHostState.showSnackbar(message)
+                                }
+                            }
+                        }
+                    },
+                    onDelete = {
+                        pendingDeleteEntry = selectedEntry
+                        selectedEntry = null
+                    },
+                    onDismiss = { selectedEntry = null }
+                )
+
+                TransactionDeleteConfirmationSheet(
+                    visible = pendingDeleteEntry != null,
+                    entry = pendingDeleteEntry,
+                    isDeleting = state.deleteOutcome.isLoading,
+                    onConfirm = {
+                        val entry = pendingDeleteEntry ?: return@TransactionDeleteConfirmationSheet
+                        coroutineScope.launch {
+                            viewModel.deleteOutcome(
+                                outcomeId = entry.id,
+                                onComplete = {
+                                    pendingDeleteEntry = null
+                                    onOutcomeChanged()
+                                    scaffoldState.snackbarHostState.showSnackbar(
+                                        context.getString(R.string.outcome_delete_success, entry.id)
+                                    )
+                                },
+                                onError = { message ->
+                                    scaffoldState.snackbarHostState.showSnackbar(
+                                        message.ifBlank {
+                                            context.getString(R.string.outcome_delete_failed)
+                                        }
+                                    )
+                                }
+                            )
+                        }
+                    },
+                    onDismiss = {
+                        if (!state.deleteOutcome.isLoading) {
+                            pendingDeleteEntry = null
                         }
                     }
-                }
-            )
+                )
+            }
         }
     }
 }

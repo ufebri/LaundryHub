@@ -24,6 +24,7 @@ interface GoogleSheetRepository {
     suspend fun addOrder(order: OrderData): Resource<Boolean>
     suspend fun getOrderById(orderId: String): Resource<TransactionData>
     suspend fun updateOrder(order: OrderData): Resource<Boolean>
+    suspend fun deleteOrder(orderId: String): Resource<Boolean>
 
     //Outcome
     suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>>
@@ -31,5 +32,5 @@ interface GoogleSheetRepository {
     suspend fun getLastOutcomeId(): Resource<String>
     suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean>
     suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData>
-
+    suspend fun deleteOutcome(outcomeId: String): Resource<Boolean>
 }
