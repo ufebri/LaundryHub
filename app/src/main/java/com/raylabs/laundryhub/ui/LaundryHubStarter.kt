@@ -528,7 +528,9 @@ fun LaundryHubStarter(
                     )
                 }
                 composable(INVENTORY_ROUTE) {
-                    InventoryScreenView()
+                    InventoryScreenView(
+                        onBackClick = { navController.popBackStack() }
+                    )
                 }
                 composable(GROSS_ROUTE) {
                     val state by homeViewModel.uiState.collectAsState()

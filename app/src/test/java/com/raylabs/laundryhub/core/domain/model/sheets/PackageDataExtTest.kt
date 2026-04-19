@@ -14,12 +14,13 @@ class PackageDataExtTest {
             "unit" to "kg"
         )
 
-        val result = map.toPackageData()
+        val result = map.toPackageData(sheetRowIndex = 5)
 
         assertEquals("5000", result.price)
         assertEquals("Reguler", result.name)
         assertEquals("3d", result.duration)
         assertEquals("kg", result.unit)
+        assertEquals(5, result.sheetRowIndex)
     }
 
     @Test
@@ -47,5 +48,19 @@ class PackageDataExtTest {
         assertEquals("", result.name)
         assertEquals("", result.duration)
         assertEquals("", result.unit)
+    }
+
+    @Test
+    fun `toSheetValues returns spreadsheet row format`() {
+        val data = PackageData(
+            price = "5000",
+            name = "Reguler",
+            duration = "3d",
+            unit = "kg"
+        )
+
+        val result = data.toSheetValues()
+
+        assertEquals(listOf(listOf("5000", "Reguler", "3d", "kg")), result)
     }
 }

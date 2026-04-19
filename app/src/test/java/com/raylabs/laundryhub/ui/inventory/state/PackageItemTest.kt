@@ -11,18 +11,24 @@ class PackageItemTest {
     @Test
     fun `displayPrice returns formatted price`() {
         val item = PackageItem(name = "Express", price = "10000", work = "6h")
-        assertEquals("10000,-", item.displayPrice)
+        assertEquals("Rp10.000", item.displayPrice)
     }
 
     @Test
     fun `displayRate appends unit when available`() {
         val item = PackageItem(name = "Express", price = "10000", work = "6h", unit = "kg")
-        assertEquals("10000,-/kg", item.displayRate)
+        assertEquals("Rp10.000/kg", item.displayRate)
+    }
+
+    @Test
+    fun `displayPrice keeps formatted rupiah stable when raw input already contains prefix`() {
+        val item = PackageItem(name = "Express", price = "Rp 10.000", work = "6h", unit = "kg")
+        assertEquals("Rp10.000", item.displayPrice)
     }
 
     @Test
     fun `toUi maps PackageData to PackageItem correctly`() {
-        val data = PackageData(name = "Reguler", price = "5000", duration = "3d", unit = "kg")
+        val data = PackageData(name = "Reguler", price = "5000", duration = "3d", unit = "kg", sheetRowIndex = 4)
         val list = listOf(data).toUi()
         assertEquals(1, list.size)
         val item = list[0]
@@ -30,6 +36,7 @@ class PackageItemTest {
         assertEquals("5000", item.price)
         assertEquals("3d", item.work)
         assertEquals("kg", item.unit)
+        assertEquals(4, item.sheetRowIndex)
     }
 
     @Test

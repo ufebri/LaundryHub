@@ -18,8 +18,12 @@ class InventoryUiStateTest {
         assertNull(state.otherPackages.data)
         assertNull(state.packages.errorMessage)
         assertNull(state.otherPackages.errorMessage)
+        assertNull(state.savePackage.data)
+        assertNull(state.deletePackage.data)
         assertFalse(state.packages.isLoading)
         assertFalse(state.otherPackages.isLoading)
+        assertFalse(state.savePackage.isLoading)
+        assertFalse(state.deletePackage.isLoading)
     }
 
     @Test
