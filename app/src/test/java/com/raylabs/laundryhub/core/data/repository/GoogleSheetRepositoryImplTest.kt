@@ -1,6 +1,9 @@
 package com.raylabs.laundryhub.core.data.repository
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
+import com.google.api.services.sheets.v4.model.Sheet
+import com.google.api.services.sheets.v4.model.SheetProperties
+import com.google.api.services.sheets.v4.model.Spreadsheet
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
@@ -210,6 +213,56 @@ class GoogleSheetRepositoryImplTest {
                 assertEquals("Alicia", updated[2])
                 // Cek kolom lain juga boleh sesuai kebutuhan
                 true
+            }
+        )
+    }
+
+    @Test
+    fun `deleteOrder removes matching income row via batch update`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val valuesApi = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val getValues = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        val getSpreadsheet = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Get>()
+        val batchUpdate = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.BatchUpdate>()
+        val valueRange = mock<ValueRange>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(valuesApi)
+        whenever(valuesApi.get(any(), any())).thenReturn(getValues)
+        whenever(getValues.execute()).thenReturn(valueRange)
+        whenever(spreadsheets.get(any())).thenReturn(getSpreadsheet)
+        whenever(spreadsheets.batchUpdate(any(), any())).thenReturn(batchUpdate)
+        whenever(batchUpdate.execute()).thenReturn(mock())
+
+        val header = listOf("orderID", "Date", "Name")
+        val row1 = listOf("ORD1", "15/07/2025", "Alice")
+        val row2 = listOf("ORD2", "16/07/2025", "Bob")
+        whenever(valueRange.getValues()).thenReturn(listOf(header, row1, row2))
+        whenever(getSpreadsheet.execute()).thenReturn(
+            Spreadsheet().setSheets(
+                listOf(
+                    Sheet().setProperties(
+                        SheetProperties()
+                            .setTitle("income")
+                            .setSheetId(11)
+                    )
+                )
+            )
+        )
+
+        val result = repo.deleteOrder("ORD2")
+
+        assertTrue(result is Resource.Success)
+        verify(spreadsheets).batchUpdate(
+            eq(TEST_SPREADSHEET_ID),
+            argThat { request ->
+                val range = request.requests.single().deleteDimension.range
+                range.sheetId == 11 &&
+                    range.dimension == "ROWS" &&
+                    range.startIndex == 2 &&
+                    range.endIndex == 3
             }
         )
     }

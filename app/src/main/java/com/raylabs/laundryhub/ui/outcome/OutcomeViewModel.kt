@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.DeleteOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
@@ -29,65 +30,21 @@ class OutcomeViewModel @Inject constructor(
     private val submitOutcomeUseCase: SubmitOutcomeUseCase,
     private val getLastOutcomeIdUseCase: GetLastOutcomeIdUseCase,
     private val updateOutcomeUseCase: UpdateOutcomeUseCase,
-    private val getOutcomeUseCase: GetOutcomeUseCase
+    private val getOutcomeUseCase: GetOutcomeUseCase,
+    private val deleteOutcomeUseCase: DeleteOutcomeUseCase
 ) : ViewModel() {
 
     private val _uiState = mutableStateOf(OutcomeUiState())
     val uiState: OutcomeUiState get() = _uiState.value
 
     init {
-        fetchOutcomeList()
-        fetchLastOutcomeId()
+        refreshOutcomeList()
     }
 
     fun refreshOutcomeList() {
-        fetchOutcomeList()
-        fetchLastOutcomeId()
-    }
-
-    private fun fetchLastOutcomeId() {
         viewModelScope.launch {
-            when (val result = getLastOutcomeIdUseCase()) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(lastOutcomeId = result.data)
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(lastOutcomeId = "Error, try again")
-                }
-
-                else -> Unit
-            }
-        }
-    }
-
-    private fun fetchOutcomeList() {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                outcome = _uiState.value.outcome.loading()
-            )
-
-            when (val result = readOutcomeUseCase()) {
-                is Resource.Success -> {
-                    _uiState.value = _uiState.value.copy(
-                        outcome = _uiState.value.outcome.success(result.data.toDateListUiItems())
-                    )
-                }
-
-                is Resource.Error -> {
-                    _uiState.value = _uiState.value.copy(
-                        outcome = _uiState.value.outcome.error(result.message)
-                    )
-                }
-
-                is Resource.Empty -> {
-                    _uiState.value = _uiState.value.copy(
-                        outcome = _uiState.value.outcome.error("Data Kosong")
-                    )
-                }
-
-                else -> Unit
-            }
+            loadOutcomeList()
+            loadLastOutcomeId()
         }
     }
 
@@ -103,8 +60,8 @@ class OutcomeViewModel @Inject constructor(
                     submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
                     isSubmitting = false
                 )
-                fetchOutcomeList()
-                fetchLastOutcomeId()
+                loadOutcomeList()
+                loadLastOutcomeId()
                 onComplete()
             }
 
@@ -174,7 +131,7 @@ class OutcomeViewModel @Inject constructor(
                     updateOutcome = _uiState.value.updateOutcome.success(result.data),
                     isSubmitting = false
                 )
-                fetchOutcomeList()
+                loadOutcomeList()
                 onComplete()
             }
 
@@ -188,6 +145,36 @@ class OutcomeViewModel @Inject constructor(
             else -> {
                 _uiState.value = _uiState.value.copy(isSubmitting = false)
             }
+        }
+    }
+
+    suspend fun deleteOutcome(
+        outcomeId: String,
+        onComplete: suspend () -> Unit,
+        onError: suspend (String) -> Unit = {}
+    ) {
+        _uiState.value = _uiState.value.copy(
+            deleteOutcome = _uiState.value.deleteOutcome.loading()
+        )
+
+        when (val result = deleteOutcomeUseCase(outcomeId = outcomeId)) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data)
+                )
+                loadOutcomeList()
+                loadLastOutcomeId()
+                onComplete()
+            }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    deleteOutcome = _uiState.value.deleteOutcome.error(result.message)
+                )
+                onError(result.message)
+            }
+
+            else -> Unit
         }
     }
 
@@ -254,7 +241,9 @@ class OutcomeViewModel @Inject constructor(
     }
 
     fun resetForm() {
-        fetchLastOutcomeId()
+        viewModelScope.launch {
+            loadLastOutcomeId()
+        }
         _uiState.value = _uiState.value.copy(
             isEditMode = false,
             outcomeID = "",
@@ -268,5 +257,47 @@ class OutcomeViewModel @Inject constructor(
 
     private fun sanitizePrice(value: String): String {
         return value.removeRupiahFormatWithComma()
+    }
+
+    private suspend fun loadLastOutcomeId() {
+        when (val result = getLastOutcomeIdUseCase()) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(lastOutcomeId = result.data)
+            }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(lastOutcomeId = "Error, try again")
+            }
+
+            else -> Unit
+        }
+    }
+
+    private suspend fun loadOutcomeList() {
+        _uiState.value = _uiState.value.copy(
+            outcome = _uiState.value.outcome.loading()
+        )
+
+        when (val result = readOutcomeUseCase()) {
+            is Resource.Success -> {
+                _uiState.value = _uiState.value.copy(
+                    outcome = _uiState.value.outcome.success(result.data.toDateListUiItems())
+                )
+            }
+
+            is Resource.Error -> {
+                _uiState.value = _uiState.value.copy(
+                    outcome = _uiState.value.outcome.error(result.message)
+                )
+            }
+
+            is Resource.Empty -> {
+                _uiState.value = _uiState.value.copy(
+                    outcome = _uiState.value.outcome.error("Data Kosong")
+                )
+            }
+
+            else -> Unit
+        }
     }
 }

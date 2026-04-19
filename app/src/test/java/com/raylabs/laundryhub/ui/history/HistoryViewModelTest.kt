@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.history
 
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryItem
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
@@ -23,7 +24,11 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.atLeast
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -31,6 +36,7 @@ class HistoryViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private val mockUseCase: ReadIncomeTransactionUseCase = mock()
+    private val mockDeleteUseCase: DeleteOrderUseCase = mock()
 
     @Before
     fun setUp() {
@@ -65,7 +71,7 @@ class HistoryViewModelTest {
         whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
             .thenReturn(Resource.Success(transactions))
 
-        val vm = HistoryViewModel(mockUseCase)
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state: HistoryUiState = vm.uiState
@@ -83,7 +89,7 @@ class HistoryViewModelTest {
         whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
             .thenReturn(Resource.Error("network error"))
 
-        val vm = HistoryViewModel(mockUseCase)
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState
@@ -96,11 +102,68 @@ class HistoryViewModelTest {
         whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
             .thenReturn(Resource.Empty)
 
-        val vm = HistoryViewModel(mockUseCase)
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState
         assertFalse(state.history.isLoading)
         assertEquals("Data Kosong", state.history.errorMessage)
+    }
+
+    @Test
+    fun `deleteOrder refreshes history on success`() = runTest {
+        val transactions = listOf(
+            TransactionData(
+                orderID = "ORD-001",
+                name = "Ny Emy",
+                date = "02/06/2025",
+                totalPrice = "Rp50.000",
+                packageType = "Express - 24H",
+                paymentStatus = "lunas",
+                paymentMethod = "cash",
+                weight = "1",
+                pricePerKg = "50000",
+                remark = "-",
+                phoneNumber = "0812",
+                dueDate = "03/06/2025"
+            )
+        )
+        whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
+            .thenReturn(Resource.Success(transactions))
+        whenever(mockDeleteUseCase.invoke(onRetry = anyOrNull(), orderId = eq("ORD-001")))
+            .thenReturn(Resource.Success(true))
+
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        var completed = false
+        vm.deleteOrder(orderId = "ORD-001", onComplete = { completed = true })
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertTrue(completed)
+        assertEquals(true, vm.uiState.deleteOrder.data)
+        verify(mockUseCase, atLeast(2)).invoke(filter = FILTER.SHOW_ALL_DATA)
+    }
+
+    @Test
+    fun `deleteOrder stores error and forwards callback when delete fails`() = runTest {
+        whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
+            .thenReturn(Resource.Success(emptyList()))
+        whenever(mockDeleteUseCase.invoke(onRetry = anyOrNull(), orderId = eq("ORD-404")))
+            .thenReturn(Resource.Error("delete fail"))
+
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        var receivedError: String? = null
+        vm.deleteOrder(
+            orderId = "ORD-404",
+            onComplete = {},
+            onError = { receivedError = it }
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("delete fail", receivedError)
+        assertEquals("delete fail", vm.uiState.deleteOrder.errorMessage)
     }
 }

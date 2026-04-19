@@ -1,5 +1,8 @@
 package com.raylabs.laundryhub.core.data.repository
 
+import com.google.api.services.sheets.v4.model.Sheet
+import com.google.api.services.sheets.v4.model.SheetProperties
+import com.google.api.services.sheets.v4.model.Spreadsheet
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
@@ -253,6 +256,56 @@ class GoogleSheetRepositoryImplFullTest {
         )
         verify(update).setValueInputOption("USER_ENTERED")
         verify(update).execute()
+    }
+
+    @Test
+    fun `deleteOutcome removes matching outcome row via batch update`() = runTest {
+        val sheets = mock<com.google.api.services.sheets.v4.Sheets>()
+        val spreadsheets = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets>()
+        val values = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values>()
+        val getValues = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Values.Get>()
+        val getSpreadsheet = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.Get>()
+        val batchUpdate = mock<com.google.api.services.sheets.v4.Sheets.Spreadsheets.BatchUpdate>()
+        val valueRange = mock<ValueRange>()
+
+        whenever(googleSheetService.getSheetsService()).thenReturn(sheets)
+        whenever(sheets.spreadsheets()).thenReturn(spreadsheets)
+        whenever(spreadsheets.values()).thenReturn(values)
+        whenever(values.get(any(), any())).thenReturn(getValues)
+        whenever(getValues.execute()).thenReturn(valueRange)
+        whenever(spreadsheets.get(any())).thenReturn(getSpreadsheet)
+        whenever(spreadsheets.batchUpdate(any(), any())).thenReturn(batchUpdate)
+        whenever(batchUpdate.execute()).thenReturn(mock())
+
+        val header = listOf("id", "date", "keperluan")
+        val row1 = listOf("O5", "10/07/2025", "Old")
+        val row2 = listOf("O7", "11/07/2025", "Supplies")
+        whenever(valueRange.getValues()).thenReturn(listOf(header, row1, row2))
+        whenever(getSpreadsheet.execute()).thenReturn(
+            Spreadsheet().setSheets(
+                listOf(
+                    Sheet().setProperties(
+                        SheetProperties()
+                            .setTitle("outcome")
+                            .setSheetId(22)
+                    )
+                )
+            )
+        )
+
+        val result = repo.deleteOutcome("O7")
+
+        assertTrue(result is Resource.Success)
+        verify(spreadsheets).batchUpdate(
+            eq(TEST_SPREADSHEET_ID),
+            argThat { request ->
+                val range = request.requests.single().deleteDimension.range
+                range.sheetId == 22 &&
+                    range.dimension == "ROWS" &&
+                    range.startIndex == 2 &&
+                    range.endIndex == 3
+            }
+        )
     }
 
     @Test

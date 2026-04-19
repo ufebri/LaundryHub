@@ -485,10 +485,35 @@ fun LaundryHubStarter(
                     )
                 }
                 composable(BottomNavItem.History.screenRoute) {
-                    HistoryScreenView(bannerState = historyBannerState)
+                    HistoryScreenView(
+                        bannerState = historyBannerState,
+                        onEditOrderRequest = { orderId ->
+                            orderViewModel.resetForm()
+                            orderViewModel.onOrderEditClick(orderId) {
+                                showEditOrderSheet.value = true
+                                triggerOpenSheet.value = true
+                            }
+                        },
+                        onOrderChanged = {
+                            scope.launch {
+                                homeViewModel.fetchOrder()
+                                homeViewModel.fetchTodayIncome()
+                                homeViewModel.fetchSummary()
+                                homeViewModel.fetchGross()
+                            }
+                        }
+                    )
                 }
                 composable(BottomNavItem.Outcome.screenRoute) {
-                    OutcomeScreenView(bannerState = outcomeBannerState)
+                    OutcomeScreenView(
+                        bannerState = outcomeBannerState,
+                        onOutcomeChanged = {
+                            scope.launch {
+                                homeViewModel.fetchSummary()
+                                homeViewModel.fetchGross()
+                            }
+                        }
+                    )
                 }
                 composable(BottomNavItem.Profile.screenRoute) {
                     ProfileScreenView(
