@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.core.data.firebase
 
 import com.google.android.gms.tasks.Task
+import com.google.android.gms.tasks.Tasks
 import com.google.firebase.auth.AuthResult
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -16,6 +17,8 @@ import org.junit.Before
 import org.junit.Test
 import org.mockito.Mockito
 import org.mockito.Mockito.mock
+import org.mockito.kotlin.any
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.whenever
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,9 +75,48 @@ class FirebaseDataSourceMockitoTest {
     }
 
     @Test
+    fun `signInWithGoogle maps firebase user into domain user`() = runTest {
+        whenever(authResult.user).thenReturn(firebaseUser)
+        whenever(firebaseUser.uid).thenReturn("uid123")
+        whenever(firebaseUser.displayName).thenReturn("Test User")
+        whenever(firebaseUser.email).thenReturn("test@email.com")
+        whenever(firebaseUser.photoUrl).thenReturn(null)
+        whenever(firebaseAuth.signInWithCredential(any())).thenReturn(Tasks.forResult(authResult))
+
+        val user = dataSource.signInWithGoogle("id-token")
+
+        assertNotNull(user)
+        assertEquals("uid123", user?.uid)
+        assertEquals("Test User", user?.displayName)
+        assertEquals("test@email.com", user?.email)
+        assertEquals("null", user?.urlPhoto)
+    }
+
+    @Test
+    fun `signInWithGoogle returns null when auth result has no user`() = runTest {
+        whenever(authResult.user).thenReturn(null)
+        whenever(firebaseAuth.signInWithCredential(any())).thenReturn(Tasks.forResult(authResult))
+
+        val user = dataSource.signInWithGoogle("id-token")
+
+        assertNull(user)
+    }
+
+    @Test
     fun `signOut calls firebaseAuth signOut`() = runTest {
         // No exception means success
         val result = dataSource.signOut()
+        assertTrue(result)
+        Mockito.verify(firebaseAuth).signOut()
+        Mockito.verify(googleCredentialAuthManager).clearCredentialState()
+    }
+
+    @Test
+    fun `signOut still returns true when credential clearing fails`() = runTest {
+        doThrow(RuntimeException("boom")).whenever(googleCredentialAuthManager).clearCredentialState()
+
+        val result = dataSource.signOut()
+
         assertTrue(result)
         Mockito.verify(firebaseAuth).signOut()
         Mockito.verify(googleCredentialAuthManager).clearCredentialState()

@@ -77,6 +77,55 @@ class CacheRepositoryImplTest {
         assertFalse(File(externalCache, "external.tmp").exists())
     }
 
+    @Test
+    fun `clearCache leaves read only external cache untouched`() = runTest {
+        val internalCache = createCacheDirWithFile("internal.tmp", "1234")
+        val externalCache = createCacheDirWithFile("external.tmp", "123456")
+        val context = mock<Context>()
+        whenever(context.cacheDir).thenReturn(internalCache)
+        whenever(context.externalCacheDirs).thenReturn(arrayOf(externalCache))
+        val repository = CacheRepositoryImpl(context) { directory ->
+            if (directory == externalCache) {
+                Environment.MEDIA_MOUNTED_READ_ONLY
+            } else {
+                Environment.MEDIA_UNKNOWN
+            }
+        }
+
+        assertTrue(repository.clearCache())
+        assertTrue(internalCache.listFiles().isNullOrEmpty())
+        assertFalse(externalCache.listFiles().isNullOrEmpty())
+        assertTrue(File(externalCache, "external.tmp").exists())
+    }
+
+    @Test
+    fun `getCacheSizeBytes de duplicates repeated external cache directories`() = runTest {
+        val internalCache = createCacheDirWithFile("internal.tmp", "1234")
+        val externalCache = createCacheDirWithFile("external.tmp", "12")
+        val context = mock<Context>()
+        whenever(context.cacheDir).thenReturn(internalCache)
+        whenever(context.externalCacheDirs).thenReturn(arrayOf(externalCache, null, externalCache))
+        val repository = CacheRepositoryImpl(context) { directory ->
+            if (directory == externalCache) Environment.MEDIA_MOUNTED else Environment.MEDIA_UNKNOWN
+        }
+
+        assertEquals(6L, repository.getCacheSizeBytes())
+    }
+
+    @Test
+    fun `getCacheSizeBytes skips external cache when state lookup fails`() = runTest {
+        val internalCache = createCacheDirWithFile("internal.tmp", "1234")
+        val externalCache = createCacheDirWithFile("external.tmp", "123456")
+        val context = mock<Context>()
+        whenever(context.cacheDir).thenReturn(internalCache)
+        whenever(context.externalCacheDirs).thenReturn(arrayOf(externalCache))
+        val repository = CacheRepositoryImpl(context) {
+            throw IllegalStateException("state unavailable")
+        }
+
+        assertEquals(4L, repository.getCacheSizeBytes())
+    }
+
     private fun createCacheDirWithFile(fileName: String, content: String): File {
         val directory = createTempDirectory("cache-repository-test").toFile()
         tempDirs += directory

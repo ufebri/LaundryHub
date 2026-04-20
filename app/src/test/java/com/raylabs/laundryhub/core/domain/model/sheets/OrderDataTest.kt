@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import com.raylabs.laundryhub.ui.common.util.DateUtil
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.text.SimpleDateFormat
@@ -63,6 +64,51 @@ class OrderDataTest {
     }
 
     @Test
+    fun `getSpreadSheetDueDate returns blank when due date is blank`() {
+        val data = sampleOrderData().copy(dueDate = "   ")
+
+        assertEquals("", data.getSpreadSheetDueDate)
+    }
+
+    @Test
+    fun `getSpreadSheetDueDate returns unchanged date when due date already uses slash format`() {
+        val data = sampleOrderData().copy(dueDate = "04/01/2025")
+
+        assertEquals("04/01/2025", data.getSpreadSheetDueDate)
+    }
+
+    @Test
+    fun `getSpreadSheetDueDate returns unchanged date when due date already uses dash format`() {
+        val data = sampleOrderData().copy(dueDate = "2025-01-04")
+
+        assertEquals("2025-01-04", data.getSpreadSheetDueDate)
+    }
+
+    @Test
+    fun `toSheetValues uses fallback current date when order date is blank`() {
+        val data = sampleOrderData().copy(orderDate = "")
+
+        val row = data.toSheetValues().single()
+        assertEquals(DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED), row[1])
+    }
+
+    @Test
+    fun `toUpdateSheetValues uses existing date when order date is blank`() {
+        val data = sampleOrderData().copy(orderDate = "")
+
+        val row = data.toUpdateSheetValues(existingDate = "09/01/2025").single()
+        assertEquals("09/01/2025", row[1])
+    }
+
+    @Test
+    fun `toUpdateSheetValues prefers explicit order date when present`() {
+        val data = sampleOrderData().copy(orderDate = "10/01/2025")
+
+        val row = data.toUpdateSheetValues(existingDate = "09/01/2025").single()
+        assertEquals("10/01/2025", row[1])
+    }
+
+    @Test
     fun `getDisplayPaymentMethod returns correct label`() {
         assertEquals("cash", getDisplayPaymentMethod(PAID_BY_CASH))
         assertEquals("qris", getDisplayPaymentMethod(PAID_BY_QRIS))
@@ -76,5 +122,22 @@ class OrderDataTest {
         assertEquals("lunas", getDisplayPaidStatus(PAID_BY_QRIS))
         assertEquals("belum", getDisplayPaidStatus(UNPAID))
         assertEquals("", getDisplayPaidStatus("OTHER"))
+    }
+
+    private fun sampleOrderData(): OrderData {
+        return OrderData(
+            orderId = "1",
+            name = "Alya",
+            phoneNumber = "08123",
+            packageName = "Regular",
+            priceKg = "7000",
+            totalPrice = "14000",
+            paidStatus = PAID_BY_CASH,
+            paymentMethod = PAID_BY_CASH,
+            remark = "Handle with care",
+            weight = "2",
+            orderDate = "01/01/2025",
+            dueDate = "3d"
+        )
     }
 }
