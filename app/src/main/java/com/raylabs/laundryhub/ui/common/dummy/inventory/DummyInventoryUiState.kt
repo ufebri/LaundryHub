@@ -7,11 +7,11 @@ import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 val dummyInventoryUiState = InventoryUiState(
     packages = SectionState(
         data = listOf(
-            PackageItem("Regular", "Rp 5.000 ,-", "3d"),
-            PackageItem("Express - 6H", "Rp 10.000 ,-", "6h"),
-            PackageItem("Express - 24H", "Rp 8.000 ,-", "1d"),
-            PackageItem("Regular Cuci", "Rp 3.000 ,-", "3d"),
-            PackageItem("Express - 6H Cuci", "Rp 5.000 ,-", "6h")
+            PackageItem("Regular", "Rp5.000", "3d", "kg"),
+            PackageItem("Express - 6H", "Rp10.000", "6h", "kg"),
+            PackageItem("Express - 24H", "Rp8.000", "1d", "kg"),
+            PackageItem("Regular Cuci", "Rp3.000", "3d", "kg"),
+            PackageItem("Express - 6H Cuci", "Rp7.000", "6h", "kg")
         )
     ),
     otherPackages = SectionState(

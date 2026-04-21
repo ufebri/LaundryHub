@@ -8,10 +8,13 @@ import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetValidationRepository
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.DeletePackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdatePackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
@@ -74,6 +77,21 @@ object GSheetModule {
     @ViewModelScoped
     fun provideGetOtherPackageUseCase(repository: GoogleSheetRepository): GetOtherPackageUseCase =
         GetOtherPackageUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideSubmitPackageUseCase(repository: GoogleSheetRepository): SubmitPackageUseCase =
+        SubmitPackageUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideUpdatePackageUseCase(repository: GoogleSheetRepository): UpdatePackageUseCase =
+        UpdatePackageUseCase(repository)
+
+    @Provides
+    @ViewModelScoped
+    fun provideDeletePackageUseCase(repository: GoogleSheetRepository): DeletePackageUseCase =
+        DeletePackageUseCase(repository)
 
     @Provides
     @ViewModelScoped

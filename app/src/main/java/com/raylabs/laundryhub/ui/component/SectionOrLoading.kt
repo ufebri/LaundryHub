@@ -14,7 +14,6 @@ import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
@@ -40,7 +39,7 @@ fun SectionOrLoading(
         error != null && !hasContent -> {
             Text(
                 error,
-                color = Color.Red,
+                color = MaterialTheme.colors.error,
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(16.dp),
@@ -75,7 +74,7 @@ fun SectionOrLoading(
                 if (error != null && hasContent) {
                     Text(
                         text = error,
-                        color = Color.Red,
+                        color = MaterialTheme.colors.error,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 16.dp, vertical = 8.dp),

@@ -15,14 +15,16 @@ class GetOtherPackageUseCase @Inject constructor(
         if (packageResult is Resource.Error) return Resource.Error(packageResult.message)
 
         val remarks = (remarkResult as? Resource.Success)?.data.orEmpty()
-            .map { it.trim() }
+            .map(::normalizePackageLabel)
 
         val packages = (packageResult as? Resource.Success)?.data.orEmpty()
-            .map { it.name }
+            .map { normalizePackageKey(it.name) }
 
+        val seenPackageKeys = mutableSetOf<String>()
         val otherPackages = remarks
-            .filter { it.isNotBlank() && it !in packages }
-            .distinct()
+            .filter { it.isNotBlank() }
+            .filterNot { normalizePackageKey(it) in packages }
+            .filter { seenPackageKeys.add(normalizePackageKey(it)) }
 
         return if (otherPackages.isEmpty()) {
             Resource.Empty
@@ -31,3 +33,9 @@ class GetOtherPackageUseCase @Inject constructor(
         }
     }
 }
+
+private fun normalizePackageLabel(value: String): String =
+    value.trim().replace(Regex("\\s+"), " ")
+
+private fun normalizePackageKey(value: String): String =
+    normalizePackageLabel(value).lowercase()

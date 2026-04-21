@@ -64,5 +64,24 @@ class GetOtherPackageUseCaseTest {
         val data = (result as Resource.Success).data
         assertEquals(listOf("C", "D"), data)
     }
-}
 
+    @Test
+    fun `filters package names case insensitively and normalizes spacing`() = runTest {
+        whenever(repository.readOtherPackage()).thenReturn(
+            Resource.Success(listOf("Express - 6H", " express   - 6h ", "Regular", "regular cuci"))
+        )
+        whenever(repository.readPackageData()).thenReturn(
+            Resource.Success(
+                listOf(
+                    PackageData("1", "express - 6h", "", ""),
+                    PackageData("2", "Regular", "", "")
+                )
+            )
+        )
+
+        val result = useCase.invoke()
+
+        assertTrue(result is Resource.Success)
+        assertEquals(listOf("regular cuci"), (result as Resource.Success).data)
+    }
+}

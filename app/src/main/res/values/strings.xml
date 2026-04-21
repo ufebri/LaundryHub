@@ -130,10 +130,43 @@
     <string name="account_section_title">Account</string>
     <string name="inventory_title">Inventory</string>
     <string name="inventory_description">Setup order package</string>
+    <string name="inventory_package_master_title">Package master</string>
+    <string name="inventory_package_master_description">Used in new orders. Tap a row to edit or delete.</string>
+    <string name="inventory_package_empty_body">Add your first package to use it in new orders.</string>
+    <string name="inventory_package_add">Add package</string>
+    <string name="inventory_package_adding">Adding...</string>
+    <string name="inventory_package_action_edit_title">Edit package</string>
+    <string name="inventory_package_action_delete_title">Delete package</string>
+    <string name="inventory_package_delete_confirmation_title">Delete this package?</string>
+    <string name="inventory_package_delete_confirmation_message">%1$s will be removed from your package master.</string>
+    <string name="inventory_package_delete_point_permanent">This change goes straight to the connected spreadsheet.</string>
+    <string name="inventory_package_delete_point_orders">Past orders keep their saved package names.</string>
+    <string name="inventory_package_editor_add_title">Add package</string>
+    <string name="inventory_package_editor_update_title">Update package</string>
+    <string name="inventory_package_field_name">Package name</string>
+    <string name="inventory_package_field_price">Price per unit</string>
+    <string name="inventory_package_field_duration">Duration</string>
+    <string name="inventory_package_duration_hint">Example: 6h, 1d, 3d, or Same day.</string>
+    <string name="inventory_package_field_unit">Unit</string>
+    <string name="inventory_package_add_success">%1$s added to the package master.</string>
+    <string name="inventory_package_add_failed">Unable to add package right now.</string>
+    <string name="inventory_package_update_success">%1$s updated successfully.</string>
+    <string name="inventory_package_update_failed">Unable to update package right now.</string>
+    <string name="inventory_package_delete_success">%1$s deleted from the package master.</string>
+    <string name="inventory_package_delete_failed">Unable to delete package right now.</string>
+    <string name="inventory_unmapped_title">Unregistered package names</string>
+    <string name="inventory_unmapped_description">Seen in transaction remarks but not in your master list yet.</string>
+    <string name="inventory_unmapped_tap_hint">Tap a name to prefill a new package.</string>
+    <string name="inventory_unmapped_empty_body">No unregistered package names found.</string>
+    <string name="inventory_duration_same_day">Same day</string>
+    <string name="inventory_duration_hours">%1$d Hours</string>
+    <string name="inventory_duration_days">%1$d Days</string>
+    <string name="inventory_duration_unavailable">Duration not set</string>
     <string name="app_version">App version</string>
     <string name="sign_out">Sign Out</string>
     <string name="spreadsheet_id_label">ID: %1$s</string>
     <string name="spreadsheet_status_not_connected">Not connected</string>
+    <string name="currency_prefix_rupiah" translatable="false">Rp</string>
     <string name="ad_preview_label" translatable="false">Ad space</string>
 
     <string name="reminder_section_title">Reminder &amp; Cross-check</string>

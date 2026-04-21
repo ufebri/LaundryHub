@@ -85,6 +85,18 @@ class DateUtilTest {
     }
 
     @Test
+    fun `parseSupportedAppDate trims surrounding whitespace`() {
+        val parsed = DateUtil.parseSupportedAppDate("  11/04/2026  ")
+
+        assertEquals("11/04/2026", parsed?.let { DateUtil.formatDate(it) })
+    }
+
+    @Test
+    fun `parseSupportedAppDate rejects impossible calendar dates`() {
+        assertNull(DateUtil.parseSupportedAppDate("31/02/2026"))
+    }
+
+    @Test
     fun `given 6 hours duration, should return date plus 6 hours`() {
         val startDate = "01-06-2025 08:00"
         val expected = "01/06/2025"
@@ -123,6 +135,14 @@ class DateUtilTest {
     }
 
     @Test
+    fun `given invalid numeric duration, should return start date unchanged`() {
+        val startDate = "01-06-2025 08:00"
+
+        assertEquals(startDate, getDueDate("xh", startDate))
+        assertEquals(startDate, getDueDate("yd", startDate))
+    }
+
+    @Test
     fun `given malformed start date, should return original start date`() {
         val malformedDate = "bad-date"
         val result = getDueDate("1d", malformedDate)
@@ -156,5 +176,12 @@ class DateUtilTest {
             "June 15, 2025"
         }
         assertEquals(expected, result)
+    }
+
+    @Test
+    fun `formatDate supports custom output format`() {
+        val date = DateUtil.parseDate("2025-06-15")!!
+
+        assertEquals("2025/06/15", DateUtil.formatDate(date, "yyyy/MM/dd"))
     }
 }

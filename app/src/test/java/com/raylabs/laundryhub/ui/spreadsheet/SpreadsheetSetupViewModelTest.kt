@@ -83,6 +83,22 @@ class SpreadsheetSetupViewModelTest {
     }
 
     @Test
+    fun `validateAndContinue shows required message when input is blank`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.onInputChanged("   ")
+
+        viewModel.validateAndContinue()
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertFalse(state.isReady)
+        assertFalse(state.isValidating)
+        assertFalse(state.showRequestAccess)
+        assertEquals("Paste your spreadsheet URL or ID first.", state.errorMessage)
+        verifyNoInteractions(validateSpreadsheetUseCase)
+    }
+
+    @Test
     fun `validateAndContinue exposes request access when spreadsheet access is denied`() = runTest {
         whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
             Resource.Error("Error 403: access denied")
@@ -119,6 +135,25 @@ class SpreadsheetSetupViewModelTest {
             assertTrue(state.showRequestAccess)
             assertEquals(
                 "This account can open the spreadsheet, but it still needs Editor access.",
+                state.errorMessage
+            )
+        }
+
+    @Test
+    fun `validateAndContinue uses fallback message when validation returns non terminal state`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(Resource.Empty)
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.isReady)
+            assertFalse(state.showRequestAccess)
+            assertEquals(
+                "We couldn't validate this spreadsheet. Try again.",
                 state.errorMessage
             )
         }
@@ -161,6 +196,66 @@ class SpreadsheetSetupViewModelTest {
         }
 
     @Test
+    fun `validateAndContinue keeps request access hidden for invalid spreadsheet inputs`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
+                Resource.Error("Invalid spreadsheet URL or ID")
+            )
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.showRequestAccess)
+            assertEquals(
+                "Use a valid spreadsheet URL or spreadsheet ID.",
+                state.errorMessage
+            )
+        }
+
+    @Test
+    fun `validateAndContinue keeps request access hidden for authorization configuration errors`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
+                Resource.Error(GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE)
+            )
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.showRequestAccess)
+            assertEquals(
+                "Google Sheets couldn't reconnect cleanly on this device. Try granting access again.",
+                state.errorMessage
+            )
+        }
+
+    @Test
+    fun `validateAndContinue keeps request access hidden when access token is unavailable`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
+                Resource.Error("Google Sheets access token is unavailable for user@example.com")
+            )
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.showRequestAccess)
+            assertEquals(
+                "Google Sheets access token is unavailable for user@example.com",
+                state.errorMessage
+            )
+        }
+
+    @Test
     fun `init marks state ready when spreadsheet is already configured`() = runTest {
         spreadsheetConfigFlow.value = SpreadsheetConfig(
             spreadsheetId = SHEET_ID,
@@ -197,6 +292,55 @@ class SpreadsheetSetupViewModelTest {
         assertFalse(state.isReady)
         assertEquals(0, state.configuredValidationVersion)
         assertEquals(INPUT_URL, state.input)
+    }
+
+    @Test
+    fun `observeSpreadsheetConfig keeps typed input when configuration identity is unchanged`() =
+        runTest {
+            spreadsheetConfigFlow.value = SpreadsheetConfig(
+                spreadsheetId = SHEET_ID,
+                spreadsheetName = "Laundry A",
+                spreadsheetUrl = INPUT_URL,
+                validationVersion = SpreadsheetConfig.CURRENT_VALIDATION_VERSION
+            )
+
+            val viewModel = createViewModel()
+            advanceUntilIdle()
+
+            viewModel.onInputChanged("custom-input")
+            spreadsheetConfigFlow.value = spreadsheetConfigFlow.value.copy(
+                spreadsheetName = "Laundry A Updated"
+            )
+            advanceUntilIdle()
+
+            assertEquals("custom-input", viewModel.uiState.value.input)
+            assertEquals("Laundry A Updated", viewModel.uiState.value.configuredSpreadsheetName)
+        }
+
+    @Test
+    fun `observeSpreadsheetConfig replaces input when spreadsheet identity changes`() = runTest {
+        spreadsheetConfigFlow.value = SpreadsheetConfig(
+            spreadsheetId = SHEET_ID,
+            spreadsheetName = "Laundry A",
+            spreadsheetUrl = INPUT_URL,
+            validationVersion = SpreadsheetConfig.CURRENT_VALIDATION_VERSION
+        )
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+        viewModel.onInputChanged("custom-input")
+
+        spreadsheetConfigFlow.value = SpreadsheetConfig(
+            spreadsheetId = "sheet-b",
+            spreadsheetName = "Laundry B",
+            spreadsheetUrl = "https://sheet-b",
+            validationVersion = SpreadsheetConfig.CURRENT_VALIDATION_VERSION
+        )
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("https://sheet-b", state.input)
+        assertEquals("sheet-b", state.configuredSpreadsheetId)
     }
 
     private fun createViewModel(): SpreadsheetSetupViewModel {
