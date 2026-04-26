@@ -36,6 +36,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -134,6 +136,9 @@ fun <T> HorizontalSelectionCards(
                 Surface(
                     modifier = Modifier
                         .width(208.dp)
+                        .semantics {
+                            contentDescription = "$label option ${optionTitle(option)}"
+                        }
                         .clickable { onOptionSelected(option) },
                     shape = MaterialTheme.shapes.medium,
                     color = cardBackground,

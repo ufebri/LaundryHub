@@ -82,6 +82,7 @@ fastlane/readme.md
 /.jacoco/                   # Jacoco cache dir (if exists)
 /jacoco.exec                # Jacoco execution data
 /coverage/                  # Coverage reports if output here
+*.perfetto-trace            # Android Macrobenchmark/Perfetto trace captures
 
 # --- CI/CD or temporary deployment files ---
 *.pem                       # Private keys

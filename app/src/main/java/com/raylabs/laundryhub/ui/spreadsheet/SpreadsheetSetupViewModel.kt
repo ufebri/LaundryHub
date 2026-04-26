@@ -182,11 +182,14 @@ class SpreadsheetSetupViewModel @Inject constructor(
         if (message == GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE) {
             return false
         }
+        if (message == GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE) {
+            return true
+        }
         if (message == GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE) {
             return false
         }
         if (message.contains("access token is unavailable", ignoreCase = true)) {
-            return false
+            return true
         }
         if (message.contains("developer_error", ignoreCase = true)) {
             return false
@@ -214,6 +217,9 @@ class SpreadsheetSetupViewModel @Inject constructor(
             rawMessage == GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE ->
                 GOOGLE_SHEETS_RECONNECT_MESSAGE
 
+            rawMessage == GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE ->
+                GOOGLE_SHEETS_ACCESS_EXPIRED_MESSAGE
+
             rawMessage == GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE ->
                 DRIVE_API_NOT_ENABLED_FRIENDLY_MESSAGE
 
@@ -239,6 +245,8 @@ class SpreadsheetSetupViewModel @Inject constructor(
             "Connect Google Sheets first to continue."
         const val GOOGLE_SHEETS_RECONNECT_MESSAGE =
             "Google Sheets couldn't reconnect cleanly on this device. Try granting access again."
+        const val GOOGLE_SHEETS_ACCESS_EXPIRED_MESSAGE =
+            "Google Sheets access expired. Grant access again to continue."
         const val EDITOR_ACCESS_REQUIRED_MESSAGE =
             "This account can open the spreadsheet, but it still needs Editor access."
         const val DRIVE_API_NOT_ENABLED_FRIENDLY_MESSAGE =

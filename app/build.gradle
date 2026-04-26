@@ -85,6 +85,12 @@ android {
             buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdDebug))
             buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdDebug))
         }
+        benchmark {
+            initWith release
+            matchingFallbacks = ['release']
+            debuggable false
+            signingConfig signingConfigs.release
+        }
     }
 
     buildFeatures {
@@ -261,6 +267,7 @@ dependencies {
     implementation "androidx.activity:activity-compose:1.10.1"
     debugImplementation "androidx.compose.ui:ui-tooling:$compose_version"
     debugImplementation "androidx.compose.ui:ui-test-manifest:$compose_version"
+    debugImplementation "com.squareup.leakcanary:leakcanary-android:2.14"
     implementation "androidx.compose.ui:ui-tooling-preview:$compose_version"
 
     // Firebase

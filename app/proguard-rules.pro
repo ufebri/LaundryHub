@@ -16,6 +16,18 @@
 # debugging stack traces.
 -keepattributes SourceFile,LineNumberTable
 
+# Gson/R8 needs signature and annotation metadata for reflective adapters and
+# @SerializedName-backed DTO fields in minified release builds.
+-keepattributes Signature,*Annotation*,InnerClasses,EnclosingMethod
+-keep class com.google.gson.reflect.TypeToken { *; }
+-keep class * extends com.google.gson.reflect.TypeToken
+-keep class * implements com.google.gson.TypeAdapterFactory
+-keep class * implements com.google.gson.JsonSerializer
+-keep class * implements com.google.gson.JsonDeserializer
+-keepclassmembers,allowobfuscation class * {
+    @com.google.gson.annotations.SerializedName <fields>;
+}
+
 # Jetpack Compose
 -keep class androidx.compose.** { *; }
 -dontwarn androidx.compose.**
@@ -71,3 +83,9 @@
 
 -keep class com.google.api.** { *; }
 -dontwarn com.google.api.**
+
+# Drive capability response is parsed by Gson during spreadsheet validation.
+# Keep the DTO constructible after R8 so release builds do not surface
+# `Abstract classes can't be instantiated` errors on the spreadsheet setup flow.
+-keep class com.raylabs.laundryhub.core.data.service.GoogleSheetService$DriveFileMetadataResponse { *; }
+-keep class com.raylabs.laundryhub.core.data.service.GoogleSheetService$DriveFileCapabilities { *; }
