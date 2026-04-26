@@ -25,7 +25,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.anyOrNull
-import org.mockito.kotlin.atLeast
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.verify
@@ -111,7 +110,7 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `deleteOrder refreshes history on success`() = runTest {
+    fun `deleteOrder removes item locally on success`() = runTest {
         val transactions = listOf(
             TransactionData(
                 orderID = "ORD-001",
@@ -136,13 +135,23 @@ class HistoryViewModelTest {
         val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
         testDispatcher.scheduler.advanceUntilIdle()
 
+        // Initial check: has 1 entry + 1 header (from toUiItems)
+        val initialData = vm.uiState.history.data.orEmpty()
+        assertTrue(initialData.any { it is DateListItemUI.Entry && it.item.id == "ORD-001" })
+
         var completed = false
         vm.deleteOrder(orderId = "ORD-001", onComplete = { completed = true })
         testDispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(completed)
         assertEquals(true, vm.uiState.deleteOrder.data)
-        verify(mockUseCase, atLeast(2)).invoke(filter = FILTER.SHOW_ALL_DATA)
+        
+        // Verify it was NOT re-fetched (called only once in init)
+        verify(mockUseCase, org.mockito.kotlin.times(1)).invoke(filter = FILTER.SHOW_ALL_DATA)
+        
+        // Verify local state mutation: ORD-001 should be gone
+        val finalData = vm.uiState.history.data.orEmpty()
+        assertFalse(finalData.any { it is DateListItemUI.Entry && it.item.id == "ORD-001" })
     }
 
     @Test
