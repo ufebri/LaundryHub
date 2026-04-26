@@ -181,45 +181,69 @@ class GoogleSheetsAuthorizationManagerImplTest {
     }
 
     @Test
-    fun `getAccessToken reuses cached token after first authorization`() = runTest {
+    fun `getAccessToken requests a fresh authorization result each time`() = runTest {
         whenever(accountProvider.getSignedInEmail()).thenReturn("owner@laundryhub.com")
-        val result: AuthorizationResult = mock()
-        whenever(result.hasResolution()).thenReturn(false)
-        whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(
+        val firstResult: AuthorizationResult = mock()
+        whenever(firstResult.hasResolution()).thenReturn(false)
+        whenever(firstResult.accessToken).thenReturn("token-1")
+        whenever(firstResult.grantedScopes).thenReturn(
             listOf(
                 SheetsScopes.SPREADSHEETS,
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
-        whenever(authorizationClient.authorize(any())).thenReturn(Tasks.forResult(result))
+        val secondResult: AuthorizationResult = mock()
+        whenever(secondResult.hasResolution()).thenReturn(false)
+        whenever(secondResult.accessToken).thenReturn("token-2")
+        whenever(secondResult.grantedScopes).thenReturn(
+            listOf(
+                SheetsScopes.SPREADSHEETS,
+                GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
+            )
+        )
+        whenever(authorizationClient.authorize(any())).thenReturn(
+            Tasks.forResult(firstResult),
+            Tasks.forResult(secondResult)
+        )
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
 
-        assertEquals("token", manager.getAccessToken())
-        assertEquals("token", manager.getAccessToken())
-        verify(authorizationClient, times(1)).authorize(any())
+        assertEquals("token-1", manager.getAccessToken())
+        assertEquals("token-2", manager.getAccessToken())
+        verify(authorizationClient, times(2)).authorize(any())
     }
 
     @Test
-    fun `hasSheetsAccess reuses cached token after first authorization`() = runTest {
+    fun `hasSheetsAccess rechecks authorization instead of trusting an old cached token`() = runTest {
         whenever(accountProvider.getSignedInEmail()).thenReturn("owner@laundryhub.com")
-        val result: AuthorizationResult = mock()
-        whenever(result.hasResolution()).thenReturn(false)
-        whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(
+        val firstResult: AuthorizationResult = mock()
+        whenever(firstResult.hasResolution()).thenReturn(false)
+        whenever(firstResult.accessToken).thenReturn("token-1")
+        whenever(firstResult.grantedScopes).thenReturn(
             listOf(
                 SheetsScopes.SPREADSHEETS,
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
-        whenever(authorizationClient.authorize(any())).thenReturn(Tasks.forResult(result))
+        val secondResult: AuthorizationResult = mock()
+        whenever(secondResult.hasResolution()).thenReturn(false)
+        whenever(secondResult.accessToken).thenReturn("token-2")
+        whenever(secondResult.grantedScopes).thenReturn(
+            listOf(
+                SheetsScopes.SPREADSHEETS,
+                GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
+            )
+        )
+        whenever(authorizationClient.authorize(any())).thenReturn(
+            Tasks.forResult(firstResult),
+            Tasks.forResult(secondResult)
+        )
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
 
         assertTrue(manager.hasSheetsAccess())
         assertTrue(manager.hasSheetsAccess())
-        verify(authorizationClient, times(1)).authorize(any())
+        verify(authorizationClient, times(2)).authorize(any())
     }
 
     @Test
@@ -264,61 +288,38 @@ class GoogleSheetsAuthorizationManagerImplTest {
     }
 
     @Test
-    fun `getAuthorizationIntentSender returns null when token is already cached`() = runTest {
+    fun `getAuthorizationIntentSender rechecks authorization even after access was previously granted`() = runTest {
         whenever(accountProvider.getSignedInEmail()).thenReturn("owner@laundryhub.com")
-        val result: AuthorizationResult = mock()
-        whenever(result.hasResolution()).thenReturn(false)
-        whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(
+        val grantedResult: AuthorizationResult = mock()
+        whenever(grantedResult.hasResolution()).thenReturn(false)
+        whenever(grantedResult.accessToken).thenReturn("token")
+        whenever(grantedResult.grantedScopes).thenReturn(
             listOf(
                 SheetsScopes.SPREADSHEETS,
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
-        whenever(authorizationClient.authorize(any())).thenReturn(Tasks.forResult(result))
+        val pendingIntent: PendingIntent = mock()
+        val intentSender: IntentSender = mock()
+        val resolutionResult: AuthorizationResult = mock()
+        whenever(resolutionResult.hasResolution()).thenReturn(true)
+        whenever(resolutionResult.pendingIntent).thenReturn(pendingIntent)
+        whenever(pendingIntent.intentSender).thenReturn(intentSender)
+        whenever(resolutionResult.grantedScopes).thenReturn(
+            listOf(
+                SheetsScopes.SPREADSHEETS,
+                GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
+            )
+        )
+        whenever(authorizationClient.authorize(any())).thenReturn(
+            Tasks.forResult(grantedResult),
+            Tasks.forResult(resolutionResult)
+        )
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
 
         assertTrue(manager.hasSheetsAccess())
-        assertEquals(null, manager.getAuthorizationIntentSender())
-        verify(authorizationClient, times(1)).authorize(any())
-    }
-
-    @Test
-    fun `cached token is invalidated when signed in email changes`() = runTest {
-        var email = "owner1@laundryhub.com"
-        whenever(accountProvider.getSignedInEmail()).thenAnswer { email }
-
-        val firstResult: AuthorizationResult = mock()
-        whenever(firstResult.hasResolution()).thenReturn(false)
-        whenever(firstResult.accessToken).thenReturn("token-1")
-        whenever(firstResult.grantedScopes).thenReturn(
-            listOf(
-                SheetsScopes.SPREADSHEETS,
-                GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
-            )
-        )
-
-        val secondResult: AuthorizationResult = mock()
-        whenever(secondResult.hasResolution()).thenReturn(false)
-        whenever(secondResult.accessToken).thenReturn("token-2")
-        whenever(secondResult.grantedScopes).thenReturn(
-            listOf(
-                SheetsScopes.SPREADSHEETS,
-                GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
-            )
-        )
-
-        whenever(authorizationClient.authorize(any())).thenReturn(
-            Tasks.forResult(firstResult),
-            Tasks.forResult(secondResult)
-        )
-
-        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
-
-        assertEquals("token-1", manager.getAccessToken())
-        email = "owner2@laundryhub.com"
-        assertEquals("token-2", manager.getAccessToken())
+        assertEquals(intentSender, manager.getAuthorizationIntentSender())
         verify(authorizationClient, times(2)).authorize(any())
     }
 }

@@ -9,6 +9,8 @@ object GSheetRepositoryErrorHandling {
 
     const val EDIT_ACCESS_REQUIRED_MESSAGE =
         "This Google account can view the spreadsheet but cannot edit it. Ask the owner to grant Editor access before continuing."
+    const val AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE =
+        "Google Sheets access expired or became invalid. Grant Google Sheets access again and try once more."
     const val AUTHORIZATION_CONFIGURATION_MESSAGE =
         "Google Sheets authorization couldn't be completed on this device. Reconnect Google Sheets access and try again."
     const val DRIVE_API_NOT_ENABLED_MESSAGE =
@@ -20,6 +22,13 @@ object GSheetRepositoryErrorHandling {
         val statusMessage = e.statusMessage
         val details = e.details?.message ?: "Unknown Error"
         return when {
+            isInvalidCredentialFailure(
+                statusCode = statusCode,
+                statusMessage = statusMessage,
+                details = details
+            ) ->
+                Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+
             details.contains("Google Drive API has not been used", ignoreCase = true) ||
                 details.contains("accessNotConfigured", ignoreCase = true) ||
                 details.contains("drive.googleapis.com", ignoreCase = true) &&
@@ -37,8 +46,15 @@ object GSheetRepositoryErrorHandling {
         if (isDriveApiDisabledMessage(e.message)) {
             return Resource.Error(DRIVE_API_NOT_ENABLED_MESSAGE)
         }
+        if (isInvalidCredentialFailure(details = e.message)) {
+            return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+        }
         if (
-            e.message?.contains("access token is unavailable", ignoreCase = true) == true ||
+            e.message?.contains("access token is unavailable", ignoreCase = true) == true
+        ) {
+            return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+        }
+        if (
             e.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
             e.message?.contains("Unknown calling package name", ignoreCase = true) == true
         ) {
@@ -72,6 +88,15 @@ object GSheetRepositoryErrorHandling {
 
         if (exception is GoogleJsonResponseException) {
             val details = exception.details?.message.orEmpty()
+            if (
+                isInvalidCredentialFailure(
+                    statusCode = exception.statusCode,
+                    statusMessage = exception.statusMessage,
+                    details = details
+                )
+            ) {
+                return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+            }
             return if (
                 exception.statusCode == 403 &&
                 !details.contains("Google Drive API has not been used", ignoreCase = true) &&
@@ -88,11 +113,21 @@ object GSheetRepositoryErrorHandling {
         }
 
         if (
-            exception.message?.contains("access token is unavailable", ignoreCase = true) == true ||
+            exception.message?.contains("access token is unavailable", ignoreCase = true) == true
+        ) {
+            return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+        }
+
+        if (
+            isInvalidCredentialFailure(details = exception.message) ||
             exception.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
             exception.message?.contains("Unknown calling package name", ignoreCase = true) == true
         ) {
-            return Resource.Error(AUTHORIZATION_CONFIGURATION_MESSAGE)
+            return if (isInvalidCredentialFailure(details = exception.message)) {
+                Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+            } else {
+                Resource.Error(AUTHORIZATION_CONFIGURATION_MESSAGE)
+            }
         }
 
         return Resource.Error(exception.message ?: fallbackMessage)
@@ -103,5 +138,19 @@ object GSheetRepositoryErrorHandling {
         return raw.contains("Google Drive API has not been used", ignoreCase = true) ||
             raw.contains("drive.googleapis.com", ignoreCase = true) && raw.contains("enable", ignoreCase = true) ||
             raw.contains("accessNotConfigured", ignoreCase = true)
+    }
+
+    private fun isInvalidCredentialFailure(
+        statusCode: Int? = null,
+        statusMessage: String? = null,
+        details: String?
+    ): Boolean {
+        val rawDetails = details.orEmpty()
+        val rawStatus = statusMessage.orEmpty()
+        return statusCode == 401 ||
+            rawStatus.contains("Unauthorized", ignoreCase = true) ||
+            rawDetails.contains("invalid authentication credentials", ignoreCase = true) ||
+            rawDetails.contains("Expected OAuth 2 access token", ignoreCase = true) ||
+            rawDetails.contains("login cookie or other valid authentication credential", ignoreCase = true)
     }
 }

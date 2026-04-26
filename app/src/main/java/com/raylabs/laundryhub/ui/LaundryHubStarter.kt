@@ -79,6 +79,7 @@ import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupScreen
 import com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupViewModel
 import com.raylabs.laundryhub.ui.theme.modalSheetTop
 import dagger.hilt.android.EntryPointAccessors
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -394,6 +395,7 @@ fun LaundryHubStarter(
     }
 
     BottomSheetScaffold(
+        modifier = modifier,
         scaffoldState = scaffoldState,
         sheetPeekHeight = 0.dp,
         sheetShape = MaterialTheme.shapes.modalSheetTop,
@@ -447,7 +449,7 @@ fun LaundryHubStarter(
                     })
                 }
             },
-            modifier = modifier
+            modifier = Modifier
         ) { innerPadding ->
             NavHost(
                 navController = navController,
@@ -495,12 +497,7 @@ fun LaundryHubStarter(
                             }
                         },
                         onOrderChanged = {
-                            scope.launch {
-                                homeViewModel.fetchOrder()
-                                homeViewModel.fetchTodayIncome()
-                                homeViewModel.fetchSummary()
-                                homeViewModel.fetchGross()
-                            }
+                            scope.launchOrderChangedRefresh(homeViewModel)
                         }
                     )
                 }
@@ -508,10 +505,7 @@ fun LaundryHubStarter(
                     OutcomeScreenView(
                         bannerState = outcomeBannerState,
                         onOutcomeChanged = {
-                            scope.launch {
-                                homeViewModel.fetchSummary()
-                                homeViewModel.fetchGross()
-                            }
+                            scope.launchOutcomeChangedRefresh(homeViewModel)
                         }
                     )
                 }
@@ -600,11 +594,7 @@ fun ShowOrderBottomSheet(
                     orderViewModel.uiState.value.toOrderData(orderId),
                     onComplete = {
                         val submittedState = orderViewModel.uiState.value
-                        homeViewModel.fetchOrder()
-                        homeViewModel.fetchTodayIncome()
-                        homeViewModel.fetchSummary()
-                        homeViewModel.fetchGross()
-                        delay(500)
+                        scope.launchOrderChangedRefresh(homeViewModel)
                         dismissSheet()
 
                         val phone = submittedState.phone
@@ -636,11 +626,7 @@ fun ShowOrderBottomSheet(
                 orderViewModel.updateOrder(
                     uiState.toOrderData(uiState.orderID),
                     onComplete = {
-                        homeViewModel.fetchOrder()
-                        homeViewModel.fetchTodayIncome()
-                        homeViewModel.fetchSummary()
-                        homeViewModel.fetchGross()
-                        delay(500)
+                        scope.launchOrderChangedRefresh(homeViewModel)
                         dismissSheet()
                         snackBarHostState.showSnackbar(
                             context.getString(R.string.order_update_success, uiState.orderID)
@@ -653,6 +639,26 @@ fun ShowOrderBottomSheet(
             }
         }
     )
+}
+
+private fun CoroutineScope.launchOrderChangedRefresh(homeViewModel: HomeViewModel) {
+    launch {
+        runCatching { homeViewModel.refreshAfterOrderChanged() }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                Log.w("LaundryHubStarter", "Home refresh after order change failed", error)
+            }
+    }
+}
+
+private fun CoroutineScope.launchOutcomeChangedRefresh(homeViewModel: HomeViewModel) {
+    launch {
+        runCatching { homeViewModel.refreshAfterOutcomeChanged() }
+            .onFailure { error ->
+                if (error is CancellationException) throw error
+                Log.w("LaundryHubStarter", "Home refresh after outcome change failed", error)
+            }
+    }
 }
 
 @Composable

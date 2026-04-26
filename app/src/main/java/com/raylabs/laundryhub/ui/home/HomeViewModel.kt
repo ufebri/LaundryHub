@@ -29,6 +29,7 @@ import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -356,18 +357,36 @@ class HomeViewModel @Inject constructor(
         } // Reset search on refresh
         viewModelScope.launch {
             try {
-                fetchUser()
-                val jobs = listOf(
-                    async { fetchTodayIncome() },
-                    async { fetchSummary() },
-                    async { fetchGross() },
-                    async { fetchOrder() }, // fetchOrder will call updateDisplayedUnpaidOrders
-                    async { fetchReminderDiscoveryData() }
-                )
-                jobs.awaitAll()
+                refreshHomeSections()
             } finally {
                 _uiState.update { it.copy(isRefreshing = false) }
             }
+        }
+    }
+
+    suspend fun refreshAfterOrderChanged() {
+        refreshHomeSections()
+    }
+
+    suspend fun refreshAfterOutcomeChanged() {
+        coroutineScope {
+            listOf(
+                async { fetchSummary() },
+                async { fetchGross() }
+            ).awaitAll()
+        }
+    }
+
+    private suspend fun refreshHomeSections() {
+        fetchUser()
+        coroutineScope {
+            listOf(
+                async { fetchTodayIncome() },
+                async { fetchSummary() },
+                async { fetchGross() },
+                async { fetchOrder() }, // fetchOrder will call updateDisplayedUnpaidOrders
+                async { fetchReminderDiscoveryData() }
+            ).awaitAll()
         }
     }
 

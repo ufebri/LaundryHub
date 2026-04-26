@@ -28,6 +28,22 @@ class GSheetRepositoryErrorHandlingTest {
     }
 
     @Test
+    fun `handleGoogleJsonResponseException maps invalid credentials to reconnect message`() {
+        val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(
+            googleJsonException(
+                statusCode = 401,
+                statusMessage = "Unauthorized",
+                detailsMessage = "Request had invalid authentication credentials. Expected OAuth 2 access token, login cookie or other valid authentication credential."
+            )
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
     fun `handleGoogleJsonResponseException returns generic error for non drive failures`() {
         val result = GSheetRepositoryErrorHandling.handleGoogleJsonResponseException(
             googleJsonException(
@@ -60,6 +76,18 @@ class GSheetRepositoryErrorHandlingTest {
 
         assertEquals(
             GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
+    fun `handleReadSheetResponseException maps invalid credential message to reconnect message`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            Exception("Error 401: Unauthorized. Request had invalid authentication credentials.")
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE,
             result.message
         )
     }
@@ -134,11 +162,23 @@ class GSheetRepositoryErrorHandlingTest {
     @Test
     fun `handleFailedUpdate maps auth configuration issue`() {
         val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
-            Exception("access token is unavailable for owner@laundryhub.com")
+            Exception("DEVELOPER_ERROR: Unknown calling package name com.google.android.gms")
         )
 
         assertEquals(
             GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE,
+            result.message
+        )
+    }
+
+    @Test
+    fun `handleFailedUpdate maps missing access token to reconnect message`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
+            Exception("access token is unavailable for owner@laundryhub.com")
+        )
+
+        assertEquals(
+            GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE,
             result.message
         )
     }

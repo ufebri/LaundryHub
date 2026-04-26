@@ -155,7 +155,7 @@ class SpreadsheetValidationRepositoryImplTest {
         val result = repository.validateSpreadsheet(INPUT_URL)
 
         assertEquals(
-            Resource.Error(GSheetRepositoryErrorHandling.AUTHORIZATION_CONFIGURATION_MESSAGE),
+            Resource.Error(GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE),
             result
         )
     }
