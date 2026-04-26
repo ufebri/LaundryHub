@@ -27,12 +27,21 @@ class HistoryViewModel @Inject constructor(
     val uiState: HistoryUiState get() = _uiState.value
 
     init {
-        refreshHistory()
+        refreshHistory(isManual = false)
     }
 
-    fun refreshHistory() {
+    fun refreshHistory(isManual: Boolean = true) {
+        if (isManual) {
+            _uiState.value = _uiState.value.copy(isRefreshing = true)
+        }
         viewModelScope.launch {
-            loadHistory()
+            try {
+                loadHistory()
+            } finally {
+                if (isManual) {
+                    _uiState.value = _uiState.value.copy(isRefreshing = false)
+                }
+            }
         }
     }
 
@@ -47,10 +56,15 @@ class HistoryViewModel @Inject constructor(
 
         when (val result = deleteOrderUseCase(orderId = orderId)) {
             is Resource.Success -> {
+                val currentHistory = _uiState.value.history.data.orEmpty()
+                val updatedHistory = currentHistory.filterNot { item ->
+                    item is com.raylabs.laundryhub.ui.outcome.state.DateListItemUI.Entry && item.item.id == orderId
+                }
+
                 _uiState.value = _uiState.value.copy(
-                    deleteOrder = _uiState.value.deleteOrder.success(result.data)
+                    deleteOrder = _uiState.value.deleteOrder.success(result.data),
+                    history = _uiState.value.history.copy(data = updatedHistory)
                 )
-                loadHistory()
                 onComplete()
             }
 

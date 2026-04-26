@@ -128,7 +128,8 @@ android {
             includeAndroidResources = true
             returnDefaultValues = true
             all {
-                maxHeapSize = "2g"
+                maxHeapSize = "1g"
+                forkEvery = 50
             }
         }
     }

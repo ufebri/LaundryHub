@@ -36,6 +36,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
+import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
 import com.raylabs.laundryhub.ui.component.DateHeader
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.EntryItemCard
@@ -95,7 +96,7 @@ fun OutcomeScreenView(
                     val outcomeData = viewModel.buildOutcomeDataForSubmit()
                     if (outcomeData == null) {
                         coroutineScope.launch {
-                            scaffoldState.snackbarHostState.showSnackbar(
+                            scaffoldState.snackbarHostState.showQuickSnackbar(
                                 context.getString(R.string.outcome_id_unavailable)
                             )
                         }
@@ -106,7 +107,7 @@ fun OutcomeScreenView(
                         viewModel.submitOutcome(outcomeData) {
                             hideSheet()
                             onOutcomeChanged()
-                            scaffoldState.snackbarHostState.showSnackbar(
+                            scaffoldState.snackbarHostState.showQuickSnackbar(
                                 context.getString(R.string.outcome_submit_success, outcomeData.id)
                             )
                         }
@@ -116,7 +117,7 @@ fun OutcomeScreenView(
                     val outcomeData = viewModel.buildOutcomeDataForUpdate()
                     if (outcomeData == null) {
                         coroutineScope.launch {
-                            scaffoldState.snackbarHostState.showSnackbar(
+                            scaffoldState.snackbarHostState.showQuickSnackbar(
                                 context.getString(R.string.outcome_id_unavailable)
                             )
                         }
@@ -127,7 +128,7 @@ fun OutcomeScreenView(
                         viewModel.updateOutcome(outcomeData) {
                             hideSheet()
                             onOutcomeChanged()
-                            scaffoldState.snackbarHostState.showSnackbar(
+                            scaffoldState.snackbarHostState.showQuickSnackbar(
                                 context.getString(R.string.outcome_update_success, outcomeData.id)
                             )
                         }
@@ -164,7 +165,7 @@ fun OutcomeScreenView(
                     bannerState = resolvedBannerState,
                     scaffoldState = scaffoldState,
                     modifier = Modifier.fillMaxSize(),
-                    isRefreshing = state.outcome.isLoading,
+                    isRefreshing = state.isRefreshing,
                     onRefresh = { viewModel.refreshOutcomeList() },
                     onEntryClick = { entry ->
                         selectedEntry = entry
@@ -183,7 +184,7 @@ fun OutcomeScreenView(
                                 bottomSheetState.show()
                             } else {
                                 viewModel.uiState.editOutcome.errorMessage?.let { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(message)
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(message)
                                 }
                             }
                         }
@@ -207,12 +208,12 @@ fun OutcomeScreenView(
                                 onComplete = {
                                     pendingDeleteEntry = null
                                     onOutcomeChanged()
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         context.getString(R.string.outcome_delete_success, entry.id)
                                     )
                                 },
                                 onError = { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         message.ifBlank {
                                             context.getString(R.string.outcome_delete_failed)
                                         }
@@ -245,7 +246,7 @@ fun OutcomeContent(
 ) {
     LaunchedEffect(state.outcome.errorMessage) {
         state.outcome.errorMessage?.let { msg ->
-            scaffoldState.snackbarHostState.showSnackbar(msg)
+            scaffoldState.snackbarHostState.showQuickSnackbar(msg)
         }
     }
 
@@ -263,6 +264,7 @@ fun OutcomeContent(
             isLoading = state.outcome.isLoading,
             error = state.outcome.errorMessage,
             hasContent = !state.outcome.data.isNullOrEmpty(),
+            showMiniLoading = false,
             content = {
                 LazyColumn(modifier = Modifier.fillMaxSize()) {
                     item(key = "outcome_inline_banner") {

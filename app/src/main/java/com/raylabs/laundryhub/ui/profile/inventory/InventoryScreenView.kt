@@ -48,6 +48,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.ui.common.dummy.inventory.dummyInventoryUiState
+import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
@@ -86,7 +87,7 @@ fun InventoryScreenView(
         listOfNotNull(state.packages.errorMessage, state.otherPackages.errorMessage)
             .firstOrNull()
             ?.let { message ->
-                scaffoldState.snackbarHostState.showSnackbar(message)
+                scaffoldState.snackbarHostState.showQuickSnackbar(message)
             }
     }
 
@@ -149,7 +150,7 @@ fun InventoryScreenView(
                             sheetRowIndex = item.sheetRowIndex,
                             onComplete = {
                                 pendingDeletePackage = null
-                                scaffoldState.snackbarHostState.showSnackbar(
+                                scaffoldState.snackbarHostState.showQuickSnackbar(
                                     context.getString(
                                         R.string.inventory_package_delete_success,
                                         item.name
@@ -157,7 +158,7 @@ fun InventoryScreenView(
                                 )
                             },
                             onError = { message ->
-                                scaffoldState.snackbarHostState.showSnackbar(
+                                scaffoldState.snackbarHostState.showQuickSnackbar(
                                     message.ifBlank {
                                         context.getString(R.string.inventory_package_delete_failed)
                                     }
@@ -207,7 +208,7 @@ fun InventoryScreenView(
                                 packageData = draft.toPackageData(),
                                 onComplete = {
                                     packageEditorState = null
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         context.getString(
                                             R.string.inventory_package_update_success,
                                             draft.name.trim()
@@ -215,7 +216,7 @@ fun InventoryScreenView(
                                     )
                                 },
                                 onError = { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         message.ifBlank {
                                             context.getString(R.string.inventory_package_update_failed)
                                         }
@@ -227,7 +228,7 @@ fun InventoryScreenView(
                                 packageData = draft.toPackageData(),
                                 onComplete = {
                                     packageEditorState = null
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         context.getString(
                                             R.string.inventory_package_add_success,
                                             draft.name.trim()
@@ -235,7 +236,7 @@ fun InventoryScreenView(
                                     )
                                 },
                                 onError = { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(
+                                    scaffoldState.snackbarHostState.showQuickSnackbar(
                                         message.ifBlank {
                                             context.getString(R.string.inventory_package_add_failed)
                                         }
@@ -282,6 +283,7 @@ fun InventoryContent(
                     isLoading = state.packages.isLoading,
                     error = state.packages.errorMessage,
                     hasContent = !state.packages.data.isNullOrEmpty(),
+                    showMiniLoading = false,
                     content = {
                         SetupPackageSection(
                             packages = state.packages.data.orEmpty(),
@@ -302,6 +304,7 @@ fun InventoryContent(
                     isLoading = state.otherPackages.isLoading,
                     error = state.otherPackages.errorMessage,
                     hasContent = !state.otherPackages.data.isNullOrEmpty(),
+                    showMiniLoading = false,
                     content = {
                         OtherPackagesSection(
                             data = state.otherPackages.data.orEmpty(),

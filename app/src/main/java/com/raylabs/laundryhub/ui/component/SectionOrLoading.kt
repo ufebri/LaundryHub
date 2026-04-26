@@ -22,6 +22,7 @@ fun SectionOrLoading(
     isLoading: Boolean,
     error: String?,
     hasContent: Boolean = false,
+    showMiniLoading: Boolean = true,
     content: @Composable () -> Unit
 ) {
     when {
@@ -51,7 +52,7 @@ fun SectionOrLoading(
             Column(modifier = Modifier.fillMaxWidth()) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     content()
-                    if (isLoading) {
+                    if (isLoading && showMiniLoading) {
                         Box(
                             modifier = Modifier
                                 .align(Alignment.TopEnd)

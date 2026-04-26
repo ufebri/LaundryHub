@@ -314,6 +314,36 @@ Benchmark verifier note:
 - if the search field does not appear after the search button is tapped, the benchmark now falls back to scanning for `Order #<id>`
 - this keeps the benchmark focused on the real product result instead of failing on one brittle UIAutomator interaction
 
+## Post-Delete UI Optimization
+
+The delete-order flow was optimized to avoid redundant network overhead.
+
+What changed:
+
+- `HistoryViewModel.deleteOrder()` now uses **Local State Mutation**.
+- Instead of calling `loadHistory()` (which re-downloads the entire list from Google Sheets), the app now filters out the deleted item from the local `HistoryUiState` in memory immediately after a successful API response.
+- This removes one full sequential network fetch from the user's wait time.
+
+Latest real-device Macrobenchmark for Delete Flow:
+
+- captured at: `2026-04-26 14:42 WIB`
+- device: `SM_S931B` (via 192.168.1.65:36043)
+- Android: `16`
+- build: `benchmark`
+- scenario: `Home -> History -> Tap Order -> Delete -> Success Snackbar`
+
+Delete flow comparison:
+
+| Metric | Before optimization | After optimization | Delta | Interpretation |
+| --- | --- | --- | --- | --- |
+| `open_history_ms_median` | `537` | `607` | `+70 ms` | normal UI noise |
+| `delete_to_success_ms_median` | `2434` | `1716` | `-718 ms` | **Major win**; removed redundant list fetch |
+| `total_flow_ms_median` | `5540` | `4871` | `-669 ms` | meaningful end-to-end improvement |
+
+New benchmark file:
+
+- `macrobenchmark/src/main/java/com/raylabs/laundryhub/macrobenchmark/DeleteOrderFlowBenchmark.kt`
+
 ## Local JVM Baselines
 
 There are now two local, no-device baseline tests that can be run through normal JVM unit tests.
@@ -385,3 +415,4 @@ Latest successful verification:
 - `adb install -r macrobenchmark/build/outputs/apk/benchmark/macrobenchmark-benchmark.apk`
 - `adb devices -l`
 - `adb shell am instrument -w -e class com.raylabs.laundryhub.macrobenchmark.AddOrderFlowBenchmark com.raylabs.laundryhub.macrobenchmark/androidx.test.runner.AndroidJUnitRunner`
+- `adb shell am instrument -w -e class com.raylabs.laundryhub.macrobenchmark.DeleteOrderFlowBenchmark com.raylabs.laundryhub.macrobenchmark/androidx.test.runner.AndroidJUnitRunner`
