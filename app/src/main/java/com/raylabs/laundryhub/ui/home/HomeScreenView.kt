@@ -48,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -68,6 +70,8 @@ import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
+
+private const val PENDING_ORDER_SEARCH_FIELD_DESCRIPTION = "Pending order search field"
 
 @Composable
 fun HomeScreen(
@@ -232,7 +236,11 @@ fun HomeScreenContent(
                         OutlinedTextField(
                             value = state.searchQuery,
                             onValueChange = onSearchQueryChanged,
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics {
+                                    contentDescription = PENDING_ORDER_SEARCH_FIELD_DESCRIPTION
+                                },
                             placeholder = { 
                                 Text(
                                     stringResource(R.string.search_customer_placeholder),

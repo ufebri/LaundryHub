@@ -2,12 +2,14 @@ package com.raylabs.laundryhub.core.data.service
 
 import android.net.Uri
 import android.util.Log
+import androidx.annotation.Keep
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport
 import com.google.api.client.http.GenericUrl
 import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.sheets.v4.Sheets
 import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
@@ -90,12 +92,17 @@ class GoogleSheetService @Inject constructor(
             request.headers.authorization = "Bearer $accessToken"
         }
 
+    @Keep
     private data class DriveFileMetadataResponse(
+        @SerializedName("capabilities")
         val capabilities: DriveFileCapabilities? = null
     )
 
+    @Keep
     private data class DriveFileCapabilities(
+        @SerializedName("canEdit")
         val canEdit: Boolean? = null,
+        @SerializedName("canModifyContent")
         val canModifyContent: Boolean? = null
     )
 }

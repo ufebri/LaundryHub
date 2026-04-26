@@ -17,26 +17,13 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
     private val googleSheetsAccountProvider: GoogleSheetsAccountProvider
 ) : GoogleSheetsAuthorizationManager {
 
-    @Volatile
-    private var cachedEmail: String? = null
-
-    @Volatile
-    private var cachedAccessToken: String? = null
-
     override fun getSignedInEmail(): String? = googleSheetsAccountProvider.getSignedInEmail()
 
     override suspend fun hasSheetsAccess(): Boolean {
         val signedInEmail = getSignedInEmail()
         if (signedInEmail.isNullOrBlank()) {
-            clearAuthorizationCache()
             Log.d(TAG, "hasSheetsAccess skipped because there is no signed-in Google email")
             return false
-        }
-
-        invalidateCacheIfAccountChanged(signedInEmail)
-        cachedAccessToken?.let {
-            Log.d(TAG, "hasSheetsAccess satisfied from cached token for email=$signedInEmail")
-            return true
         }
 
         val result = authorizeCurrentAccount() ?: return false
@@ -53,15 +40,8 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
     override suspend fun getAccessToken(): String? {
         val signedInEmail = getSignedInEmail()
         if (signedInEmail.isNullOrBlank()) {
-            clearAuthorizationCache()
             Log.w(TAG, "getAccessToken called without signed-in email")
             return null
-        }
-
-        invalidateCacheIfAccountChanged(signedInEmail)
-        cachedAccessToken?.let {
-            Log.d(TAG, "getAccessToken returned cached token for email=$signedInEmail")
-            return it
         }
 
         val result = authorizeCurrentAccount() ?: return null
@@ -76,14 +56,7 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
     override suspend fun getAuthorizationIntentSender(): IntentSender? {
         val signedInEmail = getSignedInEmail()
         if (signedInEmail.isNullOrBlank()) {
-            clearAuthorizationCache()
             Log.w(TAG, "getAuthorizationIntentSender called without signed-in email")
-            return null
-        }
-
-        invalidateCacheIfAccountChanged(signedInEmail)
-        if (cachedAccessToken != null) {
-            Log.d(TAG, "getAuthorizationIntentSender skipped because token is already cached for email=$signedInEmail")
             return null
         }
 
@@ -108,15 +81,8 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
         return runCatching {
             authorizationClient.getAuthorizationResultFromIntent(data)
                 .let { result ->
-                    val granted = !result.accessToken.isNullOrBlank() &&
+                    !result.accessToken.isNullOrBlank() &&
                         result.grantedScopes.hasRequiredSpreadsheetScopes()
-                    if (granted) {
-                        cacheAuthorization(
-                            signedInEmail = getSignedInEmail(),
-                            accessToken = result.accessToken
-                        )
-                    }
-                    granted
                 }
         }.onSuccess { granted ->
             Log.d(TAG, "handleAuthorizationResult granted=$granted")
@@ -139,36 +105,9 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
         return runCatching {
             Log.d(TAG, "authorizeCurrentAccount started for email=$signedInEmail")
             authorizationClient.authorize(request).await()
-        }.onSuccess { result ->
-            if (!result.hasResolution() && result.grantedScopes.hasRequiredSpreadsheetScopes()) {
-                cacheAuthorization(
-                    signedInEmail = signedInEmail,
-                    accessToken = result.accessToken
-                )
-            }
         }.onFailure { throwable ->
             logAuthorizationFailure("authorizeCurrentAccount email=$signedInEmail", throwable)
         }.getOrThrow()
-    }
-
-    private fun invalidateCacheIfAccountChanged(signedInEmail: String) {
-        if (cachedEmail != null && cachedEmail != signedInEmail) {
-            Log.d(TAG, "Clearing cached Google Sheets token because signed-in email changed from $cachedEmail to $signedInEmail")
-            clearAuthorizationCache()
-        }
-    }
-
-    private fun cacheAuthorization(signedInEmail: String?, accessToken: String?) {
-        val normalizedEmail = signedInEmail?.takeIf { it.isNotBlank() } ?: return
-        val normalizedToken = accessToken?.takeIf { it.isNotBlank() } ?: return
-        cachedEmail = normalizedEmail
-        cachedAccessToken = normalizedToken
-        Log.d(TAG, "Cached Google Sheets token for email=$normalizedEmail")
-    }
-
-    private fun clearAuthorizationCache() {
-        cachedEmail = null
-        cachedAccessToken = null
     }
 
     private fun List<String>.hasRequiredSpreadsheetScopes(): Boolean =

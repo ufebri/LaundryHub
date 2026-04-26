@@ -236,10 +236,30 @@ class SpreadsheetSetupViewModelTest {
         }
 
     @Test
-    fun `validateAndContinue keeps request access hidden when access token is unavailable`() =
+    fun `validateAndContinue asks to reconnect when google sheets access expired`() =
         runTest {
             whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
-                Resource.Error("Google Sheets access token is unavailable for user@example.com")
+                Resource.Error(GSheetRepositoryErrorHandling.AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
+            )
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertTrue(state.showRequestAccess)
+            assertEquals(
+                "Google Sheets access expired. Grant access again to continue.",
+                state.errorMessage
+            )
+        }
+
+    @Test
+    fun `validateAndContinue hides request access and maps error 404 to not found message`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
+                Resource.Error("Error 404: Spreadsheet not found")
             )
 
             val viewModel = createViewModel()
@@ -250,7 +270,7 @@ class SpreadsheetSetupViewModelTest {
             val state = viewModel.uiState.value
             assertFalse(state.showRequestAccess)
             assertEquals(
-                "Google Sheets access token is unavailable for user@example.com",
+                "Spreadsheet not found. Check the URL or ID and try again.",
                 state.errorMessage
             )
         }

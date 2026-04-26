@@ -797,16 +797,43 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `fetchOrder keeps unpaidOrder loading when use case returns Loading`() = runTest {
-        doReturn(Resource.Loading).whenever(mockReadIncomeUseCase)
+    fun `refreshAfterOrderChanged refreshes all home sections`() = runTest {
+        whenever(mockUserUseCase.getCurrentUser()).thenReturn(User("uid", "User", "email", "url"))
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
+            .invoke(filter = FILTER.TODAY_TRANSACTION_ONLY)
+        doReturn(Resource.Success(emptyList<SpreadsheetData>())).whenever(mockSummaryUseCase)
+            .invoke()
+        doReturn(Resource.Success(emptyList<TransactionData>())).whenever(mockReadIncomeUseCase)
             .invoke(filter = FILTER.SHOW_UNPAID_DATA)
 
         val vm = createViewModel()
         testDispatcher.scheduler.advanceUntilIdle()
 
+        vm.refreshAfterOrderChanged()
+        testDispatcher.scheduler.advanceUntilIdle()
+
         val state = vm.uiState.value
-        assertTrue(state.unpaidOrder.isLoading)
-        assertNull(state.unpaidOrder.errorMessage)
-        assertTrue(state.unpaidOrder.data == null || state.unpaidOrder.data!!.isEmpty())
+        assertNotNull(state.user.data)
+        assertFalse(state.todayIncome.isLoading)
+        assertFalse(state.summary.isLoading)
+        assertFalse(state.unpaidOrder.isLoading)
+    }
+
+    @Test
+    fun `refreshAfterOutcomeChanged refreshes summary and gross sections`() = runTest {
+        doReturn(Resource.Success(emptyList<SpreadsheetData>())).whenever(mockSummaryUseCase)
+            .invoke()
+        doReturn(Resource.Success(emptyList<GrossData>())).whenever(mockGrossUseCase)
+            .invoke()
+
+        val vm = createViewModel()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        vm.refreshAfterOutcomeChanged()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = vm.uiState.value
+        assertFalse(state.summary.isLoading)
+        assertFalse(state.gross.isLoading)
     }
 }

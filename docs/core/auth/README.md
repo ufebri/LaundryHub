@@ -1,7 +1,7 @@
 # Core Auth
 
 Status: active living brief
-Last updated: 2026-04-04
+Last updated: 2026-04-23
 Primary area: `core/auth`, `core/firebase`, `ui/onboarding`, `ui/spreadsheet`
 
 ## Goal
@@ -26,6 +26,9 @@ Keep Google sign-in, Sheets authorization, and Firebase runtime dependencies ali
 - authorization no longer forces a synthetic `Account(email, "com.google")` into `AuthorizationRequest`
 - Play Services now decides whether it can reuse a saved account or needs to show a resolution flow
 - Google Sheets and Drive capability checks now send a bearer token returned by `AuthorizationClient`, instead of using `GoogleAccountCredential`
+- access tokens are no longer treated as a long-lived in-memory session cache
+- every token request now asks `AuthorizationClient` again so spreadsheet-backed screens do not blindly reuse a stale bearer token
+- repository error handling now treats Google API `401 Unauthorized` and invalid-credential responses as a reconnect-required auth state instead of leaking raw backend text into the UI
 
 ## Important Decisions
 
@@ -53,6 +56,21 @@ These logs capture:
 - whether `AuthorizationClient` returned scopes directly or required a resolution flow
 - whether an access token is present before the app builds the Sheets client
 - full exceptions from the app side when sign-in or Sheets grant fails
+
+### Stale-token protection
+
+The spreadsheet-backed parts of the app such as Home, History, Outcome, Inventory, and validation all share the same Sheets/Drive authorization path.
+
+Recent rollout feedback exposed a weak point:
+
+- the app could previously cache a Sheets bearer token in memory and keep trusting it
+- when that token became stale, spreadsheet reads could fail with raw `401 Unauthorized` messages even though the user was still signed into Firebase
+
+The current rule is intentionally simpler and safer:
+
+- do not trust an old in-memory Sheets bearer token as the source of truth
+- ask Play Services for authorization again whenever the app needs a token
+- map invalid-credential failures to a reconnect-required user path instead of showing backend details directly
 
 ### Runtime dependency alignment
 
@@ -88,7 +106,20 @@ These commands passed across the auth/runtime updates:
 ./gradlew testDebugUnitTest
 ```
 
+Additional verification for the stale-token recovery update:
+
+```bash
+./gradlew testDebugUnitTest --tests com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManagerImplTest --tests com.raylabs.laundryhub.core.data.repository.GSheetRepositoryErrorHandlingTest --tests com.raylabs.laundryhub.ui.spreadsheet.SpreadsheetSetupViewModelTest
+./gradlew testDebugUnitTest
+```
+
 ## Follow-Up Notes
 
 - upgrade Kotlin/AGP/toolchain before moving to a newer Firebase BoM line
 - consider an explicit revoke or disconnect flow for Google Sheets authorization
+- do a real release smoke test on spreadsheet-backed screens after shipping auth changes:
+  - Home
+  - History
+  - Outcome
+  - Inventory
+  - Spreadsheet setup validation

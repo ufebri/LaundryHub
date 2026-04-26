@@ -14,8 +14,10 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
@@ -28,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
@@ -44,6 +48,12 @@ import com.raylabs.laundryhub.ui.order.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.order.state.isUpdateEnabled
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import com.raylabs.laundryhub.ui.theme.modalSheetTop
+
+private const val ORDER_SHEET_DESCRIPTION = "Order sheet"
+private const val ORDER_NAME_FIELD_DESCRIPTION = "Order name field"
+private const val ORDER_PRICE_FIELD_DESCRIPTION = "Order price field"
+private const val ORDER_SUBMIT_BUTTON_DESCRIPTION = "Submit order"
+private const val ORDER_UPDATE_BUTTON_DESCRIPTION = "Update order"
 
 @Composable
 fun OrderBottomSheet(
@@ -72,12 +82,16 @@ fun OrderBottomSheet(
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
             .heightIn(max = 900.dp)
+            .semantics {
+                contentDescription = ORDER_SHEET_DESCRIPTION
+            }
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .wrapContentHeight(unbounded = true)
                 .heightIn(max = 900.dp)
+                .verticalScroll(rememberScrollState())
                 .background(
                     MaterialTheme.colors.surface,
                     shape = MaterialTheme.shapes.modalSheetTop
@@ -108,7 +122,11 @@ fun OrderBottomSheet(
                     imeAction = ImeAction.Next
                 ),
                 label = { Text("Name") },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = ORDER_NAME_FIELD_DESCRIPTION
+                    }
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -198,14 +216,18 @@ fun OrderBottomSheet(
                     keyboardType = KeyboardType.Number
                 ),
                 label = { Text("Price") },
-                modifier = Modifier.fillMaxWidth(),
                 leadingIcon = {
                     Text("Rp", modifier = Modifier.padding(start = 4.dp))
                 },
                 trailingIcon = {
                     Text(",-", modifier = Modifier.padding(end = 4.dp))
                 },
-                singleLine = true
+                singleLine = true,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        contentDescription = ORDER_PRICE_FIELD_DESCRIPTION
+                    }
             )
 
             Text(
@@ -248,7 +270,15 @@ fun OrderBottomSheet(
                     isSubmitting = state.isSubmitting,
                     onSubmit = onSubmit,
                     onUpdate = onUpdate,
-                    modifier = Modifier.align(Alignment.Bottom),
+                    modifier = Modifier
+                        .align(Alignment.Bottom)
+                        .semantics {
+                            contentDescription = if (state.isEditMode) {
+                                ORDER_UPDATE_BUTTON_DESCRIPTION
+                            } else {
+                                ORDER_SUBMIT_BUTTON_DESCRIPTION
+                            }
+                        },
                     fillMaxWidth = false
                 )
             }
