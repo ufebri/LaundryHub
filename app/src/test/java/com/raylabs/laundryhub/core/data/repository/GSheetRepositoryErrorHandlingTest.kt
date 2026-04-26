@@ -202,6 +202,34 @@ class GSheetRepositoryErrorHandlingTest {
     }
 
     @Test
+    fun `handleFailedDelete returns fallback message`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedDelete(Exception())
+        assertEquals("Failed to delete data.", result.message)
+    }
+
+    @Test
+    fun `handleFailedDelete falls back to exception message`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedDelete(Exception("failed to delete row"))
+        assertEquals("failed to delete row", result.message)
+    }
+
+    @Test
+    fun `handleReadSheetResponseException maps accessNotConfigured message to drive api not enabled`() {
+        val result = GSheetRepositoryErrorHandling.handleReadSheetResponseException(
+            Exception("accessNotConfigured for project")
+        )
+        assertEquals(GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE, result.message)
+    }
+
+    @Test
+    fun `handleFailedUpdate maps accessNotConfigured message to drive api not enabled`() {
+        val result = GSheetRepositoryErrorHandling.handleFailedUpdate(
+            Exception("accessNotConfigured for project")
+        )
+        assertEquals(GSheetRepositoryErrorHandling.DRIVE_API_NOT_ENABLED_MESSAGE, result.message)
+    }
+
+    @Test
     fun `handleIDNotFound returns fixed message`() {
         assertEquals("ID not found.", GSheetRepositoryErrorHandling.handleIDNotFound().message)
     }

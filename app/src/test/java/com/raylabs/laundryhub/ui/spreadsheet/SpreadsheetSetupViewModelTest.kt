@@ -256,6 +256,26 @@ class SpreadsheetSetupViewModelTest {
         }
 
     @Test
+    fun `validateAndContinue hides request access and maps error 404 to not found message`() =
+        runTest {
+            whenever(validateSpreadsheetUseCase.invoke(INPUT_URL)).thenReturn(
+                Resource.Error("Error 404: Spreadsheet not found")
+            )
+
+            val viewModel = createViewModel()
+            viewModel.onInputChanged(INPUT_URL)
+            viewModel.validateAndContinue()
+            advanceUntilIdle()
+
+            val state = viewModel.uiState.value
+            assertFalse(state.showRequestAccess)
+            assertEquals(
+                "Spreadsheet not found. Check the URL or ID and try again.",
+                state.errorMessage
+            )
+        }
+
+    @Test
     fun `init marks state ready when spreadsheet is already configured`() = runTest {
         spreadsheetConfigFlow.value = SpreadsheetConfig(
             spreadsheetId = SHEET_ID,

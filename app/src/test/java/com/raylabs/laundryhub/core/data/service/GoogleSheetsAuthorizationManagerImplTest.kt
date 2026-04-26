@@ -125,6 +125,63 @@ class GoogleSheetsAuthorizationManagerImplTest {
     }
 
     @Test
+    fun `handleAuthorizationResult returns false when access token is blank`() {
+        val result: AuthorizationResult = mock()
+        whenever(result.accessToken).thenReturn("  ")
+        whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
+
+        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
+
+        assertFalse(manager.handleAuthorizationResult(mock<Intent>()))
+    }
+
+    @Test
+    fun `handleAuthorizationResult returns false when access token is null`() {
+        val result: AuthorizationResult = mock()
+        whenever(result.accessToken).thenReturn(null)
+        whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
+
+        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
+
+        assertFalse(manager.handleAuthorizationResult(mock<Intent>()))
+    }
+
+    @Test
+    fun `handleAuthorizationResult returns false when required scopes are missing drive metadata`() {
+        val result: AuthorizationResult = mock()
+        whenever(result.accessToken).thenReturn("token")
+        whenever(result.grantedScopes).thenReturn(listOf(SheetsScopes.SPREADSHEETS))
+        whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
+
+        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
+
+        assertFalse(manager.handleAuthorizationResult(mock<Intent>()))
+    }
+
+    @Test
+    fun `handleAuthorizationResult returns false when required scopes are missing sheets scope`() {
+        val result: AuthorizationResult = mock()
+        whenever(result.accessToken).thenReturn("token")
+        whenever(result.grantedScopes).thenReturn(listOf(GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE))
+        whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
+
+        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
+
+        assertFalse(manager.handleAuthorizationResult(mock<Intent>()))
+    }
+
+    @Test
+    fun `handleAuthorizationResult returns false when authorization client throws ApiException`() {
+        whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenThrow(
+            com.google.android.gms.common.api.ApiException(com.google.android.gms.common.api.Status(8, "Internal error"))
+        )
+
+        val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
+
+        assertFalse(manager.handleAuthorizationResult(mock<Intent>()))
+    }
+
+    @Test
     fun `handleAuthorizationResult returns false when required scopes are incomplete`() {
         val result: AuthorizationResult = mock()
         whenever(result.accessToken).thenReturn("token")

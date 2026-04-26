@@ -106,4 +106,18 @@ class GoogleSheetServiceTest {
             error?.message
         )
     }
+
+    @Test
+    fun `hasSpreadsheetEditAccess initiates request when token is available`() = runTest {
+        whenever(authorizationManager.getSignedInEmail()).thenReturn("user@example.com")
+        whenever(authorizationManager.getAccessToken()).thenReturn("valid-token")
+
+        val service = GoogleSheetService(authorizationManager)
+
+        val error = kotlin.runCatching {
+            service.hasSpreadsheetEditAccess("sheet-123")
+        }.exceptionOrNull()
+
+        assertNotNull(error)
+    }
 }
