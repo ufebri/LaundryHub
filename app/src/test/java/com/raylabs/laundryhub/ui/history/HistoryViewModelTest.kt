@@ -155,6 +155,33 @@ class HistoryViewModelTest {
     }
 
     @Test
+    fun `refreshHistory with isManual true updates isRefreshing flag`() = runTest {
+        whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
+            .thenReturn(Resource.Loading) // Keep it loading to check state
+
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
+        
+        vm.refreshHistory(isManual = true)
+        assertTrue(vm.uiState.isRefreshing)
+        
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(vm.uiState.isRefreshing)
+    }
+
+    @Test
+    fun `refreshHistory with isManual false does not update isRefreshing flag`() = runTest {
+        whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
+            .thenReturn(Resource.Loading)
+
+        val vm = HistoryViewModel(mockUseCase, mockDeleteUseCase)
+        // advance until init call finishes its first part
+        testDispatcher.scheduler.runCurrent()
+        
+        vm.refreshHistory(isManual = false)
+        assertFalse(vm.uiState.isRefreshing)
+    }
+
+    @Test
     fun `deleteOrder stores error and forwards callback when delete fails`() = runTest {
         whenever(mockUseCase.invoke(filter = FILTER.SHOW_ALL_DATA))
             .thenReturn(Resource.Success(emptyList()))
@@ -174,5 +201,6 @@ class HistoryViewModelTest {
 
         assertEquals("delete fail", receivedError)
         assertEquals("delete fail", vm.uiState.deleteOrder.errorMessage)
+        assertFalse(vm.uiState.deleteOrder.isLoading)
     }
 }
