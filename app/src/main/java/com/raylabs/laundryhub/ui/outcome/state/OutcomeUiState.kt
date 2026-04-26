@@ -28,6 +28,7 @@ data class OutcomeUiState(
     //flag
     val isSubmitting: Boolean = false,
     val isEditMode: Boolean = false,
+    val isRefreshing: Boolean = false
 )
 
 val OutcomeUiState.isSubmitEnabled: Boolean

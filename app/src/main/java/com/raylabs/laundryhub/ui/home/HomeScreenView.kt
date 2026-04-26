@@ -56,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.dummy.home.dummyState
+import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
 import com.raylabs.laundryhub.ui.component.GreetingWithImageBackground
 import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
@@ -136,7 +137,7 @@ fun HomeScreenContent(
 
     LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.gross.errorMessage, state.unpaidOrder.errorMessage) {
         listOf(state.user, state.todayIncome, state.summary, state.gross, state.unpaidOrder).forEach {
-            it.errorMessage?.let { msg -> snackBarHostState.showSnackbar(msg) }
+            it.errorMessage?.let { msg -> snackBarHostState.showQuickSnackbar(msg) }
         }
     }
 
@@ -162,6 +163,7 @@ fun HomeScreenContent(
                         isLoading = state.summary.isLoading,
                         error = state.summary.errorMessage,
                         hasContent = !state.summary.data.isNullOrEmpty(),
+                        showMiniLoading = !state.isRefreshing,
                         content = {
                             InfoCardSection(
                                 summary = state.summary.data.orEmpty(),
@@ -194,6 +196,7 @@ fun HomeScreenContent(
                     isLoading = state.todayIncome.isLoading,
                     error = state.todayIncome.errorMessage,
                     hasContent = !state.todayIncome.data.isNullOrEmpty(),
+                    showMiniLoading = !state.isRefreshing,
                     content = {
                         val list = state.todayIncome.data.orEmpty()
                         if (list.isEmpty()) {

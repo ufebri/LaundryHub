@@ -59,6 +59,7 @@ import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetConfig
 import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
+import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.history.HistoryScreenView
 import com.raylabs.laundryhub.ui.home.GrossDetailScreenView
@@ -586,7 +587,7 @@ fun ShowOrderBottomSheet(
                 if (orderId.isNullOrBlank()) {
                     val errorMessage = orderViewModel.uiState.value.lastOrderIdError
                         ?: orderIdUnavailableMessage
-                    snackBarHostState.showSnackbar(errorMessage)
+                    snackBarHostState.showQuickSnackbar(errorMessage)
                     return@launch
                 }
 
@@ -613,10 +614,10 @@ fun ShowOrderBottomSheet(
                         } else {
                             context.getString(R.string.order_submit_success, orderId)
                         }
-                        snackBarHostState.showSnackbar(successMessage)
+                        snackBarHostState.showQuickSnackbar(successMessage)
                     },
                     onError = { errorMessage ->
-                        snackBarHostState.showSnackbar(errorMessage.ifBlank { submitFailedMessage })
+                        snackBarHostState.showQuickSnackbar(errorMessage.ifBlank { submitFailedMessage })
                     }
                 )
             }
@@ -628,12 +629,12 @@ fun ShowOrderBottomSheet(
                     onComplete = {
                         scope.launchOrderChangedRefresh(homeViewModel)
                         dismissSheet()
-                        snackBarHostState.showSnackbar(
+                        snackBarHostState.showQuickSnackbar(
                             context.getString(R.string.order_update_success, uiState.orderID)
                         )
                     },
                     onError = { errorMessage ->
-                        snackBarHostState.showSnackbar(errorMessage.ifBlank { updateFailedMessage })
+                        snackBarHostState.showQuickSnackbar(errorMessage.ifBlank { updateFailedMessage })
                     }
                 )
             }
