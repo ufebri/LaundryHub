@@ -70,7 +70,7 @@ fun HistoryScreenView(
                 modifier = Modifier.fillMaxSize(),
                 isRefreshing = state.history.isLoading,
                 onRefresh = { viewModel.refreshHistory() },
-                onEntryClick = { selectedEntry = it }
+                onEntryClick = { selectedEntry = it }, onEntryDelete = { pendingDeleteEntry = it }
             )
 
             TransactionEntryActionSheet(
@@ -134,7 +134,7 @@ fun HistoryContent(
     modifier: Modifier,
     isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
-    onEntryClick: (EntryItem) -> Unit = {}
+    onEntryClick: (EntryItem) -> Unit = {}, onEntryDelete: (EntryItem) -> Unit = {}
 ) {
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,

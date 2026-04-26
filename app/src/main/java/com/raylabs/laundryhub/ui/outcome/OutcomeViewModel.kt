@@ -38,13 +38,22 @@ class OutcomeViewModel @Inject constructor(
     val uiState: OutcomeUiState get() = _uiState.value
 
     init {
-        refreshOutcomeList()
+        refreshOutcomeList(isManual = false)
     }
 
-    fun refreshOutcomeList() {
+    fun refreshOutcomeList(isManual: Boolean = true) {
+        if (isManual) {
+            _uiState.value = _uiState.value.copy(isRefreshing = true)
+        }
         viewModelScope.launch {
-            loadOutcomeList()
-            loadLastOutcomeId()
+            try {
+                loadOutcomeList()
+                loadLastOutcomeId()
+            } finally {
+                if (isManual) {
+                    _uiState.value = _uiState.value.copy(isRefreshing = false)
+                }
+            }
         }
     }
 
