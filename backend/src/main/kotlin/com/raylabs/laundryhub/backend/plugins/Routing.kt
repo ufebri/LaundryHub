@@ -86,7 +86,7 @@ fun Application.configureRouting() {
 
                 // 2. Map to Shared DTO
                 val orders = rows.mapNotNull { row ->
-                    if (row.size < 12) return@mapNotNull null // Pastikan minimal ada 12 kolom
+                    if (row.isEmpty()) return@mapNotNull null // Lewati baris yang benar-benar kosong
                     OrderData(
                         orderId = row.getOrNull(0) ?: "",
                         orderDate = row.getOrNull(1) ?: "",
