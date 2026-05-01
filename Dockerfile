@@ -4,7 +4,7 @@ COPY --chown=gradle:gradle . /home/gradle/src
 WORKDIR /home/gradle/src
 
 # Build the backend distribution (this includes the shared module)
-RUN gradle :backend:installDist --no-daemon
+RUN ./gradlew :backend:installDist --no-daemon
 
 # Stage 2: Create the runtime image
 FROM eclipse-temurin:17-jre-alpine
