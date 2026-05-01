@@ -120,5 +120,23 @@ fun Application.configureRouting() {
                 )
             }
         }
+
+        get("/api/debug-sheets") {
+            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+            val accessToken = call.request.queryParameters["accessToken"]
+            val range = "income!A2:L"
+
+            if (spreadsheetId == null || accessToken == null) {
+                call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
+                return@get
+            }
+
+            try {
+                val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
+                call.respond(response.values ?: emptyList<List<String>>())
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")
+            }
+        }
     }
 }
