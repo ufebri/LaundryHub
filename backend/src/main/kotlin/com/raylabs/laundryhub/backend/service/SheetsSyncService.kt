@@ -8,43 +8,50 @@ import kotlinx.coroutines.withContext
 
 class SheetsSyncService {
 
-    // Ideally, this should be injected via DI (like Koin) in a real backend,
-    // but for this sprint we instantiate it directly to keep things simple.
     private val httpClient = HttpClientProvider.createClient(enableLogging = true)
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
 
     /**
-     * POC: Sync mock data to a Google Sheet.
-     * Note: A real access token is required to execute this successfully.
+     * Gets a Google API Access token using a Service Account JSON.
+     * In a production environment, this would use google-auth-library-oauth2-http
+     * to exchange the SERVICE_ACCOUNT_JSON environment variable for a short-lived token.
      */
-    suspend fun syncDataToSheet(spreadsheetId: String, range: String, accessToken: String): Boolean = withContext(Dispatchers.IO) {
+    private fun getServiceAccountToken(): String {
+        // Placeholder for Service Account OAuth2 exchange.
+        // E.g., reading System.getenv("SERVICE_ACCOUNT_JSON") and requesting a token.
+        return System.getenv("MOCK_SERVICE_ACCOUNT_TOKEN") ?: "mock-token"
+    }
+
+    /**
+     * Sync data to a Google Sheet automatically using a Service Account.
+     */
+    suspend fun syncDataToSheet(spreadsheetId: String, range: String, accessToken: String? = null): Boolean = withContext(Dispatchers.IO) {
         try {
+            val token = accessToken ?: getServiceAccountToken()
+
             // Simulated data to append/update
             val mockValues = listOf(
-                listOf("Backend-Sync-1", "Test User A", "10000", "2024-06-01"),
-                listOf("Backend-Sync-2", "Test User B", "25000", "2024-06-02")
+                listOf("Backend-Sync-Auto", "System User", "0", "2024-06-01")
             )
-            
+
             val valueRange = ValueRange(
                 range = range,
                 majorDimension = "ROWS",
                 values = mockValues
             )
 
-            // Attempt to append values to the sheet
             val response = sheetsApiClient.appendValues(
                 spreadsheetId = spreadsheetId,
                 range = range,
                 valueRange = valueRange,
-                accessToken = accessToken
+                accessToken = token
             )
 
-            // If response has updates, we consider it a success
             response.updates != null
         } catch (e: Exception) {
-            println("Error syncing to Google Sheets: \${e.message}")
-            e.printStackTrace()
+            println("Error syncing to Google Sheets: ${e.message}")
             false
         }
     }
 }
+

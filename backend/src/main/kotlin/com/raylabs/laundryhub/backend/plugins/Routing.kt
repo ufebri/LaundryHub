@@ -10,19 +10,78 @@ import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.response.respond
 import io.ktor.server.response.respondText
+import io.ktor.server.request.receive
+import io.ktor.server.routing.delete
 import io.ktor.server.routing.get
 import io.ktor.server.routing.post
+import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
+
+import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
     val orderRepository = OrderRepository()
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
 
+    // Start background sync job
+    val spreadsheetId = System.getenv("SPREADSHEET_ID") ?: "14E1xk_RiQD5Vj1xpte4kPJhzpOFmUDLDEgZ_EmnkMS4"
+    val syncJob = SheetsBatchSyncJob(orderRepository, syncService, spreadsheetId)
+    syncJob.start()
+
     routing {
         get("/") {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))
         }
+
+        // --- CRUD Endpoints for Orders ---
+        
+        get("/api/orders") {
+            val orders = orderRepository.getAll()
+            call.respond(HttpStatusCode.OK, orders)
+        }
+
+        post("/api/orders") {
+            try {
+                val order = call.receive<OrderData>()
+                val inserted = orderRepository.insert(order)
+                if (inserted) {
+                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success", "message" to "Order created"))
+                    // Trigger background sync here if needed
+                } else {
+                    call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error", "message" to "Order already exists"))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to "Invalid data format"))
+            }
+        }
+
+        put("/api/orders/{id}") {
+            val id = call.parameters["id"] ?: return@put call.respond(HttpStatusCode.BadRequest, "Missing id")
+            try {
+                val order = call.receive<OrderData>()
+                val updated = orderRepository.update(id, order)
+                if (updated) {
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "message" to "Order updated"))
+                } else {
+                    call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error", "message" to "Order not found"))
+                }
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to "Invalid data format"))
+            }
+        }
+
+        delete("/api/orders/{id}") {
+            val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest, "Missing id")
+            val deleted = orderRepository.delete(id)
+            if (deleted) {
+                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "message" to "Order deleted"))
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error", "message" to "Order not found"))
+            }
+        }
+
+        // --- End CRUD Endpoints ---
 
         get("/api/test-shared") {
             // Test that we can use models from the shared module

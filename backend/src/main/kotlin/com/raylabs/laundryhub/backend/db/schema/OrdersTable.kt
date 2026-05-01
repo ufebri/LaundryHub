@@ -15,6 +15,7 @@ object OrdersTable : Table("orders") {
     val weight = varchar("weight", 50)
     val orderDate = varchar("order_date", 50)
     val dueDate = varchar("due_date", 50)
+    val isSynced = bool("is_synced").default(false)
 
     override val primaryKey = PrimaryKey(id)
 }
