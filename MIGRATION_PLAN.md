@@ -183,18 +183,29 @@ Proses migrasi *Big Bang* sukses dihindari. Melalui arsitektur bertahap 8 Sprint
 ---
 
 ### 🔨 Sprint 9: Full Cutover & Integration (EXTENDED)
+**Status:** ✅ COMPLETED (Backend prep done, Android UI cutover deferred)
+
+---
+
+### 📦 Sprint 10: Complete Backend Domain Migration
 **Status:** ⏳ UPCOMING
 
-Karena seluruh infrastruktur backend telah siap, *sprint* tambahan ini difokuskan untuk mematikan SDK lama secara total dan menghubungkan Android langsung ke Backend.
+Fase ini bertujuan untuk memindahkan seluruh sisa logika entitas yang masih bergantung pada Google Sheets (seperti Packages, Outcomes, Gross, dan Summary) ke dalam database PostgreSQL dan Ktor Backend.
 
 #### **A. Deliverables & Perubahan Teknis**
-- **Backend CRUD Endpoints:** Membuat endpoint `POST /api/orders`, `PUT /api/orders/{id}`, dan `DELETE /api/orders/{id}` di module `:backend`.
-- **Android App Cutover:** Mengubah seluruh metode di `GoogleSheetRepositoryImpl` (Android) agar tidak lagi memanggil Google Java SDK, melainkan melakukan HTTP Request ke Ktor Backend menggunakan `HttpClientProvider`.
-- **Background Sync Authentication:** Menyiapkan **Service Account Key** Google Cloud (JSON) dan menanamkannya ke Environment Variable Railway agar `SheetsSyncService` bisa melakukan backup data ke Google Sheets secara otomatis (tanpa perlu token OAuth pengguna lagi).
+- **Database Schemas:** Membuat tabel `PackagesTable`, `OutcomesTable`, `GrossTable`, dan `SummaryTable` di Exposed ORM.
+- **Repositories:** Membuat repository untuk masing-masing entitas untuk menghandle operasi CRUD di PostgreSQL.
+- **REST Endpoints:** Menambahkan API endpoint di `Routing.kt` untuk `/api/packages`, `/api/outcomes`, `/api/gross`, dan `/api/summary`.
+- **Auto-migration Endpoints:** Menyiapkan endpoint untuk menyedot data lama (Packages, Outcomes, dll) dari Google Sheets dan memasukkannya ke tabel PostgreSQL yang baru.
+
+#### **B. Hasil Verifikasi & Metrik**
+- **Build Success:** Backend terkompilasi sukses dengan seluruh domain entitas.
+- **Endpoint Tests:** Semua CRUD endpoints dapat diakses dan mengembalikan format JSON yang valid (Shared DTO).
 
 ---
 
 ## 📜 Riwayat Perubahan (Changelog)
+- **[2026-05-01 20:00]:** Penambahan Sprint 10. Menginisiasi perpindahan sisa entitas (Packages, Outcomes, dll) ke Ktor Backend secara penuh.
 - **[2026-05-01 10:00]:** Penambahan Sprint 9 (Extended) untuk mengeksekusi integrasi penuh Android ke Backend dan Service Account Sync.
 - **[2026-04-29 17:00]:** Penyelesaian Sprint 8 & Penutupan Dokumen. Formulasi strategi Cutover klien dan penyimpulan keseluruhan arsitektur E2E migrasi.- **[2026-04-29 16:00]:** Penyelesaian Sprint 6. Pemasangan dependensi PostgreSQL (Exposed + HikariCP), Dockerization multi-stage, dan migrasi Ktor ke `application.yaml`.
 - **[2026-04-29 15:00]:** Penyelesaian Sprint 4. Pembangunan monorepo Ktor Server, integrasi dependensi shared module, dan REST API PoC.

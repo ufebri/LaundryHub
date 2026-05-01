@@ -1,10 +1,14 @@
 package com.raylabs.laundryhub.backend.plugins
 
-import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.Application
 import kotlinx.coroutines.Dispatchers
+import com.raylabs.laundryhub.backend.db.schema.GrossTable
+import com.raylabs.laundryhub.backend.db.schema.OrdersTable
+import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
+import com.raylabs.laundryhub.backend.db.schema.PackagesTable
+import com.raylabs.laundryhub.backend.db.schema.SummaryTable
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -42,7 +46,7 @@ fun Application.configureDatabase() {
 
         runBlocking {
             dbQuery {
-                SchemaUtils.create(OrdersTable)
+                SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable)
             }
         }
         println("Database connected successfully!")
@@ -52,6 +56,7 @@ fun Application.configureDatabase() {
         System.exit(1)
     }
 }
+
 
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =

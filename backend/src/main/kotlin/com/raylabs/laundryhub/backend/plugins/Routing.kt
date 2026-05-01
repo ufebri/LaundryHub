@@ -17,11 +17,23 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
 
+import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
+import com.raylabs.laundryhub.backend.db.repository.PackageRepository
+import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
+import com.raylabs.laundryhub.backend.routes.grossRoutes
+import com.raylabs.laundryhub.backend.routes.outcomeRoutes
+import com.raylabs.laundryhub.backend.routes.packageRoutes
+import com.raylabs.laundryhub.backend.routes.summaryRoutes
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
     val orderRepository = OrderRepository()
+    val packageRepository = PackageRepository()
+    val outcomeRepository = OutcomeRepository()
+    val grossRepository = GrossRepository()
+    val summaryRepository = SummaryRepository()
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
 
     // Start background sync job
@@ -30,6 +42,11 @@ fun Application.configureRouting() {
     syncJob.start()
 
     routing {
+        packageRoutes(packageRepository, sheetsApiClient)
+        outcomeRoutes(outcomeRepository, sheetsApiClient)
+        grossRoutes(grossRepository, sheetsApiClient)
+        summaryRoutes(summaryRepository, sheetsApiClient)
+        
         get("/") {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))
         }
