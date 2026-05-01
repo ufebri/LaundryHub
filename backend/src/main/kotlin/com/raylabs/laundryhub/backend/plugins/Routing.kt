@@ -69,7 +69,7 @@ fun Application.configureRouting() {
         post("/api/migrate-orders") {
             val spreadsheetId = call.request.queryParameters["spreadsheetId"]
             val accessToken = call.request.queryParameters["accessToken"]
-            val range = "income!A2:L" // Based on typical order columns
+            val range = "income" // Based on typical order columns
 
             if (spreadsheetId == null || accessToken == null) {
                 call.respond(
@@ -124,7 +124,7 @@ fun Application.configureRouting() {
         get("/api/debug-sheets") {
             val spreadsheetId = call.request.queryParameters["spreadsheetId"]
             val accessToken = call.request.queryParameters["accessToken"]
-            val range = "income!A2:L"
+            val range = "income"
 
             if (spreadsheetId == null || accessToken == null) {
                 call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
