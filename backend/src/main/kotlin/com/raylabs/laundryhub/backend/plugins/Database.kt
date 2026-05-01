@@ -19,8 +19,8 @@ fun Application.configureDatabase() {
     val user = System.getenv("DATABASE_USER") ?: "postgres.ludtihnzlskvzdqsvube"
     val password = System.getenv("DATABASE_PASSWORD") ?: "password"
 
-    // Supavisor Pooler (Session Mode) mendukung SSL, gunakan sslmode=no-verify agar tidak mencari cert file lokal
-    val jdbcUrl = "jdbc:postgresql://$host:$port/$database?ssl=true&sslmode=no-verify"
+    // Supavisor Pooler (Session Mode) mendukung SSL, gunakan sslmode=require untuk enkripsi
+    val jdbcUrl = "jdbc:postgresql://$host:$port/$database?ssl=true&sslmode=require"
 
     val driverClassName = "org.postgresql.Driver"
     println("DEBUG_DB: jdbcUrl=$jdbcUrl, user=$user")
