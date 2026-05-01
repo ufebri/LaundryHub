@@ -1,10 +1,12 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.google.auth.oauth2.GoogleCredentials
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayInputStream
 
 class SheetsSyncService {
 
@@ -13,13 +15,20 @@ class SheetsSyncService {
 
     /**
      * Gets a Google API Access token using a Service Account JSON.
-     * In a production environment, this would use google-auth-library-oauth2-http
-     * to exchange the SERVICE_ACCOUNT_JSON environment variable for a short-lived token.
+     * In a production environment, this uses google-auth-library-oauth2-http
+     * to exchange the GOOGLE_SERVICE_ACCOUNT_JSON environment variable for a short-lived token.
      */
     private fun getServiceAccountToken(): String {
-        // Placeholder for Service Account OAuth2 exchange.
-        // E.g., reading System.getenv("SERVICE_ACCOUNT_JSON") and requesting a token.
-        return System.getenv("MOCK_SERVICE_ACCOUNT_TOKEN") ?: "mock-token"
+        val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if (jsonEnv.isNullOrBlank()) {
+            throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
+        }
+        
+        val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
+            .createScoped(listOf("https://www.googleapis.com/auth/spreadsheets"))
+        
+        credentials.refreshIfExpired()
+        return credentials.accessToken.tokenValue
     }
 
     /**
