@@ -86,19 +86,19 @@ fun Application.configureRouting() {
 
                 // 2. Map to Shared DTO
                 val orders = rows.mapNotNull { row ->
-                    if (row.size < 12) return@mapNotNull null // Skip incomplete rows
+                    if (row.size < 12) return@mapNotNull null // Pastikan minimal ada 12 kolom
                     OrderData(
                         orderId = row.getOrNull(0) ?: "",
-                        name = row.getOrNull(1) ?: "",
-                        phoneNumber = row.getOrNull(2) ?: "",
-                        packageName = row.getOrNull(3) ?: "",
+                        orderDate = row.getOrNull(1) ?: "",
+                        name = row.getOrNull(2) ?: "",
+                        weight = row.getOrNull(3) ?: "",
                         priceKg = row.getOrNull(4) ?: "",
                         totalPrice = row.getOrNull(5) ?: "",
                         paidStatus = row.getOrNull(6) ?: "",
-                        paymentMethod = row.getOrNull(7) ?: "",
+                        packageName = row.getOrNull(7) ?: "",
                         remark = row.getOrNull(8) ?: "",
-                        weight = row.getOrNull(9) ?: "",
-                        orderDate = row.getOrNull(10) ?: "",
+                        paymentMethod = row.getOrNull(9) ?: "",
+                        phoneNumber = row.getOrNull(10) ?: "",
                         dueDate = row.getOrNull(11) ?: ""
                     )
                 }
