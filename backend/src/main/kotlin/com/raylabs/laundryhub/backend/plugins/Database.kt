@@ -11,14 +11,12 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
 fun Application.configureDatabase() {
-    val jdbcUrl = environment.config.propertyOrNull("storage.jdbcUrl")?.getString()
-    val username = environment.config.propertyOrNull("storage.username")?.getString()
-    
-    println("DEBUG_DB: jdbcUrl=$jdbcUrl, user=$username")
+    val jdbcUrl = System.getenv("DATABASE_URL") ?: environment.config.propertyOrNull("storage.jdbcUrl")?.getString() ?: "jdbc:postgresql://localhost:5432/laundryhub"
+    val username = System.getenv("DATABASE_USER") ?: environment.config.propertyOrNull("storage.username")?.getString() ?: "postgres"
+    val password = System.getenv("DATABASE_PASSWORD") ?: environment.config.propertyOrNull("storage.password")?.getString() ?: "password"
+    val driverClassName = "org.postgresql.Driver"
 
-    if (jdbcUrl == null) {
-        println("ERROR_DB: jdbcUrl is null! Check Railway Variables.")
-    }
+    println("DEBUG_DB: jdbcUrl=$jdbcUrl, user=$username")
 
     val config = HikariConfig().apply {
         this.jdbcUrl = jdbcUrl
