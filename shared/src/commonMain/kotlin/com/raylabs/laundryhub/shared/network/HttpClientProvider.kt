@@ -23,7 +23,7 @@ object HttpClientProvider {
             if (enableLogging) {
                 install(Logging) {
                     logger = Logger.SIMPLE
-                    level = LogLevel.NONE
+                    level = LogLevel.ALL
                 }
             }
         }

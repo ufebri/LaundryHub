@@ -8,6 +8,7 @@ import com.raylabs.laundryhub.shared.network.model.sheets.UpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
+import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
@@ -20,6 +21,12 @@ class GoogleSheetsApiClient(
     private val httpClient: HttpClient
 ) {
     private val baseUrl = "https://sheets.googleapis.com/v4/spreadsheets"
+
+    suspend fun getSpreadsheet(spreadsheetId: String, accessToken: String): String {
+        return httpClient.get("$baseUrl/$spreadsheetId") {
+            bearerAuth(accessToken)
+        }.bodyAsText()
+    }
 
     suspend fun getValues(
         spreadsheetId: String,

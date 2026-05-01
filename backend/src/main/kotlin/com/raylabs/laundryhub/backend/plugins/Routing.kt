@@ -133,7 +133,24 @@ fun Application.configureRouting() {
 
             try {
                 val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
-                call.respond(response.values ?: emptyList<List<String>>())
+                call.respond(response) // Kirim full response agar kita bisa lihat meta-nya
+            } catch (e: Exception) {
+                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")
+            }
+        }
+
+        get("/api/debug-metadata") {
+            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+            val accessToken = call.request.queryParameters["accessToken"]
+
+            if (spreadsheetId == null || accessToken == null) {
+                call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
+                return@get
+            }
+
+            try {
+                val metadata = sheetsApiClient.getSpreadsheet(spreadsheetId, accessToken)
+                call.respondText(metadata, io.ktor.http.ContentType.Application.Json)
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")
             }
