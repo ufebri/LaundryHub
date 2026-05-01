@@ -142,7 +142,7 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.register("jacocoTestReport", JacocoReport) {
-    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac"
+    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac", ":shared:jacocoTestReport"
 
     reports {
         xml.required = true
@@ -150,96 +150,44 @@ tasks.register("jacocoTestReport", JacocoReport) {
         csv.required = false
     }
 
-    // === Pola include/exclude: fokus ke app code ===
-    def includes = [
-            'com/raylabs/laundryhub/**'
-    ]
+    def includes = ['com/raylabs/laundryhub/**']
     def excludes = [
-            // generated/boilerplate
-            '**/R.class', '**/R$*.class',
-            '**/BuildConfig.*',
-            '**/Manifest*.*',
-            '**/*$ViewInjector*.*',
-            '**/*$ViewBinder*.*',
-            '**/androidx/**/*.*',
-
-            // UI yang mau kamu singkirkan dari coverage
-            '**/*Activity.*', '**/*Activity$*.*',
-            '**/*Fragment.*', '**/*Fragment$*.*',
-            '**/*Adapter.*',  '**/*Adapter$*.*',
-            // UI composables/screens (keep ViewModel/state coverage)
+            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*',
+            '**/*Activity*.*', '**/*Fragment*.*', '**/*Adapter*.*',
             '**/com/raylabs/laundryhub/ui/**/MainActivity*.*',
             '**/com/raylabs/laundryhub/ui/**/LaundryHubStarter*.*',
             '**/com/raylabs/laundryhub/ui/**/*Screen*.*',
-            '**/com/raylabs/laundryhub/ui/**/*ScreenView*.*',
-            '**/com/raylabs/laundryhub/ui/**/*BottomSheet*.*',
             '**/com/raylabs/laundryhub/databinding/**',
-            '**/com/raylabs/laundryhub/data/source/local/room/**',
-            '**/com/raylabs/laundryhub/LaundryHubApp*',
-
-            // Tambahkan pola exclude lainnya sesuai kebutuhan
-            '**/com/raylabs/laundryhub/ui/component/**',
-            '**/com/raylabs/laundryhub/ui/theme/**',
             '**/com/raylabs/laundryhub/core/di/**',
-
-            // 🔽 library eksternal
-            'androidx/**',
-            'kotlin/**',
-            'kotlinx/**',
-            'com/google/**',
-            'com/squareup/**',
-            'coil/**',
-            'com/airbnb/**',
+            '**/Dagger*.*', '**/Hilt*.*', '**/*Hilt*.*', '**/*_Factory.*',
+            '**/*\$\$serializer.class', '**/\$Serializer.class'
     ]
 
-    // === Cari file .class di seluruh buildDir (lebih toleran untuk variasi AGP/Gradle di CI) ===
     def b = layout.buildDirectory.get().asFile
+    def sharedB = project(':shared').layout.buildDirectory.get().asFile
 
-    // 1) Semua direktori kelas yang umum untuk Kotlin/Java debug
-    def classDirTrees = [
+    classDirectories.from(files([
             fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/classes/debug'), include: includes, exclude: excludes)
-    ]
+            fileTree(dir: new File(sharedB, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes)
+    ]))
 
-    def allTrees = []
-    allTrees.addAll(classDirTrees)
-    // Do not add unit test output to avoid duplicate classes (e.g., Application)
+    sourceDirectories.from(files([
+            "${project.projectDir}/src/main/java",
+            "${project(':shared').projectDir}/src/commonMain/kotlin"
+    ]))
 
-    // Gunakan from(...) langsung agar Gradle tidak mengosongkan koleksi FileTree
-    classDirectories.from(allTrees)
-
-    // === Collect execution data for debug unit tests ===
-    def execFiles = files(
+    executionData.from(files([
             fileTree(dir: new File(b, 'jacoco'), include: ['testDebugUnitTest.exec']),
-            fileTree(dir: new File(b, 'outputs/unit_test_code_coverage/debugUnitTest'), include: ['**/*.ec'])
-    )
-    executionData.from(execFiles)
-
-    // Debug log
-    doFirst {
-        println "[jacoco] buildDir = ${b.absolutePath}"
-
-        println "[jacoco] class dir trees:"
-        classDirTrees.each { println " - DIR tree: ${it.dir} (exists=${it.dir.exists()}) files=${it.files.size()}" }
-
-        println "[jacoco] allTrees size = ${allTrees.size()} (dirTrees=${classDirTrees.size()})"
-        def total = 0
-        allTrees.each { ft -> total += ft.files.size() }
-        println "[jacoco] class files included = ${total}"
-
-        println "[jacoco] executionData files:"
-        execFiles.each { println " - EXEC: ${it.absolutePath} (exists=${it.exists()})" }
-    }
+            fileTree(dir: new File(sharedB, 'jacoco'), include: ['*.exec'])
+    ]))
 }
-
 
 jacoco {
     toolVersion = "0.8.11"
 }
 
 dependencies {
+    implementation project(':shared')
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     //Need To Upgrade Gradle Plugin if we need to update the library
     implementation 'androidx.core:core-ktx:1.17.0'

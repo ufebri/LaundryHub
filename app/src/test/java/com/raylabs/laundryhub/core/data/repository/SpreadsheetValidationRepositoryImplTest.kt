@@ -12,7 +12,7 @@ import com.google.api.services.sheets.v4.model.SpreadsheetProperties
 import com.google.api.services.sheets.v4.model.ValueRange
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetValidationResult
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

@@ -3,7 +3,7 @@ package com.raylabs.laundryhub.core.data.repository
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
 import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 
 object GSheetRepositoryErrorHandling {
 

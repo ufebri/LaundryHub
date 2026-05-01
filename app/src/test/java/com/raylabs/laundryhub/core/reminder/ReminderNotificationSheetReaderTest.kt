@@ -5,7 +5,7 @@ import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals

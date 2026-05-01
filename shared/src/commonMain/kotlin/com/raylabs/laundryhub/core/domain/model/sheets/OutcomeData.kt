@@ -1,7 +1,14 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
-import com.raylabs.laundryhub.ui.common.util.DateUtil
+import com.raylabs.laundryhub.shared.util.PlatformDate
 
+import kotlinx.serialization.Serializable
+
+
+
+
+
+@Serializable
 data class OutcomeData(
     val id: String,
     val date: String,
@@ -26,7 +33,7 @@ fun OutcomeData.toSheetValues(): List<List<String>> {
     return listOf(
         listOf(
             this.id,
-            this.date.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) },
+            this.date.ifBlank { PlatformDate.getTodayDate() },
             this.purpose,
             this.price,
             this.remark,
@@ -37,9 +44,7 @@ fun OutcomeData.toSheetValues(): List<List<String>> {
 
 fun OutcomeData.toUpdateSheetValues(existingDate: String): List<List<String>> {
     val fallbackDate =
-        existingDate.takeIf { it.isNotBlank() } ?: DateUtil.getTodayDate(
-            DateUtil.STANDARD_DATE_FORMATED
-        )
+        existingDate.takeIf { it.isNotBlank() } ?: PlatformDate.getTodayDate()
     val updatedDate = this.date.ifBlank { fallbackDate }
 
     return listOf(

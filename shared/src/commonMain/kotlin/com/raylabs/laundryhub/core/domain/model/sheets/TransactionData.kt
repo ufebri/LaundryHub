@@ -1,9 +1,14 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
-import com.raylabs.laundryhub.ui.common.util.DateUtil
-import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
-import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
+import com.raylabs.laundryhub.shared.util.PlatformDate
 
+import kotlinx.serialization.Serializable
+
+
+
+
+
+@Serializable
 data class TransactionData(
     val orderID: String,
     val date: String,
@@ -46,25 +51,23 @@ enum class FILTER {
     SHOW_PAID_BY_CASH
 }
 
+
+@Serializable
 data class RangeDate(val startDate: String?, val endDate: String?)
 
 fun TransactionData.getAllIncomeData(): Boolean =
     this.name.isNotEmpty() && this.totalPrice.isNotEmpty()
 
 fun TransactionData.getTodayIncomeData(): Boolean =
-    DateUtil.isToday(date = this.date, formatedDate = "dd/MM/yyyy")
+    PlatformDate.isToday(date = this.date, formattedDate = "dd/MM/yyyy")
 
 fun TransactionData.filterRangeDateData(rangeDate: RangeDate?): Boolean {
     // Filter berdasarkan range tanggal jika ada
-    val transactionDate = parseDate(this.date)
-    val start = parseDate(rangeDate?.startDate ?: "1900-01-01")
-    val end = parseDate(rangeDate?.endDate ?: "2100-01-01")
+    val transactionDate = PlatformDate.parseDate(this.date, "yyyy-MM-dd") ?: return false
+    val start = PlatformDate.parseDate(rangeDate?.startDate ?: "1900-01-01", "yyyy-MM-dd") ?: 0L
+    val end = PlatformDate.parseDate(rangeDate?.endDate ?: "2100-01-01", "yyyy-MM-dd") ?: 0L
 
-    return transactionDate != null &&
-            start != null &&
-            end != null &&
-            transactionDate >= start &&
-            transactionDate <= end
+    return transactionDate >= start && transactionDate <= end
 }
 
 fun TransactionData.isUnpaidData(): Boolean =
@@ -78,7 +81,7 @@ fun TransactionData.isCashData(): Boolean = this.paymentMethod.equals(CASH, igno
 
 fun TransactionData.paidDescription(): String {
     return if (this.isPaidData())
-        "Paid by ${this.paymentMethod.capitalizeFirstLetter()}"
+        "Paid by ${this.paymentMethod.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}"
     else
         "Unpaid"
 }

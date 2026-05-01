@@ -5,9 +5,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryItem
 import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import kotlinx.coroutines.Dispatchers

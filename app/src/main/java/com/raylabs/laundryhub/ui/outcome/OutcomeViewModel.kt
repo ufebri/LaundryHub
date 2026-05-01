@@ -12,8 +12,8 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCa
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.DateUtil
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading

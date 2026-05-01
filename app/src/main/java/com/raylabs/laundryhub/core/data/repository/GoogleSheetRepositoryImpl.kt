@@ -30,9 +30,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
 import com.raylabs.laundryhub.core.domain.model.sheets.toUpdateSheetValues
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.DateUtil.parseDate
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.retry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext

@@ -9,7 +9,7 @@ import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetValidationRe
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveSpreadsheetConfigUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.spreadsheet.state.SpreadsheetSetupUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -1,5 +1,9 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import kotlinx.serialization.Serializable
+
+
+@Serializable
 data class PackageData(
     val price: String,
     val name: String,

@@ -14,8 +14,8 @@ import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnec
 import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.profile.state.toUI
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse

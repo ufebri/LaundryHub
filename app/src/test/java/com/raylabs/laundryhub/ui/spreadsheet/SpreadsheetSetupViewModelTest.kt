@@ -7,7 +7,7 @@ import com.raylabs.laundryhub.core.domain.model.settings.SpreadsheetValidationRe
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveSpreadsheetConfigUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnectionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow

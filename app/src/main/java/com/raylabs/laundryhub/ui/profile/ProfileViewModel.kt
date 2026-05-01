@@ -12,7 +12,7 @@ import com.raylabs.laundryhub.core.domain.usecase.settings.SaveSpreadsheetConnec
 import com.raylabs.laundryhub.core.domain.usecase.settings.SetShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading

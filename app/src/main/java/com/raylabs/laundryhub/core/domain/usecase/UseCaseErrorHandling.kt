@@ -1,6 +1,6 @@
 package com.raylabs.laundryhub.core.domain.usecase
 
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 
 object UseCaseErrorHandling {
 

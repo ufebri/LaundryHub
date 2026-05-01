@@ -1,5 +1,9 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import kotlinx.serialization.Serializable
+
+
+@Serializable
 data class GrossData(
     val month: String,
     val totalNominal: String,

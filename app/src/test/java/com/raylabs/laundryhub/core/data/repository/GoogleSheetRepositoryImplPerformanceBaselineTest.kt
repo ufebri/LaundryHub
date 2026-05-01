@@ -7,7 +7,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.PAID
 import com.raylabs.laundryhub.core.domain.model.sheets.UNPAID_ID
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest

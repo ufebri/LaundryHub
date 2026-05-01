@@ -10,7 +10,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.GROSS_ORDER_COUNT
 import com.raylabs.laundryhub.core.domain.model.sheets.GROSS_TAX
 import com.raylabs.laundryhub.core.domain.model.sheets.GROSS_TOTAL_NOMINAL
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetValidationRepository
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject

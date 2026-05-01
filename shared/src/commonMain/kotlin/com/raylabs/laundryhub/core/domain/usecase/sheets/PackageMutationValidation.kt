@@ -1,9 +1,9 @@
 package com.raylabs.laundryhub.core.domain.usecase.sheets
 
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 
-internal fun validatePackageForSave(packageData: PackageData): Resource.Error? {
+fun validatePackageForSave(packageData: PackageData): Resource.Error? {
     return when {
         packageData.name.isBlank() -> Resource.Error("Package name is required.")
         packageData.price.isBlank() -> Resource.Error("Package price is required.")
@@ -13,7 +13,7 @@ internal fun validatePackageForSave(packageData: PackageData): Resource.Error? {
     }
 }
 
-internal fun hasDuplicatePackageName(
+fun hasDuplicatePackageName(
     packageName: String,
     existingPackages: List<PackageData>,
     excludingRowIndex: Int? = null

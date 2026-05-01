@@ -11,8 +11,8 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUs
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.DateUtil
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.error

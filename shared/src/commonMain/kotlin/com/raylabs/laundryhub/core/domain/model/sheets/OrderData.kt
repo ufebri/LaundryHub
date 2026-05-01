@@ -1,7 +1,14 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
-import com.raylabs.laundryhub.ui.common.util.DateUtil
+import com.raylabs.laundryhub.shared.util.PlatformDate
 
+import kotlinx.serialization.Serializable
+
+
+
+
+
+@Serializable
 data class OrderData(
     val orderId: String,
     val name: String,
@@ -33,9 +40,9 @@ data class OrderData(
                 return normalized
             }
 
-            val sanitizedOrderDate = orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
+            val sanitizedOrderDate = orderDate.ifBlank { PlatformDate.getTodayDate() }
             val startDate = "${sanitizedOrderDate.replace('/', '-')} 08:00"
-            return DateUtil.getDueDate(normalized, startDate)
+            return PlatformDate.getDueDate(normalized, startDate)
         }
 }
 
@@ -43,7 +50,7 @@ fun OrderData.toSheetValues(): List<List<String>> {
     return listOf(
         listOf(
             this.orderId,
-            this.orderDate.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) },
+            this.orderDate.ifBlank { PlatformDate.getTodayDate() },
             this.name,
             this.weight,
             this.priceKg,
@@ -60,9 +67,7 @@ fun OrderData.toSheetValues(): List<List<String>> {
 
 fun OrderData.toUpdateSheetValues(existingDate: String): List<List<String>> {
     val fallbackDate =
-        existingDate.takeIf { it.isNotBlank() } ?: DateUtil.getTodayDate(
-            DateUtil.STANDARD_DATE_FORMATED
-        )
+        existingDate.takeIf { it.isNotBlank() } ?: PlatformDate.getTodayDate()
     val updatedDate = this.orderDate.ifBlank { fallbackDate }
 
     return listOf(
