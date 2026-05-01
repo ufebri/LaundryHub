@@ -19,8 +19,8 @@ fun Application.configureDatabase() {
     val user = System.getenv("DATABASE_USER") ?: "postgres"
     val password = System.getenv("DATABASE_PASSWORD") ?: "password"
 
-    // Supabase mewajibkan SSL
-    val jdbcUrl = "jdbc:postgresql://$host:$port/$database?ssl=true&sslmode=verify-full&sslrootcert=/etc/ssl/certs/ca-certificates.crt"
+    // Supabase mewajibkan SSL, gunakan ssl=true yang lebih kompatibel
+    val jdbcUrl = "jdbc:postgresql://$host:$port/$database?ssl=true"
 
     val driverClassName = "org.postgresql.Driver"
     println("DEBUG_DB: jdbcUrl=$jdbcUrl, user=$user")
