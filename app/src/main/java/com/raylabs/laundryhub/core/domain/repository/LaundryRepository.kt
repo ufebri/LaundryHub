@@ -10,14 +10,10 @@ import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.shared.util.Resource
 
-interface GoogleSheetRepository {
+interface LaundryRepository {
     suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>>
     suspend fun readGrossData(): Resource<List<GrossData>>
-    suspend fun readIncomeTransaction(
-        filter: FILTER,
-        rangeDate: RangeDate? = null
-    ): Resource<List<TransactionData>>
-
+    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null): Resource<List<TransactionData>>
     suspend fun readPackageData(): Resource<List<PackageData>>
     suspend fun addPackage(packageData: PackageData): Resource<Boolean>
     suspend fun updatePackage(packageData: PackageData): Resource<Boolean>
@@ -29,7 +25,6 @@ interface GoogleSheetRepository {
     suspend fun updateOrder(order: OrderData): Resource<Boolean>
     suspend fun deleteOrder(orderId: String): Resource<Boolean>
 
-    //Outcome
     suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>>
     suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean>
     suspend fun getLastOutcomeId(): Resource<String>

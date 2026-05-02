@@ -6,6 +6,11 @@ import androidx.datastore.preferences.SharedPreferencesMigration
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.preferencesDataStoreFile
+import com.google.firebase.auth.FirebaseAuth
+import com.raylabs.laundryhub.core.data.repository.CacheRepositoryImpl
+import com.raylabs.laundryhub.core.data.repository.SettingsRepositoryImpl
+import com.raylabs.laundryhub.core.domain.repository.CacheRepository
+import com.raylabs.laundryhub.core.domain.repository.SettingsRepository
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -29,4 +34,16 @@ object DataStoreModule {
             produceFile = { context.preferencesDataStoreFile("settings") }
         )
     }
+
+    @Provides
+    @Singleton
+    fun provideSettingsRepository(
+        dataStore: DataStore<Preferences>
+    ): SettingsRepository = SettingsRepositoryImpl(dataStore)
+
+    @Provides
+    @Singleton
+    fun provideCacheRepository(
+        @ApplicationContext context: Context
+    ): CacheRepository = CacheRepositoryImpl(context)
 }

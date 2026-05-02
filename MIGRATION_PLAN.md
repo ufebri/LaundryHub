@@ -218,6 +218,7 @@ Migrasi arsitektur LaundryHub dari Google Sheets Monolith ke **Kotlin Multiplatf
 ---
 
 ## 📜 Riwayat Perubahan (Changelog)
+- **[2026-05-01 23:15]:** Pembersihan log build. Menambahkan konfigurasi `kotlin.mpp.androidGradlePluginCompatibility.nowarn` untuk menyembunyikan warning AGP di module Shared.
 - **[2026-05-01 23:00]:** SPRINT 11 SELESAI. Decommissioning fitur spreadsheet setup, penyederhanaan OAuth scopes, dan pembersihan 1200+ baris kode redundant. Proyek resmi ditutup dalam kondisi stabil.
 
 - **[2026-05-01 22:00]:** PENYELESAIAN AKHIR. Full Cutover Android, penghapusan SDK lama, dan verifikasi 553 tests sukses. Proyek dinyatakan GO-LIVE.
