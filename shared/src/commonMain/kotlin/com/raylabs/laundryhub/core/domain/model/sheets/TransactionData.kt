@@ -8,15 +8,23 @@ import kotlinx.serialization.Serializable
 
 
 
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+
 @Serializable
 data class TransactionData(
+    @SerialName("orderId")
     val orderID: String,
+    @SerialName("orderDate")
     val date: String,
     val name: String,
     val weight: String,
+    @SerialName("priceKg")
     val pricePerKg: String,
     val totalPrice: String,
+    @SerialName("paidStatus")
     val paymentStatus: String,  // "(lunas/belum)"
+    @SerialName("packageName")
     val packageType: String,
     val remark: String,
     val paymentMethod: String,
