@@ -198,6 +198,19 @@ Proses migrasi *Big Bang* sukses dihindari. Melalui arsitektur bertahap 8 Sprint
 
 ---
 
+### 🧹 Sprint 11: Feature Decommissioning & Cleanup
+**Status:** ⏳ UPCOMING
+
+Tujuan: Menyederhanakan aplikasi Android dengan menghapus fitur dan izin yang sudah tidak relevan setelah migrasi ke Backend Ktor.
+
+#### **A. Deliverables & Perubahan Teknis**
+- **Remove Spreadsheet Setup:** Menghapus seluruh package `ui.spreadsheet` dan layar konfigurasinya.
+- **Scope Simplification:** Mengurangi izin Google OAuth di `GoogleSheetsAuthorizationManager` (menghapus akses Drive & Sheets).
+- **Access Logic Removal:** Membuang fungsi pengecekan `hasSheetsAccess` yang sekarang sudah di-handle oleh Backend.
+- **Onboarding Cleanup:** Menyesuaikan alur aplikasi agar langsung masuk ke Dashboard setelah login tanpa interupsi konfigurasi spreadsheet.
+
+---
+
 ## 🏁 Final Conclusion
 Migrasi arsitektur LaundryHub dari Google Sheets Monolith ke **Kotlin Multiplatform (KMP) Microservice** telah selesai sepenuhnya. 
 - **Backend:** Running di Railway dengan PostgreSQL.
