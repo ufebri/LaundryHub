@@ -1,25 +1,24 @@
-[![Coverage Status](https://coveralls.io/repos/github/ufebri/LaundryHub/badge.svg?branch=master)](https://coveralls.io/github/ufebri/LaundryHub?branch=master)[![Join Firebase Testing](https://img.shields.io/badge/Firebase-Join%20Testing-orange?logo=firebase)](https://appdistribution.firebase.dev/i/72723a77d8e322da)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
-[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=coverage)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
-[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
-[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
-[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=ufebri_LaundryHub&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=ufebri_LaundryHub)
-
-
 # LaundryHub
 <img src="./assets/ic_branding.png" height="500px" />
-Build With Kotlin & Jetpack Compose.
 
+LaundryHub adalah aplikasi manajemen laundry modern yang menggunakan arsitektur **Kotlin Multiplatform (KMP)**.
 
+## Arsitektur
+- **Frontend (Android):** Kotlin, Jetpack Compose, Paging 3.
+- **Backend:** Ktor Server (Netty), PostgreSQL (Supabase), Exposed ORM.
+- **Shared Module:** KMP untuk berbagi model data dan logika networking (Ktor Client).
 
-## How To Change The Splashscreen
-### Change The Icon
-Put your new Icon on the mipmap and rename with "ic_launcher". You can try icon.kitchen to make yourself icon.
-The file can be svg, xml, png or jpeg.
+## Fitur Utama
+- Manajemen Transaksi (Order & Outcome) dengan Backend terpusat.
+- Sinkronisasi otomatis ke Google Sheets sebagai backup/arsip.
+- Paging 3 untuk performa list yang cepat dan efisien.
+- Zero-Configuration (Login langsung masuk ke dashboard).
 
-### Change The Branding Icon
-Put your new Branding Icon on the drawable and rename with "ic_branding". The file can be svg, xml, png, or jpeg
+## Dokumentasi
+Lihat rencana migrasi lengkap di [docs/migration/MIGRATION_PLAN.md](./docs/migration/MIGRATION_PLAN.md).
 
-### Change The Color of themes
-Go to the /res/values/splash_theme directory, and change the color as you need on splash_theme.xml. There is more than 2 same file name,
-to need you change. Make sure you has been customize all of them.
+## Konfigurasi
+Aplikasi menggunakan `config.properties` untuk konfigurasi lingkungan. Pastikan `BASE_URL_DEBUG` dan `BASE_URL_RELEASE` terkonfigurasi dengan benar untuk target lingkungan yang sesuai.
+
+## Branding
+- Logo & Branding dapat disesuaikan melalui file di direktori `app/src/main/res/`.
