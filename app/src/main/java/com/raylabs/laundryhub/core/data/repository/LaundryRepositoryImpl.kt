@@ -13,10 +13,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
+import com.raylabs.laundryhub.BuildConfig
+
 class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
 
     private val client: HttpClient = HttpClientProvider.createClient()
-    private val baseUrl = "https://laundryhub.up.railway.app/api"
+    private val baseUrl = BuildConfig.BASE_URL
 
     override suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>> = safeApiCall {
         client.get("$baseUrl/summary").body()

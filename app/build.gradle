@@ -75,6 +75,7 @@ android {
             ]
             buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdRelease))
             buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdRelease))
+            buildConfigField("String", "BASE_URL", escapeBuildConfigValue(readConfigValue("BASE_URL_RELEASE")))
         }
         debug {
             minifyEnabled false
@@ -84,6 +85,7 @@ android {
             ]
             buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdDebug))
             buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdDebug))
+            buildConfigField("String", "BASE_URL", escapeBuildConfigValue(readConfigValue("BASE_URL_DEBUG")))
         }
         benchmark {
             initWith release
