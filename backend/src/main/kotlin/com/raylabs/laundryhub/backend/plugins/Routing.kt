@@ -119,30 +119,6 @@ fun Application.configureRouting() {
             call.respond(HttpStatusCode.OK, dummyOrder)
         }
 
-        get("/api/sync") {
-            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-            val range = call.request.queryParameters["range"] ?: "Sheet1!A1"
-            val accessToken = call.request.queryParameters["accessToken"]
-
-            if (spreadsheetId == null || accessToken == null) {
-                call.respond(
-                    HttpStatusCode.BadRequest,
-                    mapOf("status" to "Error", "message" to "Missing spreadsheetId or accessToken")
-                )
-                return@get
-            }
-
-            val success = syncService.syncDataToSheet(spreadsheetId, range, accessToken)
-            if (success) {
-                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "message" to "Data synced successfully"))
-            } else {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    mapOf("status" to "Error", "message" to "Failed to sync data")
-                )
-            }
-        }
-
         post("/api/migrate-orders") {
             val spreadsheetId = call.request.queryParameters["spreadsheetId"]
             val accessToken = call.request.queryParameters["accessToken"]

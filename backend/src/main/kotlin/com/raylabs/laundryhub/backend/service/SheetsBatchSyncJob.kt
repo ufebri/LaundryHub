@@ -13,7 +13,6 @@ class SheetsBatchSyncJob(
     private val spreadsheetId: String,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
-    // 15 Menit = 15 * 60 * 1000 ms
     private val SYNC_INTERVAL_MS = 15L * 60 * 1000
 
     fun start() {
@@ -25,39 +24,32 @@ class SheetsBatchSyncJob(
                 } catch (e: Exception) {
                     println("Background Sync Error: \${e.message}")
                 }
-                
-                // Tidur nyenyak tanpa memakan CPU
                 delay(SYNC_INTERVAL_MS)
             }
         }
     }
-private suspend fun processUnsyncedOrders() {
-    val unsyncedOrders = orderRepository.getUnsyncedOrders()
 
-    // Logika Pintar: Cek apakah ada data, jika tidak ada, langsung berhenti
-    if (unsyncedOrders.isEmpty()) {
-        println("No unsynced orders found. Sync job skipped.")
-        return 
-    }
+    private suspend fun processUnsyncedOrders() {
+        val unsyncedOrders = orderRepository.getUnsyncedOrders()
 
-    println("Found ${unsyncedOrders.size} unsynced orders. Preparing batch sync...")
+        if (unsyncedOrders.isEmpty()) {
+            println("No unsynced orders found. Sync job skipped.")
+            return 
+        }
 
-    // Logic untuk appendValues ke Google Sheets
-    // ... (sisanya sama)
+        println("Found \${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
 
-        // Menggunakan syncService yang sudah ada
-        // Karena ini batch, kita bisa format data-nya dan mengirim sekaligus.
-        // Dalam POC ini, kita iterasi sederhana atau mengubah syncDataToSheet agar menerima List.
-        
-        // Peringatan: Untuk produksi nyata, `appendValues` harus dioptimasi untuk bulk/batch update.
-        // Saat ini, agar sinkronisasi jalan, kita panggil syncDataToSheet untuk setiap order atau 
-        // kita panggil batchUpdate API.
-        
-        // Asumsi sukses, kita tandai di database
-        val orderIds = unsyncedOrders.map { it.orderId }
-        val marked = orderRepository.markAsSynced(orderIds)
-        if (marked) {
-            println("Successfully synced \${unsyncedOrders.size} orders to Google Sheets.")
+        var successCount = 0
+        for (order in unsyncedOrders) {
+            val synced = syncService.syncOrder(spreadsheetId, order)
+            if (synced) {
+                orderRepository.markAsSynced(listOf(order.orderId))
+                successCount++
+            }
+        }
+
+        if (successCount > 0) {
+            println("Successfully synced \$successCount orders to Google Sheets.")
         }
     }
 }

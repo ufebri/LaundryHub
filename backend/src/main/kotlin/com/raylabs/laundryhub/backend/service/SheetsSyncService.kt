@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.service
 
 import com.google.auth.oauth2.GoogleCredentials
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
@@ -13,11 +14,6 @@ class SheetsSyncService {
     private val httpClient = HttpClientProvider.createClient(enableLogging = true)
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
 
-    /**
-     * Gets a Google API Access token using a Service Account JSON.
-     * In a production environment, this uses google-auth-library-oauth2-http
-     * to exchange the GOOGLE_SERVICE_ACCOUNT_JSON environment variable for a short-lived token.
-     */
     private fun getServiceAccountToken(): String {
         val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
         if (jsonEnv.isNullOrBlank()) {
@@ -32,35 +28,82 @@ class SheetsSyncService {
     }
 
     /**
-     * Sync data to a Google Sheet automatically using a Service Account.
+     * Finds the row index (1-based for A1 notation) of an Order ID in the spreadsheet.
+     * Returns -1 if not found.
      */
-    suspend fun syncDataToSheet(spreadsheetId: String, range: String, accessToken: String? = null): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val token = accessToken ?: getServiceAccountToken()
+    private suspend fun findRowIndex(spreadsheetId: String, id: String, range: String, token: String): Int {
+        val response = sheetsApiClient.getValues(spreadsheetId, range, token)
+        val values = response.values ?: return -1
+        
+        val index = values.indexOfFirst { it.getOrNull(0) == id }
+        return if (index != -1) index + 1 else -1 // +1 for 0-indexed to 1-indexed, but getValues usually includes header or start from A2
+    }
 
-            // Simulated data to append/update
-            val mockValues = listOf(
-                listOf("Backend-Sync-Auto", "System User", "0", "2024-06-01")
-            )
+    /**
+     * Smart Sync: If the order exists, UPDATE it. If not, APPEND it.
+     */
+    suspend fun syncOrder(spreadsheetId: String, order: OrderData): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "income"
+            
+            // 1. Coba cari apakah ID sudah ada di sheet (Cek kolom A)
+            val rows = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A:A", token).values ?: emptyList()
+            val rowIndex = rows.indexOfFirst { it.getOrNull(0) == order.orderId }
 
             val valueRange = ValueRange(
-                range = range,
+                range = sheetName,
                 majorDimension = "ROWS",
-                values = mockValues
+                values = listOf(
+                    listOf(
+                        order.orderId, order.orderDate, order.name, order.weight, 
+                        order.priceKg, order.totalPrice, order.paidStatus, 
+                        order.packageName, order.remark, order.paymentMethod, 
+                        order.phoneNumber, order.dueDate
+                    )
+                )
             )
 
-            val response = sheetsApiClient.appendValues(
-                spreadsheetId = spreadsheetId,
-                range = range,
-                valueRange = valueRange,
-                accessToken = token
-            )
-
-            response.updates != null
+            if (rowIndex != -1) {
+                // DATA ADA -> Gunakan UPDATE_VALUES
+                println("Order \${order.orderId} found at row \${rowIndex + 1}. Updating...")
+                val updateRange = "$sheetName!A\${rowIndex + 1}:L\${rowIndex + 1}"
+                sheetsApiClient.updateValues(spreadsheetId, updateRange, valueRange, token)
+            } else {
+                // DATA TIDAK ADA -> Gunakan APPEND_VALUES
+                println("Order \${order.orderId} not found. Appending...")
+                sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
+            }
+            true
         } catch (e: Exception) {
-            println("Error syncing to Google Sheets: ${e.message}")
+            println("Error syncing order \${order.orderId}: \${e.message}")
+            false
+        }
+    }
+
+    /**
+     * Smart Delete: Finds the row and CLEARS it.
+     */
+    suspend fun deleteOrderFromSheet(spreadsheetId: String, orderId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "income"
+            
+            val rows = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A:A", token).values ?: emptyList()
+            val rowIndex = rows.indexOfFirst { it.getOrNull(0) == orderId }
+
+            if (rowIndex != -1) {
+                println("Order \$orderId found at row \${rowIndex + 1}. Clearing...")
+                val clearRange = "$sheetName!A\${rowIndex + 1}:L\${rowIndex + 1}"
+                sheetsApiClient.clearValues(spreadsheetId, clearRange, token)
+                true
+            } else {
+                println("Order \$orderId not found in sheet. Nothing to clear.")
+                true
+            }
+        } catch (e: Exception) {
+            println("Error clearing order \$orderId: \${e.message}")
             false
         }
     }
 }
-
