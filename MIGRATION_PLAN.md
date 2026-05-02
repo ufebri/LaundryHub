@@ -199,15 +199,13 @@ Proses migrasi *Big Bang* sukses dihindari. Melalui arsitektur bertahap 8 Sprint
 ---
 
 ### 🧹 Sprint 11: Feature Decommissioning & Cleanup
-**Status:** ⏳ UPCOMING
-
-Tujuan: Menyederhanakan aplikasi Android dengan menghapus fitur dan izin yang sudah tidak relevan setelah migrasi ke Backend Ktor.
+**Status:** ✅ COMPLETED
 
 #### **A. Deliverables & Perubahan Teknis**
-- **Remove Spreadsheet Setup:** Menghapus seluruh package `ui.spreadsheet` dan layar konfigurasinya.
-- **Scope Simplification:** Mengurangi izin Google OAuth di `GoogleSheetsAuthorizationManager` (menghapus akses Drive & Sheets).
-- **Access Logic Removal:** Membuang fungsi pengecekan `hasSheetsAccess` yang sekarang sudah di-handle oleh Backend.
-- **Onboarding Cleanup:** Menyesuaikan alur aplikasi agar langsung masuk ke Dashboard setelah login tanpa interupsi konfigurasi spreadsheet.
+- **Spreadsheet Setup Removed:** Seluruh layar konfigurasi ID Spreadsheet (`ui.spreadsheet`) telah dihapus secara permanen. Aplikasi tidak lagi meminta input teknis yang membingungkan bagi pengguna.
+- **Login Flow Simplified:** Alur onboarding diperpendek. Setelah login Google/Firebase, pengguna langsung diarahkan ke Dashboard utama.
+- **Scope Stripping:** Menghapus izin `SPREADSHEETS` dan `DRIVE` dari aplikasi Android. Hal ini meningkatkan privasi dan kepercayaan pengguna karena aplikasi tidak lagi memiliki akses ke file-file pribadi mereka di Google Drive.
+- **Code Hardening:** Menyederhanakan `GoogleSheetsAuthorizationManager` menjadi murni pengelola identitas tanpa beban izin API pihak ketiga.
 
 ---
 
@@ -215,11 +213,13 @@ Tujuan: Menyederhanakan aplikasi Android dengan menghapus fitur dan izin yang su
 Migrasi arsitektur LaundryHub dari Google Sheets Monolith ke **Kotlin Multiplatform (KMP) Microservice** telah selesai sepenuhnya. 
 - **Backend:** Running di Railway dengan PostgreSQL.
 - **Shared:** Menampung logic dan data models yang dipakai bersama.
-- **Android:** Aplikasi menjadi lebih ringan, cepat, dan modern.
+- **Android:** Aplikasi menjadi sangat ringan (tanpa Google SDK), cepat, dan modern.
 
 ---
 
 ## 📜 Riwayat Perubahan (Changelog)
+- **[2026-05-01 23:00]:** SPRINT 11 SELESAI. Decommissioning fitur spreadsheet setup, penyederhanaan OAuth scopes, dan pembersihan 1200+ baris kode redundant. Proyek resmi ditutup dalam kondisi stabil.
+
 - **[2026-05-01 22:00]:** PENYELESAIAN AKHIR. Full Cutover Android, penghapusan SDK lama, dan verifikasi 553 tests sukses. Proyek dinyatakan GO-LIVE.
 - **[2026-05-01 20:00]:** Penambahan Sprint 10. Menginisiasi perpindahan sisa entitas ke Ktor Backend.
 - **[2026-05-01 10:00]:** Penambahan Sprint 9 (Extended) untuk mengeksekusi integrasi penuh Android ke Backend dan Service Account Sync.
