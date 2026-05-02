@@ -53,15 +53,19 @@ class GrossRepository {
         insertedCount
     }
 
-    suspend fun getAll(): List<GrossData> = dbQuery {
-        GrossTable.selectAll().map {
-            GrossData(
-                month = it[GrossTable.month],
-                totalNominal = it[GrossTable.totalNominal],
-                orderCount = it[GrossTable.orderCount],
-                tax = it[GrossTable.tax]
-            )
-        }
+    suspend fun getAll(page: Int = 1, size: Int = 50): List<GrossData> = dbQuery {
+        val offset = ((page - 1) * size).toLong()
+        GrossTable.selectAll()
+            .orderBy(GrossTable.month to org.jetbrains.exposed.sql.SortOrder.DESC)
+            .limit(size, offset = offset)
+            .map {
+                GrossData(
+                    month = it[GrossTable.month],
+                    totalNominal = it[GrossTable.totalNominal],
+                    orderCount = it[GrossTable.orderCount],
+                    tax = it[GrossTable.tax]
+                )
+            }
     }
 
     suspend fun getUnsyncedGross(): List<GrossData> = dbQuery {

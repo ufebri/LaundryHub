@@ -24,24 +24,29 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.get("$baseUrl/summary").body()
     }
 
-    override suspend fun readGrossData(): Resource<List<GrossData>> = safeApiCall {
-        client.get("$baseUrl/gross").body()
+    override suspend fun readGrossData(page: Int?, size: Int?): Resource<List<GrossData>> = safeApiCall {
+        val url = if (page != null && size != null) "$baseUrl/gross?page=$page&size=$size" else "$baseUrl/gross"
+        client.get(url).body()
     }
 
-    override suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate?): Resource<List<TransactionData>> = safeApiCall {
-        val response: List<TransactionData> = client.get("$baseUrl/orders").body()
-        // Lokal filter agar kompatibel dengan UI lama
-        response.filter { transaction ->
-            when (filter) {
-                FILTER.SHOW_ALL_DATA -> true
-                FILTER.TODAY_TRANSACTION_ONLY -> transaction.getTodayIncomeData()
-                FILTER.RANGE_TRANSACTION_DATA -> transaction.filterRangeDateData(rangeDate)
-                FILTER.SHOW_PAID_DATA -> transaction.isPaidData()
-                FILTER.SHOW_UNPAID_DATA -> transaction.isUnpaidData()
-                FILTER.SHOW_PAID_BY_QR -> transaction.isQRISData()
-                FILTER.SHOW_PAID_BY_CASH -> transaction.isCashData()
-            }
+    override suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate?, page: Int?, size: Int?): Resource<List<TransactionData>> = safeApiCall {
+        val filterParam = when (filter) {
+            FILTER.TODAY_TRANSACTION_ONLY -> "TODAY"
+            FILTER.SHOW_UNPAID_DATA -> "UNPAID"
+            FILTER.SHOW_PAID_DATA -> "PAID"
+            FILTER.SHOW_PAID_BY_QR -> "QRIS"
+            FILTER.SHOW_PAID_BY_CASH -> "CASH"
+            else -> null
         }
+        
+        val urlBuilder = StringBuilder("$baseUrl/orders?")
+        if (page != null) urlBuilder.append("page=$page&")
+        if (size != null) urlBuilder.append("size=$size&")
+        if (filterParam != null) urlBuilder.append("filter=$filterParam&")
+        if (rangeDate?.startDate != null) urlBuilder.append("startDate=\${rangeDate.startDate}&")
+        if (rangeDate?.endDate != null) urlBuilder.append("endDate=\${rangeDate.endDate}&")
+        
+        client.get(urlBuilder.toString()).body()
     }
 
     override suspend fun readPackageData(): Resource<List<PackageData>> = safeApiCall {
@@ -100,8 +105,9 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         true
     }
 
-    override suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>> = safeApiCall {
-        client.get("$baseUrl/outcomes").body()
+    override suspend fun readOutcomeTransaction(page: Int?, size: Int?): Resource<List<OutcomeData>> = safeApiCall {
+        val url = if (page != null && size != null) "$baseUrl/outcomes?page=$page&size=$size" else "$baseUrl/outcomes"
+        client.get(url).body()
     }
 
     override suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean> = safeApiCall {

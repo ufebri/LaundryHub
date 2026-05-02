@@ -1,11 +1,10 @@
 package com.raylabs.laundryhub.backend
 
-import com.raylabs.laundryhub.backend.plugins.configureRouting
-import com.raylabs.laundryhub.backend.plugins.configureSerialization
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import org.junit.Before
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -14,11 +13,8 @@ class ApplicationTest {
 
     @Test
     fun testRootEndpoint() = testApplication {
-        application {
-            configureSerialization()
-            // We intentionally skip configureDatabase() to prevent Postgres connection errors during isolated CI tests
-            configureRouting()
-        }
+        System.setProperty("isTest", "true")
+        // No need to manually call application { ... } because EngineMain loads module() automatically
         val response = client.get("/")
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.bodyAsText().contains("LaundryHub KMP Backend is running"))
@@ -26,10 +22,7 @@ class ApplicationTest {
 
     @Test
     fun testSharedDTOEndpoint() = testApplication {
-        application {
-            configureSerialization()
-            configureRouting()
-        }
+        System.setProperty("isTest", "true")
         val response = client.get("/api/test-shared")
         assertEquals(HttpStatusCode.OK, response.status)
         

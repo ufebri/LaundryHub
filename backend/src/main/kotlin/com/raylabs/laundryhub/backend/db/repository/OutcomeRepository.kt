@@ -59,17 +59,21 @@ class OutcomeRepository {
         insertedCount
     }
 
-    suspend fun getAll(): List<OutcomeData> = dbQuery {
-        OutcomesTable.selectAll().map {
-            OutcomeData(
-                id = it[OutcomesTable.id],
-                date = it[OutcomesTable.date],
-                purpose = it[OutcomesTable.purpose],
-                price = it[OutcomesTable.price],
-                remark = it[OutcomesTable.remark],
-                payment = it[OutcomesTable.payment]
-            )
-        }
+    suspend fun getAll(page: Int = 1, size: Int = 50): List<OutcomeData> = dbQuery {
+        val offset = ((page - 1) * size).toLong()
+        OutcomesTable.selectAll()
+            .orderBy(OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC)
+            .limit(size, offset = offset)
+            .map {
+                OutcomeData(
+                    id = it[OutcomesTable.id],
+                    date = it[OutcomesTable.date],
+                    purpose = it[OutcomesTable.purpose],
+                    price = it[OutcomesTable.price],
+                    remark = it[OutcomesTable.remark],
+                    payment = it[OutcomesTable.payment]
+                )
+            }
     }
 
     suspend fun getUnsyncedOutcomes(): List<OutcomeData> = dbQuery {

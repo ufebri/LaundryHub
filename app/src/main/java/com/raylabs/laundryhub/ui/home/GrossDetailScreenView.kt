@@ -1,24 +1,10 @@
 package com.raylabs.laundryhub.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Card
-import androidx.compose.material.Icon
-import androidx.compose.material.IconButton
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Scaffold
-import androidx.compose.material.Text
-import androidx.compose.material.TopAppBar
+import androidx.compose.material.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
@@ -32,14 +18,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowInsetsControllerCompat
+import androidx.paging.compose.LazyPagingItems
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.common.util.SectionState
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.ui.home.state.toUi
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
-import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
-import com.raylabs.laundryhub.ui.home.state.GrossItem
+import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
 import com.raylabs.laundryhub.ui.theme.appCardSurface
 import com.raylabs.laundryhub.ui.theme.appMutedInfoContainer
@@ -47,7 +34,7 @@ import com.raylabs.laundryhub.ui.theme.appMutedInfoContent
 
 @Composable
 fun GrossDetailScreenView(
-    grossState: SectionState<List<GrossItem>>,
+    pagingItems: LazyPagingItems<GrossData>,
     onBack: () -> Unit
 ) {
     val surfaceColor = MaterialTheme.colors.surface
@@ -96,7 +83,7 @@ fun GrossDetailScreenView(
         }
     ) { padding ->
         GrossDetailContent(
-            grossState = grossState,
+            pagingItems = pagingItems,
             bannerState = bannerState,
             modifier = Modifier
                 .fillMaxSize()
@@ -107,52 +94,66 @@ fun GrossDetailScreenView(
 
 @Composable
 fun GrossDetailContent(
-    grossState: SectionState<List<GrossItem>>,
+    pagingItems: LazyPagingItems<GrossData>,
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier = Modifier
 ) {
-    SectionOrLoading(
-        isLoading = grossState.isLoading,
-        error = grossState.errorMessage,
-        hasContent = !grossState.data.isNullOrEmpty(),
-        content = {
-            val items = grossState.data.orEmpty()
-            if (items.isEmpty()) {
-                Text(
-                    text = stringResource(R.string.gross_income_empty),
-                    style = MaterialTheme.typography.body2,
-                    modifier = modifier.padding(16.dp)
-                )
-            } else {
-                LazyColumn(
-                    modifier = modifier,
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                        horizontal = 16.dp,
-                        vertical = 12.dp
-                    ),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    item(key = "gross_detail_inline_banner") {
-                        InlineAdaptiveBannerAd(
-                            state = bannerState,
-                            modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp)
-                        )
-                    }
+    val isRefreshing = pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
+    
+    Box(modifier = modifier.fillMaxSize()) {
+        if (pagingItems.itemCount == 0 && !isRefreshing) {
+            Text(
+                text = stringResource(R.string.gross_income_empty),
+                style = MaterialTheme.typography.body2,
+                modifier = Modifier.padding(16.dp).align(Alignment.Center)
+            )
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(
+                    horizontal = 16.dp,
+                    vertical = 12.dp
+                ),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item(key = "gross_detail_inline_banner") {
+                    InlineAdaptiveBannerAd(
+                        state = bannerState,
+                        modifier = Modifier.padding(horizontal = 0.dp, vertical = 0.dp)
+                    )
+                }
 
-                    items(
-                        items = items,
-                        key = { it.month }
-                    ) { item ->
-                        GrossItemCard(item = item)
+                items(
+                    count = pagingItems.itemCount,
+                    key = { index -> pagingItems[index]?.month ?: "placeholder_\$index" }
+                ) { index ->
+                    val data = pagingItems[index]
+                    if (data != null) {
+                        val item = data.toUi()
+                        GrossItemCard(
+                            month = item.month,
+                            totalNominal = item.totalNominal,
+                            orderCount = item.orderCount,
+                            tax = item.tax
+                        )
                     }
                 }
             }
         }
-    )
+        
+        if (isRefreshing) {
+            CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+        }
+    }
 }
 
 @Composable
-private fun GrossItemCard(item: GrossItem) {
+private fun GrossItemCard(
+    month: String,
+    totalNominal: String,
+    orderCount: String,
+    tax: String
+) {
     Card(
         shape = RoundedCornerShape(16.dp),
         backgroundColor = MaterialTheme.colors.appCardSurface,
@@ -166,12 +167,12 @@ private fun GrossItemCard(item: GrossItem) {
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = item.month.capitalizeFirstLetter(),
+                text = month.capitalizeFirstLetter(),
                 style = MaterialTheme.typography.subtitle2,
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.7f)
             )
             Text(
-                text = item.totalNominal,
+                text = totalNominal,
                 style = MaterialTheme.typography.h6,
                 color = MaterialTheme.colors.onSurface
             )
@@ -182,12 +183,12 @@ private fun GrossItemCard(item: GrossItem) {
             ) {
                 GrossChip(
                     label = stringResource(R.string.gross_orders),
-                    value = item.orderCount
+                    value = orderCount
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 GrossChip(
                     label = stringResource(R.string.gross_tax),
-                    value = item.tax
+                    value = tax
                 )
             }
         }
@@ -219,47 +220,6 @@ private fun GrossChip(label: String, value: String) {
 
 @Preview(showBackground = true)
 @Composable
-fun PreviewGrossDetailContent() {
-    val bannerState = rememberInlineAdaptiveBannerAdState("preview_gross_detail_inline")
-    GrossDetailContent(
-        bannerState = bannerState,
-        grossState = SectionState(
-            data = listOf(
-                GrossItem("november", "Rp3.563.000", "149", "Rp17.815"),
-                GrossItem("desember", "Rp3.944.000", "158", "Rp19.720")
-            )
-        )
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
 fun PreviewGrossDetailScreen() {
-    LaundryHubTheme {
-        GrossDetailScreenView(
-            grossState = SectionState(
-                data = listOf(
-                    GrossItem("maret", "Rp1.038.150", "35", "Rp5.191"),
-                    GrossItem("april", "Rp2.374.200", "77", "Rp11.871")
-                )
-            ),
-            onBack = {}
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-fun PreviewGrossDetailScreenDark() {
-    LaundryHubTheme(darkTheme = true) {
-        GrossDetailScreenView(
-            grossState = SectionState(
-                data = listOf(
-                    GrossItem("maret", "Rp1.038.150", "35", "Rp5.191"),
-                    GrossItem("april", "Rp2.374.200", "77", "Rp11.871")
-                )
-            ),
-            onBack = {}
-        )
-    }
+    Text("Gross Detail Preview")
 }

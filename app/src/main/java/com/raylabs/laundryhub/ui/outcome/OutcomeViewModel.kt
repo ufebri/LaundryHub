@@ -24,6 +24,15 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.insertSeparators
+import androidx.paging.map
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
+import com.raylabs.laundryhub.ui.outcome.state.toEntryItemUI
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
 @HiltViewModel
 class OutcomeViewModel @Inject constructor(
     private val readOutcomeUseCase: ReadOutcomeTransactionUseCase,
@@ -33,6 +42,20 @@ class OutcomeViewModel @Inject constructor(
     private val getOutcomeUseCase: GetOutcomeUseCase,
     private val deleteOutcomeUseCase: DeleteOutcomeUseCase
 ) : ViewModel() {
+
+    val outcomePagingData: Flow<PagingData<DateListItemUI>> = 
+        readOutcomeUseCase.getPagingData()
+            .map { pagingData ->
+                pagingData.map { DateListItemUI.Entry(it.toEntryItemUI()) }
+                    .insertSeparators { before: DateListItemUI.Entry?, after: DateListItemUI.Entry? ->
+                        if (after != null && (before == null || before.item.date != after.item.date)) {
+                            DateListItemUI.Header(after.item.date)
+                        } else {
+                            null
+                        }
+                    }
+            }
+            .cachedIn(viewModelScope)
 
     private val _uiState = mutableStateOf(OutcomeUiState())
     val uiState: OutcomeUiState get() = _uiState.value

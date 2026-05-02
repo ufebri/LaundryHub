@@ -15,6 +15,8 @@ import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 
 fun Application.configureDatabase() {
+    if (System.getProperty("isTest") == "true") return
+    
     // Menggunakan Supavisor Pooler (IPv4 compatible) untuk Railway
     val host = System.getenv("DATABASE_HOST") ?: "aws-1-ap-south-1.pooler.supabase.com"
     val port = System.getenv("DATABASE_PORT") ?: "5432"

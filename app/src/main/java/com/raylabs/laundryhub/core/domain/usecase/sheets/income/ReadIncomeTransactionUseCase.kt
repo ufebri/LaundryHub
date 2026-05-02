@@ -9,6 +9,12 @@ import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.retry
 import javax.inject.Inject
 
+import androidx.paging.Pager
+import androidx.paging.PagingConfig
+import androidx.paging.PagingData
+import com.raylabs.laundryhub.core.data.paging.OrderPagingSource
+import kotlinx.coroutines.flow.Flow
+
 class ReadIncomeTransactionUseCase @Inject constructor(private val repository: LaundryRepository) {
     suspend operator fun invoke(
         onRetry: ((Int) -> Unit)? = null,
@@ -19,5 +25,15 @@ class ReadIncomeTransactionUseCase @Inject constructor(private val repository: L
             repository.readIncomeTransaction(filter, rangeDate)
         }
         return result ?: UseCaseErrorHandling.handleFailRetry
+    }
+
+    fun getPagingData(
+        filter: FILTER = FILTER.SHOW_ALL_DATA,
+        rangeDate: RangeDate? = null
+    ): Flow<PagingData<TransactionData>> {
+        return Pager(
+            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            pagingSourceFactory = { OrderPagingSource(repository, filter, rangeDate) }
+        ).flow
     }
 }

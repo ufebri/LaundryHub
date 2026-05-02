@@ -3,12 +3,8 @@ package com.raylabs.laundryhub.backend.db.repository
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.plugins.dbQuery
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import org.jetbrains.exposed.sql.*
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
-import org.jetbrains.exposed.sql.deleteWhere
-import org.jetbrains.exposed.sql.insertIgnore
-import org.jetbrains.exposed.sql.select
-import org.jetbrains.exposed.sql.selectAll
-import org.jetbrains.exposed.sql.update
 
 class OrderRepository {
 
@@ -26,7 +22,7 @@ class OrderRepository {
             it[weight] = order.weight
             it[orderDate] = order.orderDate
             it[dueDate] = order.dueDate
-            it[isSynced] = false // Tandai sebagai belum tersinkronisasi saat dibuat baru
+            it[isSynced] = false
         }
         statement.insertedCount > 0
     }
@@ -44,7 +40,7 @@ class OrderRepository {
             it[weight] = order.weight
             it[orderDate] = order.orderDate
             it[dueDate] = order.dueDate
-            it[isSynced] = false // Jika diupdate, harus di-sync ulang
+            it[isSynced] = false
         }
         updatedCount > 0
     }
@@ -103,22 +99,43 @@ class OrderRepository {
         insertedCount
     }
 
-    suspend fun getAll(): List<OrderData> = dbQuery {
-        OrdersTable.selectAll().map {
-            OrderData(
-                orderId = it[OrdersTable.id],
-                name = it[OrdersTable.name],
-                phoneNumber = it[OrdersTable.phoneNumber],
-                packageName = it[OrdersTable.packageName],
-                priceKg = it[OrdersTable.priceKg],
-                totalPrice = it[OrdersTable.totalPrice],
-                paidStatus = it[OrdersTable.paidStatus],
-                paymentMethod = it[OrdersTable.paymentMethod],
-                remark = it[OrdersTable.remark],
-                weight = it[OrdersTable.weight],
-                orderDate = it[OrdersTable.orderDate],
-                dueDate = it[OrdersTable.dueDate]
-            )
+    suspend fun getAll(
+        page: Int = 1, 
+        size: Int = 50, 
+        filter: String? = null,
+        startDate: String? = null,
+        endDate: String? = null
+    ): List<OrderData> = dbQuery {
+        val offset = ((page - 1) * size).toLong()
+        val query = OrdersTable.selectAll()
+        
+        filter?.let {
+            when (it) {
+                "UNPAID" -> query.andWhere { OrdersTable.paidStatus eq "belum" }
+                "PAID" -> query.andWhere { OrdersTable.paidStatus eq "lunas" }
+                "QRIS" -> query.andWhere { OrdersTable.paymentMethod eq "qris" }
+                "CASH" -> query.andWhere { OrdersTable.paymentMethod eq "cash" }
+                else -> { /* No filter */ }
+            }
         }
+        
+        query.orderBy(OrdersTable.id to SortOrder.DESC)
+            .limit(size, offset = offset)
+            .map {
+                OrderData(
+                    orderId = it[OrdersTable.id],
+                    name = it[OrdersTable.name],
+                    phoneNumber = it[OrdersTable.phoneNumber],
+                    packageName = it[OrdersTable.packageName],
+                    priceKg = it[OrdersTable.priceKg],
+                    totalPrice = it[OrdersTable.totalPrice],
+                    paidStatus = it[OrdersTable.paidStatus],
+                    paymentMethod = it[OrdersTable.paymentMethod],
+                    remark = it[OrdersTable.remark],
+                    weight = it[OrdersTable.weight],
+                    orderDate = it[OrdersTable.orderDate],
+                    dueDate = it[OrdersTable.dueDate]
+                )
+            }
     }
 }

@@ -44,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
 import com.raylabs.laundryhub.core.di.GoogleAuthEntryPoint
@@ -331,9 +332,9 @@ fun LaundryHubStarter(
                     )
                 }
                 composable(GROSS_ROUTE) {
-                    val state by homeViewModel.uiState.collectAsState()
+                    val pagingItems = homeViewModel.grossPagingData.collectAsLazyPagingItems()
                     GrossDetailScreenView(
-                        grossState = state.gross,
+                        pagingItems = pagingItems,
                         onBack = { navController.popBackStack() }
                     )
                 }

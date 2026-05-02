@@ -20,7 +20,9 @@ fun Route.outcomeRoutes(
 ) {
     route("/api/outcomes") {
         get {
-            call.respond(HttpStatusCode.OK, repository.getAll())
+            val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+            val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
+            call.respond(HttpStatusCode.OK, repository.getAll(page, size))
         }
         post {
             try {

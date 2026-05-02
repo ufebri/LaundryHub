@@ -36,10 +36,12 @@ fun Application.configureRouting() {
     val summaryRepository = SummaryRepository()
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
 
-    // Start background sync job
-    val spreadsheetId = System.getenv("SPREADSHEET_ID") ?: "14E1xk_RiQD5Vj1xpte4kPJhzpOFmUDLDEgZ_EmnkMS4"
-    val syncJob = SheetsBatchSyncJob(orderRepository, syncService, spreadsheetId)
-    syncJob.start()
+    // Start background sync job (Skip in tests to prevent DB connection errors)
+    if (System.getProperty("isTest") != "true") {
+        val spreadsheetId = System.getenv("SPREADSHEET_ID") ?: "14E1xk_RiQD5Vj1xpte4kPJhzpOFmUDLDEgZ_EmnkMS4"
+        val syncJob = SheetsBatchSyncJob(orderRepository, syncService, spreadsheetId)
+        syncJob.start()
+    }
 
     routing {
         packageRoutes(packageRepository, sheetsApiClient)
@@ -54,7 +56,12 @@ fun Application.configureRouting() {
         // --- CRUD Endpoints for Orders ---
         
         get("/api/orders") {
-            val orders = orderRepository.getAll()
+            val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+            val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
+            val filter = call.request.queryParameters["filter"]
+            val startDate = call.request.queryParameters["startDate"]
+            val endDate = call.request.queryParameters["endDate"]
+            val orders = orderRepository.getAll(page, size, filter, startDate, endDate)
             call.respond(HttpStatusCode.OK, orders)
         }
 

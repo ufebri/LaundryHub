@@ -12,8 +12,8 @@ import com.raylabs.laundryhub.shared.util.Resource
 
 interface LaundryRepository {
     suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>>
-    suspend fun readGrossData(): Resource<List<GrossData>>
-    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null): Resource<List<TransactionData>>
+    suspend fun readGrossData(page: Int? = null, size: Int? = null): Resource<List<GrossData>>
+    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null, page: Int? = null, size: Int? = null): Resource<List<TransactionData>>
     suspend fun readPackageData(): Resource<List<PackageData>>
     suspend fun addPackage(packageData: PackageData): Resource<Boolean>
     suspend fun updatePackage(packageData: PackageData): Resource<Boolean>
@@ -25,7 +25,7 @@ interface LaundryRepository {
     suspend fun updateOrder(order: OrderData): Resource<Boolean>
     suspend fun deleteOrder(orderId: String): Resource<Boolean>
 
-    suspend fun readOutcomeTransaction(): Resource<List<OutcomeData>>
+    suspend fun readOutcomeTransaction(page: Int? = null, size: Int? = null): Resource<List<OutcomeData>>
     suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean>
     suspend fun getLastOutcomeId(): Resource<String>
     suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean>

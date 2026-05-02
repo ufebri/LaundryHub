@@ -2,39 +2,31 @@ package com.raylabs.laundryhub.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
-import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
-import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
-import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
+import com.raylabs.laundryhub.core.domain.model.sheets.*
+import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.shared.util.Resource
-import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
-import com.raylabs.laundryhub.ui.home.state.GrossItem
-import com.raylabs.laundryhub.ui.home.state.HomeUiState
-import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
-import com.raylabs.laundryhub.ui.home.state.SortOption
-import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
-import com.raylabs.laundryhub.ui.home.state.toUI
-import com.raylabs.laundryhub.ui.home.state.toUi
+import com.raylabs.laundryhub.ui.home.state.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.Date
 import javax.inject.Inject
 
 @HiltViewModel
@@ -51,11 +43,20 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
-    private var originalUnpaidOrders: List<UnpaidOrderItem> = emptyList()
-    private var orderUpdateCounter: Long = 0
-    private var summaryDataCache: List<SpreadsheetData>? = null
-    private var grossItemsCache: List<GrossItem> = emptyList()
-    private var allTransactionsCache: List<TransactionData> = emptyList()
+    val grossPagingData: Flow<PagingData<GrossData>> = 
+        grossUseCase.getPagingData()
+            .cachedIn(viewModelScope)
+
+    val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> = 
+        _uiState.map { it.searchQuery to it.currentSortOption }
+            .distinctUntilChanged()
+            .flatMapLatest { (query, sort) ->
+                readIncomeUseCase.getPagingData(filter = FILTER.SHOW_UNPAID_DATA)
+                    .map { pagingData -> 
+                        pagingData.map { it.toUnpaidOrderItem() }
+                    }
+            }.cachedIn(viewModelScope)
+
     private var reminderEnabled: Boolean = false
     private var reminderLocalStates: Map<String, ReminderLocalState> = emptyMap()
 
@@ -64,8 +65,6 @@ class HomeViewModel @Inject constructor(
         observeReminderInputs()
         fetchTodayIncomeFromInit()
         fetchSummaryFromInit()
-        fetchOrderFromInit()
-        fetchGrossFromInit()
         fetchReminderDiscoveryFromInit()
     }
 
@@ -101,18 +100,11 @@ class HomeViewModel @Inject constructor(
 
             is Resource.Empty -> {
                 _uiState.update {
-                    // Consider success with empty list or specific message for empty state
-                    it.copy(todayIncome = it.todayIncome.success(emptyList())) // Or error if preferred
+                    it.copy(todayIncome = it.todayIncome.success(emptyList()))
                 }
             }
 
-            is Resource.Loading -> {
-                _uiState.update {
-                    it.copy(todayIncome = it.todayIncome.loading())
-                }
-            }
-
-            // else -> Unit // Removed to ensure all branches are handled if Resource is sealed with more types
+            else -> Unit
         }
     }
 
@@ -122,312 +114,110 @@ class HomeViewModel @Inject constructor(
 
     suspend fun fetchSummary() {
         _uiState.update {
-            it.copy(summary = SectionState(isLoading = true))
+            it.copy(summary = it.summary.loading())
         }
+
+        val grossResult = grossUseCase()
+        val grossItem = if (grossResult is Resource.Success) grossResult.data.firstOrNull()?.toUi() else null
+
         when (val result = summaryUseCase()) {
             is Resource.Success -> {
-                summaryDataCache = result.data
-                updateSummaryCards()
+                _uiState.update {
+                    it.copy(summary = it.summary.success(result.data.toUI(grossItem)))
+                }
             }
 
             is Resource.Error -> {
-                summaryDataCache = null
                 _uiState.update {
                     it.copy(summary = it.summary.error(result.message))
                 }
-            }
-
-            is Resource.Empty -> {
-                summaryDataCache = emptyList()
-                updateSummaryCards()
-            }
-
-            is Resource.Loading -> {
-                _uiState.update {
-                    it.copy(summary = it.summary.loading())
-                }
-            }
-        }
-    }
-
-    private fun fetchGrossFromInit() {
-        viewModelScope.launch { fetchGross() }
-    }
-
-    private fun observeReminderInputs() {
-        viewModelScope.launch {
-            observeReminderSettingsUseCase().collect { settings ->
-                reminderEnabled = settings.isReminderEnabled
-                updateReminderDiscovery()
-            }
-        }
-        viewModelScope.launch {
-            observeReminderLocalStatesUseCase().collect { states ->
-                reminderLocalStates = states
-                updateReminderDiscovery()
-            }
-        }
-    }
-
-    private fun fetchReminderDiscoveryFromInit() {
-        viewModelScope.launch { fetchReminderDiscoveryData() }
-    }
-
-    private suspend fun fetchReminderDiscoveryData() {
-        when (val result = readIncomeUseCase(filter = FILTER.SHOW_ALL_DATA)) {
-            is Resource.Success -> {
-                allTransactionsCache = result.data
-                updateReminderDiscovery()
-            }
-
-            is Resource.Empty -> {
-                allTransactionsCache = emptyList()
-                updateReminderDiscovery()
             }
 
             else -> Unit
         }
     }
 
-    suspend fun fetchGross() {
-        _uiState.update {
-            it.copy(gross = it.gross.loading())
-        }
-        when (val result = grossUseCase()) {
-            is Resource.Success -> {
-                grossItemsCache = result.data.toUi()
-                _uiState.update {
-                    it.copy(gross = it.gross.success(grossItemsCache))
-                }
-                updateSummaryCards()
-            }
-
-            is Resource.Error -> {
-                grossItemsCache = emptyList()
-                _uiState.update {
-                    it.copy(gross = it.gross.error(result.message))
-                }
-                updateSummaryCards()
-            }
-
-            is Resource.Empty -> {
-                grossItemsCache = emptyList()
-                _uiState.update {
-                    it.copy(gross = it.gross.success(emptyList()))
-                }
-                updateSummaryCards()
-            }
-
-            is Resource.Loading -> {
-                _uiState.update {
-                    it.copy(gross = it.gross.loading())
-                }
-            }
-        }
-    }
-
-    private fun updateSummaryCards() {
-        val summaryData = summaryDataCache ?: return
-        val summaryItems = summaryData.toUI(grossItemsCache.lastOrNull())
-        _uiState.update {
-            it.copy(summary = it.summary.success(summaryItems))
-        }
-    }
-
-    private fun fetchOrderFromInit() {
-        viewModelScope.launch { fetchOrder() }
-    }
-
-    suspend fun fetchOrder() {
-        _uiState.update {
-            it.copy(unpaidOrder = it.unpaidOrder.loading())
-        }
-        when (val result = readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) {
-            is Resource.Success -> {
-                originalUnpaidOrders = result.data.toUi() // Store original list
-                updateDisplayedUnpaidOrders()
-            }
-
-            is Resource.Error -> {
-                originalUnpaidOrders = emptyList()
-                _uiState.update {
-                    it.copy(unpaidOrder = it.unpaidOrder.error(result.message))
-                }
-            }
-
-            is Resource.Empty -> {
-                originalUnpaidOrders = emptyList()
-                _uiState.update {
-                    it.copy(unpaidOrder = it.unpaidOrder.success(emptyList()))
-                }
-            }
-
-            is Resource.Loading -> {
-                _uiState.update {
-                    it.copy(unpaidOrder = it.unpaidOrder.loading())
-                }
-            }
-        }
-    }
-
-
-    private fun parseDateForSorting(dateString: String?): Date? {
-        return DateUtil.parseSupportedAppDate(dateString)
-    }
-
-    private fun applySort(
-        orders: List<UnpaidOrderItem>, sortOption: SortOption
-    ): List<UnpaidOrderItem> {
-        // No need to check for nullOrEmpty here as it's handled by callers or originalUnpaidOrders
-        return when (sortOption) {
-            SortOption.ORDER_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) {
-                parseDateForSorting(
-                    it.orderDate
+    private fun fetchReminderDiscoveryFromInit() {
+        viewModelScope.launch {
+            combine(
+                observeReminderSettingsUseCase(),
+                observeReminderLocalStatesUseCase(),
+                flow { emit(readIncomeUseCase(filter = FILTER.SHOW_UNPAID_DATA)) }
+            ) { settings, localStates, unpaidResource ->
+                val unpaidOrders = (unpaidResource as? Resource.Success<List<TransactionData>>)?.data.orEmpty()
+                val candidates = evaluateReminderCandidatesUseCase(unpaidOrders, localStates)
+                
+                ReminderDiscoveryUiState(
+                    eligibleCount = candidates.size,
+                    headline = "Punya \${candidates.size} Tagihan Pending",
+                    supportingText = "Kirim pengingat WhatsApp sekarang?",
+                    isReminderEnabled = settings.isReminderEnabled,
+                    ctaLabel = "Lihat Detail"
                 )
-            })
-
-            SortOption.ORDER_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) {
-                parseDateForSorting(
-                    it.orderDate
-                )
-            })
-
-            SortOption.DUE_DATE_ASC -> orders.sortedWith(compareBy(nullsFirst()) {
-                parseDateForSorting(
-                    it.dueDate
-                )
-            })
-
-            SortOption.DUE_DATE_DESC -> orders.sortedWith(compareByDescending(nullsLast()) {
-                parseDateForSorting(
-                    it.dueDate
-                )
-            })
+            }.collect { discoveryState ->
+                _uiState.update { it.copy(reminderDiscovery = discoveryState) }
+            }
         }
     }
 
-    private fun updateDisplayedUnpaidOrders() {
-        val currentState = _uiState.value
-        val filteredOrders = if (currentState.searchQuery.isBlank()) {
-            originalUnpaidOrders
-        } else {
-            originalUnpaidOrders.filter {
-                it.customerName.contains(currentState.searchQuery, ignoreCase = true)
-            }
+    private fun observeReminderInputs() {
+        viewModelScope.launch {
+            combine(
+                observeReminderSettingsUseCase(),
+                observeReminderLocalStatesUseCase()
+            ) { settings, localStates ->
+                reminderEnabled = settings.isReminderEnabled
+                reminderLocalStates = localStates
+            }.collect()
         }
-        val sortedAndFilteredOrders = applySort(filteredOrders, currentState.currentSortOption)
-        _uiState.update {
-            it.copy(
-                unpaidOrder = SectionState(
-                    data = sortedAndFilteredOrders, isLoading = false, errorMessage = null
-                ), orderUpdateKey = ++orderUpdateCounter
-            )
+    }
+
+    fun refreshAllData() {
+        _uiState.update { it.copy(isRefreshing = true) }
+        viewModelScope.launch {
+            coroutineScope {
+                listOf(
+                    async { fetchTodayIncome() },
+                    async { fetchSummary() }
+                ).awaitAll()
+            }
+            _uiState.update { it.copy(isRefreshing = false) }
         }
     }
 
     fun onSearchQueryChanged(query: String) {
-        _uiState.update { it.copy(searchQuery = query, unpaidOrder = it.unpaidOrder.loading()) }
-        updateDisplayedUnpaidOrders()
+        _uiState.update { it.copy(searchQuery = query) }
     }
 
     fun toggleSearch() {
-        val newIsSearchActive = !_uiState.value.isSearchActive
-        _uiState.update { it.copy(isSearchActive = newIsSearchActive) }
-        if (!newIsSearchActive) {
-            // If search is deactivated, clear query and update list
-            onSearchQueryChanged("")
-        }
-    }
-
-    fun changeSortOrder(newSortOption: SortOption) {
         _uiState.update {
             it.copy(
-                currentSortOption = newSortOption,
-                unpaidOrder = it.unpaidOrder.loading() // Set loading true before re-processing
-            )
-        }
-        updateDisplayedUnpaidOrders() // This will apply new sort and existing search query
-    }
-
-    fun refreshAllData() {
-        _uiState.update {
-            it.copy(
-                isRefreshing = true, searchQuery = "", isSearchActive = false
-            )
-        } // Reset search on refresh
-        viewModelScope.launch {
-            try {
-                refreshHomeSections()
-            } finally {
-                _uiState.update { it.copy(isRefreshing = false) }
-            }
-        }
-    }
-
-    suspend fun refreshAfterOrderChanged() {
-        refreshHomeSections()
-    }
-
-    suspend fun refreshAfterOutcomeChanged() {
-        coroutineScope {
-            listOf(
-                async { fetchSummary() },
-                async { fetchGross() }
-            ).awaitAll()
-        }
-    }
-
-    private suspend fun refreshHomeSections() {
-        fetchUser()
-        coroutineScope {
-            listOf(
-                async { fetchTodayIncome() },
-                async { fetchSummary() },
-                async { fetchGross() },
-                async { fetchOrder() }, // fetchOrder will call updateDisplayedUnpaidOrders
-                async { fetchReminderDiscoveryData() }
-            ).awaitAll()
-        }
-    }
-
-    private fun updateReminderDiscovery() {
-        val candidates = evaluateReminderCandidatesUseCase(
-            transactions = allTransactionsCache,
-            localStates = reminderLocalStates
-        )
-        if (candidates.isEmpty()) {
-            _uiState.update { it.copy(reminderDiscovery = null) }
-            return
-        }
-
-        val topCandidate = candidates.first()
-        val headline = if (candidates.size == 1) {
-            "1 order needs a cross-check"
-        } else {
-            "${candidates.size} orders need a cross-check"
-        }
-        val supportingText = when {
-            reminderEnabled && topCandidate.overdueDays <= 0 ->
-                "Open Reminder Inbox to review the orders that reached their due date."
-            reminderEnabled ->
-                "Open Reminder Inbox. The oldest one is already ${topCandidate.overdueDays} days past the due date."
-            topCandidate.overdueDays <= 0 ->
-                "Turn on reminders to review orders that may need a status update after the due date."
-            else ->
-                "Turn on reminders. The oldest one is already ${topCandidate.overdueDays} days past the due date."
-        }
-        val ctaLabel = if (reminderEnabled) "Open Reminder Inbox" else "Turn on reminder"
-
-        _uiState.update {
-            it.copy(
-                reminderDiscovery = ReminderDiscoveryUiState(
-                    eligibleCount = candidates.size,
-                    headline = headline,
-                    supportingText = supportingText,
-                    isReminderEnabled = reminderEnabled,
-                    ctaLabel = ctaLabel
-                )
+                isSearchActive = !it.isSearchActive,
+                searchQuery = if (it.isSearchActive) "" else it.searchQuery
             )
         }
     }
+
+    fun changeSortOrder(option: SortOption) {
+        _uiState.update { it.copy(currentSortOption = option) }
+    }
+    
+    fun refreshAfterOrderChanged() {
+        refreshAllData()
+    }
+
+    fun refreshAfterOutcomeChanged() {
+        refreshAllData()
+    }
+}
+
+private fun TransactionData.toUnpaidOrderItem(): UnpaidOrderItem {
+    return UnpaidOrderItem(
+        orderID = orderID,
+        customerName = name,
+        packageType = packageType,
+        nowStatus = paidDescription(),
+        dueDate = dueDate,
+        orderDate = date
+    )
 }
