@@ -8,7 +8,6 @@ import com.google.android.gms.auth.api.identity.AuthorizationRequest
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
-import com.google.api.services.sheets.v4.SheetsScopes
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
@@ -16,6 +15,11 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
     private val authorizationClient: AuthorizationClient,
     private val googleSheetsAccountProvider: GoogleSheetsAccountProvider
 ) : GoogleSheetsAuthorizationManager {
+
+    companion object {
+        private const val SPREADSHEETS_SCOPE = "https://www.googleapis.com/auth/spreadsheets"
+        private const val TAG = "GoogleSheetsAuth"
+    }
 
     override fun getSignedInEmail(): String? = googleSheetsAccountProvider.getSignedInEmail()
 
@@ -96,7 +100,7 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
         val request = AuthorizationRequest.builder()
             .setRequestedScopes(
                 listOf(
-                    Scope(SheetsScopes.SPREADSHEETS),
+                    Scope(SPREADSHEETS_SCOPE),
                     Scope(GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE)
                 )
             )
@@ -111,7 +115,7 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
     }
 
     private fun List<String>.hasRequiredSpreadsheetScopes(): Boolean =
-        contains(SheetsScopes.SPREADSHEETS) &&
+        contains(SPREADSHEETS_SCOPE) &&
             contains(GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE)
 
     private fun logAuthorizationFailure(prefix: String, throwable: Throwable) {
@@ -124,9 +128,5 @@ class GoogleSheetsAuthorizationManagerImpl @Inject constructor(
         } else {
             Log.e(TAG, "$prefix failed: ${throwable.message}", throwable)
         }
-    }
-
-    private companion object {
-        const val TAG = "SheetsAuth"
     }
 }

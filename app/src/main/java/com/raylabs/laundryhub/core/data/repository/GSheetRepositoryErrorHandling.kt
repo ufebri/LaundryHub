@@ -1,7 +1,5 @@
 package com.raylabs.laundryhub.core.data.repository
 
-import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
-import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.shared.util.Resource
 
@@ -17,16 +15,10 @@ object GSheetRepositoryErrorHandling {
         "LaundryHub still can't verify spreadsheet access because Google Drive API isn't enabled for this project yet."
 
     // REPOSITORY
-    fun handleGoogleJsonResponseException(e: GoogleJsonResponseException): Resource.Error {
-        val statusCode = e.statusCode
-        val statusMessage = e.statusMessage
-        val details = e.details?.message ?: "Unknown Error"
+    fun handleException(e: Exception): Resource.Error {
+        val details = e.message ?: "Unknown Error"
         return when {
-            isInvalidCredentialFailure(
-                statusCode = statusCode,
-                statusMessage = statusMessage,
-                details = details
-            ) ->
+            isInvalidCredentialFailure(details = details) ->
                 Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
 
             details.contains("Google Drive API has not been used", ignoreCase = true) ||
@@ -35,14 +27,11 @@ object GSheetRepositoryErrorHandling {
                 details.contains("enable", ignoreCase = true) ->
                 Resource.Error(DRIVE_API_NOT_ENABLED_MESSAGE)
 
-            else -> Resource.Error("Error $statusCode: $statusMessage\nDetails: $details")
+            else -> Resource.Error(details)
         }
     }
 
     fun handleReadSheetResponseException(e: Exception): Resource.Error {
-        if (e is UserRecoverableAuthIOException) {
-            return Resource.Error(GoogleSheetService.MISSING_ACCESS_MESSAGE)
-        }
         if (isDriveApiDisabledMessage(e.message)) {
             return Resource.Error(DRIVE_API_NOT_ENABLED_MESSAGE)
         }
@@ -67,71 +56,16 @@ object GSheetRepositoryErrorHandling {
         Resource.Error("Failed after 3 attempts.")
 
     fun handleFailedAddOrder(e: Exception): Resource.Error =
-        handleWriteException(e, fallbackMessage = "Failed to add order.")
+        handleReadSheetResponseException(e)
 
     fun handleFailedUpdate(e: Exception): Resource.Error =
-        handleWriteException(e, fallbackMessage = "Failed to update order.")
+        handleReadSheetResponseException(e)
 
     fun handleFailedDelete(e: Exception): Resource.Error =
-        handleWriteException(e, fallbackMessage = "Failed to delete data.")
+        handleReadSheetResponseException(e)
 
     fun handleIDNotFound(): Resource.Error =
         Resource.Error("ID not found.")
-
-    private fun handleWriteException(
-        exception: Exception,
-        fallbackMessage: String
-    ): Resource.Error {
-        if (exception is UserRecoverableAuthIOException) {
-            return Resource.Error(GoogleSheetService.MISSING_ACCESS_MESSAGE)
-        }
-
-        if (exception is GoogleJsonResponseException) {
-            val details = exception.details?.message.orEmpty()
-            if (
-                isInvalidCredentialFailure(
-                    statusCode = exception.statusCode,
-                    statusMessage = exception.statusMessage,
-                    details = details
-                )
-            ) {
-                return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
-            }
-            return if (
-                exception.statusCode == 403 &&
-                !details.contains("Google Drive API has not been used", ignoreCase = true) &&
-                !details.contains("accessNotConfigured", ignoreCase = true)
-            ) {
-                Resource.Error(EDIT_ACCESS_REQUIRED_MESSAGE)
-            } else {
-                handleGoogleJsonResponseException(exception)
-            }
-        }
-
-        if (isDriveApiDisabledMessage(exception.message)) {
-            return Resource.Error(DRIVE_API_NOT_ENABLED_MESSAGE)
-        }
-
-        if (
-            exception.message?.contains("access token is unavailable", ignoreCase = true) == true
-        ) {
-            return Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
-        }
-
-        if (
-            isInvalidCredentialFailure(details = exception.message) ||
-            exception.message?.contains("DEVELOPER_ERROR", ignoreCase = true) == true ||
-            exception.message?.contains("Unknown calling package name", ignoreCase = true) == true
-        ) {
-            return if (isInvalidCredentialFailure(details = exception.message)) {
-                Resource.Error(AUTHORIZATION_RECONNECT_REQUIRED_MESSAGE)
-            } else {
-                Resource.Error(AUTHORIZATION_CONFIGURATION_MESSAGE)
-            }
-        }
-
-        return Resource.Error(exception.message ?: fallbackMessage)
-    }
 
     private fun isDriveApiDisabledMessage(message: String?): Boolean {
         val raw = message.orEmpty()

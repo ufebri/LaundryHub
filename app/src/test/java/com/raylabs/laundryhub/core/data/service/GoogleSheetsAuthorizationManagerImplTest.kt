@@ -6,7 +6,6 @@ import android.content.IntentSender
 import com.google.android.gms.auth.api.identity.AuthorizationClient
 import com.google.android.gms.auth.api.identity.AuthorizationResult
 import com.google.android.gms.tasks.Tasks
-import com.google.api.services.sheets.v4.SheetsScopes
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -69,7 +68,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(result.accessToken).thenReturn("token")
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -88,7 +87,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(result.accessToken).thenReturn(null)
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -106,7 +105,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(result.accessToken).thenReturn("token")
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -150,7 +149,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
     fun `handleAuthorizationResult returns false when required scopes are missing drive metadata`() {
         val result: AuthorizationResult = mock()
         whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(listOf(SheetsScopes.SPREADSHEETS))
+        whenever(result.grantedScopes).thenReturn(listOf("https://www.googleapis.com/auth/spreadsheets"))
         whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
@@ -185,7 +184,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
     fun `handleAuthorizationResult returns false when required scopes are incomplete`() {
         val result: AuthorizationResult = mock()
         whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(listOf(SheetsScopes.SPREADSHEETS))
+        whenever(result.grantedScopes).thenReturn(listOf("https://www.googleapis.com/auth/spreadsheets"))
         whenever(authorizationClient.getAuthorizationResultFromIntent(any())).thenReturn(result)
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
@@ -210,7 +209,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         val result: AuthorizationResult = mock()
         whenever(result.hasResolution()).thenReturn(false)
         whenever(result.accessToken).thenReturn("token")
-        whenever(result.grantedScopes).thenReturn(listOf(SheetsScopes.SPREADSHEETS))
+        whenever(result.grantedScopes).thenReturn(listOf("https://www.googleapis.com/auth/spreadsheets"))
         whenever(authorizationClient.authorize(any())).thenReturn(Tasks.forResult(result))
 
         val manager = GoogleSheetsAuthorizationManagerImpl(authorizationClient, accountProvider)
@@ -226,7 +225,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(result.accessToken).thenReturn(null)
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -245,7 +244,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(firstResult.accessToken).thenReturn("token-1")
         whenever(firstResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -254,7 +253,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(secondResult.accessToken).thenReturn("token-2")
         whenever(secondResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -278,7 +277,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(firstResult.accessToken).thenReturn("token-1")
         whenever(firstResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -287,7 +286,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(secondResult.accessToken).thenReturn("token-2")
         whenever(secondResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -311,7 +310,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(result.accessToken).thenReturn(null)
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -333,7 +332,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(pendingIntent.intentSender).thenReturn(intentSender)
         whenever(result.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -352,7 +351,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(grantedResult.accessToken).thenReturn("token")
         whenever(grantedResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
@@ -364,7 +363,7 @@ class GoogleSheetsAuthorizationManagerImplTest {
         whenever(pendingIntent.intentSender).thenReturn(intentSender)
         whenever(resolutionResult.grantedScopes).thenReturn(
             listOf(
-                SheetsScopes.SPREADSHEETS,
+                "https://www.googleapis.com/auth/spreadsheets",
                 GoogleSheetService.DRIVE_METADATA_READONLY_SCOPE
             )
         )
