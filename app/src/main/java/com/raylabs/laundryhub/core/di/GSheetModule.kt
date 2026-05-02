@@ -2,178 +2,128 @@ package com.raylabs.laundryhub.core.di
 
 import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
 import com.raylabs.laundryhub.core.data.repository.SpreadsheetValidationRepositoryImpl
-import com.raylabs.laundryhub.core.data.service.GoogleSheetService
 import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
 import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
 import com.raylabs.laundryhub.core.domain.repository.SpreadsheetValidationRepository
 import com.raylabs.laundryhub.core.domain.usecase.settings.ValidateSpreadsheetUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.DeletePackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdatePackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.DeleteOutcomeUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.*
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.*
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.*
+import com.raylabs.laundryhub.shared.network.HttpClientProvider
+import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
-import dagger.hilt.android.components.ViewModelComponent
-import dagger.hilt.android.scopes.ViewModelScoped
+import dagger.hilt.components.SingletonComponent
+import javax.inject.Singleton
 
 @Module
-@InstallIn(ViewModelComponent::class)
+@InstallIn(SingletonComponent::class)
 object GSheetModule {
 
     @Provides
-    @ViewModelScoped
+    @Singleton
+    fun provideGoogleSheetsApiClient(): GoogleSheetsApiClient {
+        return GoogleSheetsApiClient(HttpClientProvider.createClient())
+    }
+
+    @Provides
+    @Singleton
     fun provideGoogleSheetRepository(
-        service: GoogleSheetService,
+        apiClient: GoogleSheetsApiClient,
+        authManager: GoogleSheetsAuthorizationManager,
         spreadsheetIdProvider: SpreadsheetIdProvider
     ): GoogleSheetRepository {
-        return GoogleSheetRepositoryImpl(service, spreadsheetIdProvider)
+        return GoogleSheetRepositoryImpl(apiClient, authManager, spreadsheetIdProvider)
     }
 
     @Provides
-    @ViewModelScoped
-    fun provideReadSpreadsheetDataUseCase(
-        repository: GoogleSheetRepository
-    ): ReadSpreadsheetDataUseCase {
-        return ReadSpreadsheetDataUseCase(repository)
-    }
+    @Singleton
+    fun provideReadSpreadsheetDataUseCase(repository: GoogleSheetRepository) = ReadSpreadsheetDataUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideReadGrossDataUseCase(
-        repository: GoogleSheetRepository
-    ): ReadGrossDataUseCase {
-        return ReadGrossDataUseCase(repository)
-    }
+    @Singleton
+    fun provideReadGrossDataUseCase(repository: GoogleSheetRepository) = ReadGrossDataUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideReadIncomeDataUseCase(
-        repository: GoogleSheetRepository
-    ): ReadIncomeTransactionUseCase = ReadIncomeTransactionUseCase(repository)
+    @Singleton
+    fun provideReadIncomeDataUseCase(repository: GoogleSheetRepository) = ReadIncomeTransactionUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideReadPackageUseCase(repository: GoogleSheetRepository): ReadPackageUseCase =
-        ReadPackageUseCase(repository)
+    @Singleton
+    fun provideReadPackageUseCase(repository: GoogleSheetRepository) = ReadPackageUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideGetOtherPackageUseCase(repository: GoogleSheetRepository): GetOtherPackageUseCase =
-        GetOtherPackageUseCase(repository)
+    @Singleton
+    fun provideGetOtherPackageUseCase(repository: GoogleSheetRepository) = GetOtherPackageUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideSubmitPackageUseCase(repository: GoogleSheetRepository): SubmitPackageUseCase =
-        SubmitPackageUseCase(repository)
+    @Singleton
+    fun provideSubmitPackageUseCase(repository: GoogleSheetRepository) = SubmitPackageUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideUpdatePackageUseCase(repository: GoogleSheetRepository): UpdatePackageUseCase =
-        UpdatePackageUseCase(repository)
+    @Singleton
+    fun provideUpdatePackageUseCase(repository: GoogleSheetRepository) = UpdatePackageUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideDeletePackageUseCase(repository: GoogleSheetRepository): DeletePackageUseCase =
-        DeletePackageUseCase(repository)
+    @Singleton
+    fun provideDeletePackageUseCase(repository: GoogleSheetRepository) = DeletePackageUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideGetLastOrderIdUseCase(repository: GoogleSheetRepository): GetLastOrderIdUseCase =
-        GetLastOrderIdUseCase(repository)
+    @Singleton
+    fun provideGetLastOrderIdUseCase(repository: GoogleSheetRepository) = GetLastOrderIdUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideSubmitOrderUseCase(repository: GoogleSheetRepository): SubmitOrderUseCase =
-        SubmitOrderUseCase(repository)
+    @Singleton
+    fun provideSubmitOrderUseCase(repository: GoogleSheetRepository) = SubmitOrderUseCase(repository)
 
     @Provides
-    @ViewModelScoped
-    fun provideGoogleSheetService(
-        googleSheetsAuthorizationManager: GoogleSheetsAuthorizationManager
-    ): GoogleSheetService {
-        return GoogleSheetService(googleSheetsAuthorizationManager)
-    }
+    @Singleton
+    fun provideUpdateOrderUseCase(repository: GoogleSheetRepository) = UpdateOrderUseCase(repository)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
+    fun provideGetOrderUseCase(repository: GoogleSheetRepository) = GetOrderUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideDeleteOrderUseCase(repository: GoogleSheetRepository) = DeleteOrderUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideGetLastOutcomeIdUseCase(repository: GoogleSheetRepository) = GetLastOutcomeIdUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideUpdateOutcomeUseCase(repository: GoogleSheetRepository) = UpdateOutcomeUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideSubmitOutcomeUseCase(repository: GoogleSheetRepository) = SubmitOutcomeUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideReadOutcomeDataUseCase(repository: GoogleSheetRepository) = ReadOutcomeTransactionUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideGetOutcomeUseCase(repository: GoogleSheetRepository) = GetOutcomeUseCase(repository)
+
+    @Provides
+    @Singleton
+    fun provideDeleteOutcomeUseCase(repository: GoogleSheetRepository) = DeleteOutcomeUseCase(repository)
+
+    @Provides
+    @Singleton
     fun provideSpreadsheetValidationRepository(
-        service: GoogleSheetService
-    ): SpreadsheetValidationRepository = SpreadsheetValidationRepositoryImpl(service)
+        apiClient: GoogleSheetsApiClient,
+        authManager: GoogleSheetsAuthorizationManager
+    ): SpreadsheetValidationRepository = SpreadsheetValidationRepositoryImpl(apiClient, authManager)
 
     @Provides
-    @ViewModelScoped
+    @Singleton
     fun provideValidateSpreadsheetUseCase(
         repository: SpreadsheetValidationRepository
     ): ValidateSpreadsheetUseCase = ValidateSpreadsheetUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideUpdateOrderUseCase(repository: GoogleSheetRepository): UpdateOrderUseCase {
-        return UpdateOrderUseCase(repository)
-    }
-
-    @Provides
-    @ViewModelScoped
-    fun provideGetOrderUseCase(repository: GoogleSheetRepository): GetOrderUseCase {
-        return GetOrderUseCase(repository)
-    }
-
-    @Provides
-    @ViewModelScoped
-    fun provideDeleteOrderUseCase(repository: GoogleSheetRepository): DeleteOrderUseCase {
-        return DeleteOrderUseCase(repository)
-    }
-
-
-    //Outcome
-    @Provides
-    @ViewModelScoped
-    fun provideGetLastOutcomeIdUseCase(repository: GoogleSheetRepository): GetLastOutcomeIdUseCase =
-        GetLastOutcomeIdUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideUpdateOutcomeUseCase(repository: GoogleSheetRepository): UpdateOutcomeUseCase {
-        return UpdateOutcomeUseCase(repository)
-    }
-
-    @Provides
-    @ViewModelScoped
-    fun provideSubmitOutcomeUseCase(repository: GoogleSheetRepository): SubmitOutcomeUseCase =
-        SubmitOutcomeUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideReadOutcomeDataUseCase(
-        repository: GoogleSheetRepository
-    ): ReadOutcomeTransactionUseCase = ReadOutcomeTransactionUseCase(repository)
-
-    @Provides
-    @ViewModelScoped
-    fun provideGetOutcomeUseCase(repository: GoogleSheetRepository): GetOutcomeUseCase {
-        return GetOutcomeUseCase(repository)
-    }
-
-    @Provides
-    @ViewModelScoped
-    fun provideDeleteOutcomeUseCase(repository: GoogleSheetRepository): DeleteOutcomeUseCase {
-        return DeleteOutcomeUseCase(repository)
-    }
 }

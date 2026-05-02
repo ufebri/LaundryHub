@@ -1,27 +1,20 @@
 package com.raylabs.laundryhub.core.reminder
 
-import com.raylabs.laundryhub.core.data.repository.GoogleSheetRepositoryImpl
-import com.raylabs.laundryhub.core.data.service.GoogleSheetsAuthorizationManager
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.core.domain.repository.SpreadsheetIdProvider
+import com.raylabs.laundryhub.core.domain.repository.GoogleSheetRepository
 import com.raylabs.laundryhub.shared.util.Resource
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
 import org.junit.Test
-import org.mockito.Mockito.mockConstruction
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
 class ReminderNotificationSheetReaderTest {
 
     @Test
-    fun `readTransactions delegates to GoogleSheetRepositoryImpl with show all filter`() = runTest {
-        val authorizationManager: GoogleSheetsAuthorizationManager = mock()
-        val spreadsheetIdProvider: SpreadsheetIdProvider = mock()
+    fun `readTransactions delegates to GoogleSheetRepository with show all filter`() = runTest {
+        val repository: GoogleSheetRepository = mock()
         val expected = Resource.Success(
             listOf(
                 TransactionData(
@@ -41,25 +34,10 @@ class ReminderNotificationSheetReaderTest {
             )
         )
 
-        val mockedConstruction = mockConstruction(GoogleSheetRepositoryImpl::class.java) { mock, _ ->
-            runBlocking {
-                whenever(mock.readIncomeTransaction(FILTER.SHOW_ALL_DATA)).thenReturn(expected)
-            }
-        }
+        whenever(repository.readIncomeTransaction(FILTER.SHOW_ALL_DATA)).thenReturn(expected)
 
-        try {
-            val actual = ReminderNotificationSheetReader(
-                googleSheetsAuthorizationManager = authorizationManager,
-                spreadsheetIdProvider = spreadsheetIdProvider
-            ).readTransactions()
+        val actual = ReminderNotificationSheetReader(repository).readTransactions()
 
-            assertSame(expected, actual)
-            assertEquals(1, mockedConstruction.constructed().size)
-            runBlocking {
-                verify(mockedConstruction.constructed().single()).readIncomeTransaction(FILTER.SHOW_ALL_DATA)
-            }
-        } finally {
-            mockedConstruction.close()
-        }
+        assertSame(expected, actual)
     }
 }

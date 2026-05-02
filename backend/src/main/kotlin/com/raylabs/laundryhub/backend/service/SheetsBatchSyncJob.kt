@@ -31,16 +31,20 @@ class SheetsBatchSyncJob(
             }
         }
     }
+private suspend fun processUnsyncedOrders() {
+    val unsyncedOrders = orderRepository.getUnsyncedOrders()
 
-    private suspend fun processUnsyncedOrders() {
-        val unsyncedOrders = orderRepository.getUnsyncedOrders()
-        if (unsyncedOrders.isEmpty()) {
-            return // Tidak ada yang perlu di-sync
-        }
+    // Logika Pintar: Cek apakah ada data, jika tidak ada, langsung berhenti
+    if (unsyncedOrders.isEmpty()) {
+        println("No unsynced orders found. Sync job skipped.")
+        return 
+    }
 
-        println("Found \${unsyncedOrders.size} unsynced orders. Preparing batch sync...")
+    println("Found ${unsyncedOrders.size} unsynced orders. Preparing batch sync...")
 
-        // Logic untuk appendValues ke Google Sheets 
+    // Logic untuk appendValues ke Google Sheets
+    // ... (sisanya sama)
+
         // Menggunakan syncService yang sudah ada
         // Karena ini batch, kita bisa format data-nya dan mengirim sekaligus.
         // Dalam POC ini, kita iterasi sederhana atau mengubah syncDataToSheet agar menerima List.

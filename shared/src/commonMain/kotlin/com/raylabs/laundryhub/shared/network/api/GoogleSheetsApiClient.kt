@@ -18,7 +18,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
 class GoogleSheetsApiClient(
-    private val httpClient: HttpClient
+    val httpClient: HttpClient
 ) {
     private val baseUrl = "https://sheets.googleapis.com/v4/spreadsheets"
 
