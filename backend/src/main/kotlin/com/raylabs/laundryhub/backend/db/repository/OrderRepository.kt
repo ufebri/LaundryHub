@@ -45,6 +45,47 @@ class OrderRepository {
         updatedCount > 0
     }
 
+    suspend fun upsert(order: OrderData): Boolean = dbQuery {
+        // Cek apakah order sudah ada
+        val existing = OrdersTable.select { OrdersTable.id eq order.orderId }.singleOrNull()
+        if (existing != null) {
+            // Update
+            val updatedCount = OrdersTable.update({ OrdersTable.id eq order.orderId }) {
+                it[name] = order.name
+                it[phoneNumber] = order.phoneNumber
+                it[packageName] = order.packageName
+                it[priceKg] = order.priceKg
+                it[totalPrice] = order.totalPrice
+                it[paidStatus] = order.paidStatus
+                it[paymentMethod] = order.paymentMethod
+                it[remark] = order.remark
+                it[weight] = order.weight
+                it[orderDate] = order.orderDate
+                it[dueDate] = order.dueDate
+                it[isSynced] = true // Data ini ditarik dari Sheets, jadi sudah tersinkronisasi
+            }
+            updatedCount > 0
+        } else {
+            // Insert
+            val statement = OrdersTable.insertIgnore {
+                it[id] = order.orderId
+                it[name] = order.name
+                it[phoneNumber] = order.phoneNumber
+                it[packageName] = order.packageName
+                it[priceKg] = order.priceKg
+                it[totalPrice] = order.totalPrice
+                it[paidStatus] = order.paidStatus
+                it[paymentMethod] = order.paymentMethod
+                it[remark] = order.remark
+                it[weight] = order.weight
+                it[orderDate] = order.orderDate
+                it[dueDate] = order.dueDate
+                it[isSynced] = true // Data ini ditarik dari Sheets
+            }
+            statement.insertedCount > 0
+        }
+    }
+
     suspend fun getUnsyncedOrders(): List<OrderData> = dbQuery {
         OrdersTable.select { OrdersTable.isSynced eq false }.map {
             OrderData(

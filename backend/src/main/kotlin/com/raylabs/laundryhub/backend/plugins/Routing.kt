@@ -26,6 +26,7 @@ import com.raylabs.laundryhub.backend.routes.outcomeRoutes
 import com.raylabs.laundryhub.backend.routes.packageRoutes
 import com.raylabs.laundryhub.backend.routes.summaryRoutes
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
+import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
@@ -39,8 +40,14 @@ fun Application.configureRouting() {
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
         val spreadsheetId = System.getenv("SPREADSHEET_ID") ?: "14E1xk_RiQD5Vj1xpte4kPJhzpOFmUDLDEgZ_EmnkMS4"
+        
+        // Job 1: DB -> Sheets (Every 15 mins)
         val syncJob = SheetsBatchSyncJob(orderRepository, syncService, spreadsheetId)
         syncJob.start()
+        
+        // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
+        val reverseSyncJob = SheetsReverseSyncJob(orderRepository, syncService, spreadsheetId)
+        reverseSyncJob.start()
     }
 
     routing {

@@ -106,4 +106,39 @@ class SheetsSyncService {
             false
         }
     }
+
+    suspend fun fetchOrdersFromSheet(spreadsheetId: String): List<OrderData> = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "income"
+            // Get all data, assuming row 1 is header
+            val response = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A2:L", token)
+            val values = response.values ?: return@withContext emptyList()
+
+            values.mapNotNull { row ->
+                try {
+                    OrderData(
+                        orderId = row.getOrNull(0) ?: "",
+                        orderDate = row.getOrNull(1) ?: "",
+                        name = row.getOrNull(2) ?: "",
+                        weight = row.getOrNull(3) ?: "",
+                        priceKg = row.getOrNull(4) ?: "",
+                        totalPrice = row.getOrNull(5) ?: "",
+                        paidStatus = row.getOrNull(6) ?: "",
+                        packageName = row.getOrNull(7) ?: "",
+                        remark = row.getOrNull(8) ?: "",
+                        paymentMethod = row.getOrNull(9) ?: "",
+                        phoneNumber = row.getOrNull(10) ?: "",
+                        dueDate = row.getOrNull(11) ?: ""
+                    ).takeIf { it.orderId.isNotBlank() }
+                } catch (e: Exception) {
+                    println("Skipping invalid row: $row")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            println("Error fetching orders from sheets: \${e.message}")
+            emptyList()
+        }
+    }
 }
