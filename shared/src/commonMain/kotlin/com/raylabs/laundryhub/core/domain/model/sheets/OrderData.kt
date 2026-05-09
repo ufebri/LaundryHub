@@ -99,23 +99,22 @@ const val QRIS = "qris"
 const val CASH = "cash"
 
 fun getDisplayPaymentMethod(paymentMethod: String): String {
-    return when (paymentMethod) {
-        PAID_BY_CASH -> CASH
-        PAID_BY_QRIS -> QRIS
-        UNPAID -> UNPAID
+    return when (paymentMethod.trim().lowercase()) {
+        PAID_BY_CASH.lowercase(), CASH -> CASH
+        PAID_BY_QRIS.lowercase(), QRIS -> QRIS
+        UNPAID.lowercase(), UNPAID_ID -> UNPAID
         else -> ""
     }
 }
 
 fun getDisplayPaidStatus(paidStatus: String): String {
-    return when (paidStatus) {
-        PAID_BY_CASH, PAID_BY_QRIS -> PAID
-        UNPAID -> UNPAID_ID
+    return when (paidStatus.trim().lowercase()) {
+        PAID_BY_CASH.lowercase(), PAID_BY_QRIS.lowercase(), PAID -> PAID
+        UNPAID.lowercase(), UNPAID_ID -> UNPAID_ID
         else -> ""
     }
 }
 
 val paymentMethodList = listOf(UNPAID, PAID_BY_CASH, PAID_BY_QRIS)
 val paymentMethodOutcomeList = listOf(PAID_BY_CASH, PAID_BY_QRIS, PAID_BY_PERSONAL)
-
 

@@ -3,16 +3,15 @@ package com.raylabs.laundryhub.ui.history
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHost
-import androidx.compose.material.Text
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.rememberScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,17 +22,18 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.paging.compose.LazyPagingItems
-import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
+import com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState
 import com.raylabs.laundryhub.ui.component.DateHeader
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.EntryItemCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.TransactionDeleteConfirmationSheet
 import com.raylabs.laundryhub.ui.component.TransactionEntryActionSheet
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import kotlinx.coroutines.launch
@@ -47,17 +47,12 @@ fun HistoryScreenView(
     onOrderChanged: () -> Unit = {}
 ) {
     val state = viewModel.uiState
-    val pagingItems = viewModel.historyPagingData.collectAsLazyPagingItems()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("history_inline")
     val scaffoldState = rememberScaffoldState()
     val coroutineScope = rememberCoroutineScope()
     val context = LocalContext.current
     var selectedEntry by remember { mutableStateOf<EntryItem?>(null) }
     var pendingDeleteEntry by remember { mutableStateOf<EntryItem?>(null) }
-
-    LaunchedEffect(Unit) {
-        pagingItems.refresh()
-    }
 
     Scaffold(
         scaffoldState = scaffoldState,
@@ -70,11 +65,12 @@ fun HistoryScreenView(
                 .padding(padding)
         ) {
             HistoryContent(
-                pagingItems = pagingItems,
+                state = state,
                 bannerState = resolvedBannerState,
                 modifier = Modifier.fillMaxSize(),
-                onRefresh = { pagingItems.refresh() },
-                onEntryClick = { selectedEntry = it }
+                isRefreshing = state.history.isLoading,
+                onRefresh = { viewModel.refreshHistory() },
+                onEntryClick = { selectedEntry = it }, onEntryDelete = { pendingDeleteEntry = it }
             )
 
             TransactionEntryActionSheet(
@@ -105,7 +101,6 @@ fun HistoryScreenView(
                                 onComplete = {
                                     pendingDeleteEntry = null
                                     onOrderChanged()
-                                    pagingItems.refresh()
                                     scaffoldState.snackbarHostState.showSnackbar(
                                         context.getString(R.string.order_delete_success, entry.id)
                                     )
@@ -134,13 +129,13 @@ fun HistoryScreenView(
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun HistoryContent(
-    pagingItems: LazyPagingItems<DateListItemUI>,
+    state: HistoryUiState,
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier,
+    isRefreshing: Boolean = false,
     onRefresh: () -> Unit = {},
-    onEntryClick: (EntryItem) -> Unit = {}
+    onEntryClick: (EntryItem) -> Unit = {}, onEntryDelete: (EntryItem) -> Unit = {}
 ) {
-    val isRefreshing = pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = onRefresh
@@ -151,54 +146,43 @@ fun HistoryContent(
             .fillMaxSize()
             .pullRefresh(pullRefreshState)
     ) {
-        if (pagingItems.itemCount == 0 && !isRefreshing) {
-            androidx.compose.foundation.layout.Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = androidx.compose.ui.Alignment.Center
-            ) {
-                Text(
-                    text = stringResource(R.string.no_transactions_today),
-                    style = androidx.compose.material.MaterialTheme.typography.body1,
-                    color = androidx.compose.material.MaterialTheme.colors.onBackground.copy(alpha = 0.6f)
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                item(key = "history_inline_banner") {
-                    InlineAdaptiveBannerAd(state = bannerState)
-                }
-
-                items(
-                    count = pagingItems.itemCount,
-                    key = { index ->
-                        when (val item = pagingItems.peek(index)) {
-                            is DateListItemUI.Header -> "header_${item.date}_$index"
-                            is DateListItemUI.Entry -> "entry_${item.item.id}"
-                            null -> "placeholder_$index"
-                        }
+        SectionOrLoading(
+            isLoading = state.history.isLoading,
+            error = state.history.errorMessage,
+            hasContent = !state.history.data.isNullOrEmpty(),
+            content = {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    item(key = "history_inline_banner") {
+                        InlineAdaptiveBannerAd(state = bannerState)
                     }
-                ) { index ->
-                    when (val item = pagingItems[index]) {
-                        is DateListItemUI.Header -> {
-                            DateHeader(item.date)
-                        }
 
-                        is DateListItemUI.Entry -> {
-                            EntryItemCard(
-                                item = item.item,
-                                onClick = { onEntryClick(item.item) }
-                            )
+                    items(
+                        items = state.history.data.orEmpty(),
+                        key = { item ->
+                            when (item) {
+                                is DateListItemUI.Header -> "header_${item.date}"
+                                is DateListItemUI.Entry -> "entry_${item.item.id}"
+                            }
                         }
+                    ) { item ->
+                        when (item) {
+                            is DateListItemUI.Header -> {
+                                DateHeader(item.date)
+                            }
 
-                        null -> {
-                            // Placeholder
+                            is DateListItemUI.Entry -> {
+                                EntryItemCard(
+                                    item = item.item,
+                                    onClick = { onEntryClick(item.item) }
+                                )
+                            }
                         }
                     }
                 }
             }
-        }
+        )
 
         PullRefreshIndicator(
             refreshing = isRefreshing,
@@ -211,6 +195,14 @@ fun HistoryContent(
 @Preview
 @Composable
 fun PreviewHistoryScreen() {
-    // Simplified preview for build stability
-    Text("History Preview")
+    val bannerState = rememberInlineAdaptiveBannerAdState("preview_history_inline")
+    Scaffold(
+        topBar = { DefaultTopAppBar(title = "History") }
+    ) { padding ->
+        HistoryContent(
+            dummyHistoryUiState,
+            bannerState = bannerState,
+            modifier = Modifier.padding(padding)
+        )
+    }
 }

@@ -7,7 +7,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import java.time.LocalTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
@@ -23,7 +22,7 @@ class SheetsReverseSyncJob(
             while (isActive) {
                 try {
                     val delayMillis = calculateDelayUntil(23, 0)
-                    println("Reverse Sync will run in \${delayMillis / 1000 / 60} minutes.")
+                    println("Reverse Sync will run in ${delayMillis / 1000 / 60} minutes.")
                     delay(delayMillis)
 
                     // Execute reverse sync
@@ -32,7 +31,7 @@ class SheetsReverseSyncJob(
                     // Wait a bit before calculating the next day's 23:00 to avoid double triggering
                     delay(60_000)
                 } catch (e: Exception) {
-                    println("Reverse Sync Error: \${e.message}")
+                    println("Reverse Sync Error: ${e.message}")
                     delay(15L * 60 * 1000) // Retry after 15 mins on error
                 }
             }
@@ -56,7 +55,7 @@ class SheetsReverseSyncJob(
             }
         }
 
-        println("Reverse Sync Completed. Upserted \$successCount/\${sheetOrders.size} orders into PostgreSQL.")
+        println("Reverse Sync Completed. Upserted $successCount/${sheetOrders.size} orders into PostgreSQL.")
     }
 
     private fun calculateDelayUntil(targetHour: Int, targetMinute: Int): Long {

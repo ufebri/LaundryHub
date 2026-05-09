@@ -42,6 +42,21 @@ class OutcomeRepository {
         deletedCount > 0
     }
 
+    suspend fun getById(outcomeId: String): OutcomeData? = dbQuery {
+        OutcomesTable
+            .select { OutcomesTable.id eq outcomeId }
+            .singleOrNull()
+            ?.toOutcomeData()
+    }
+
+    suspend fun getLatestId(): String = dbQuery {
+        OutcomesTable
+            .selectAll()
+            .map { it[OutcomesTable.id] }
+            .maxByOrNull { it.toIntOrNull() ?: Int.MIN_VALUE }
+            ?: "0"
+    }
+
     suspend fun insertAll(outcomes: List<OutcomeData>): Int = dbQuery {
         var insertedCount = 0
         for (outcome in outcomes) {
@@ -52,7 +67,7 @@ class OutcomeRepository {
                 it[price] = outcome.price
                 it[remark] = outcome.remark
                 it[payment] = outcome.payment
-                it[isSynced] = false
+                it[isSynced] = true
             }
             if (statement.insertedCount > 0) insertedCount++
         }
@@ -60,20 +75,12 @@ class OutcomeRepository {
     }
 
     suspend fun getAll(page: Int = 1, size: Int = 50): List<OutcomeData> = dbQuery {
-        val offset = ((page - 1) * size).toLong()
+        val offset = ((page - 1) * size).coerceAtLeast(0)
         OutcomesTable.selectAll()
-            .orderBy(OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC)
-            .limit(size, offset = offset)
-            .map {
-                OutcomeData(
-                    id = it[OutcomesTable.id],
-                    date = it[OutcomesTable.date],
-                    purpose = it[OutcomesTable.purpose],
-                    price = it[OutcomesTable.price],
-                    remark = it[OutcomesTable.remark],
-                    payment = it[OutcomesTable.payment]
-                )
-            }
+            .map { it.toOutcomeData() }
+            .sortedByDescending { it.id.toIntOrNull() ?: Int.MIN_VALUE }
+            .drop(offset)
+            .take(size)
     }
 
     suspend fun getUnsyncedOutcomes(): List<OutcomeData> = dbQuery {
@@ -95,5 +102,16 @@ class OutcomeRepository {
             it[isSynced] = true
         }
         updatedCount > 0
+    }
+
+    private fun org.jetbrains.exposed.sql.ResultRow.toOutcomeData(): OutcomeData {
+        return OutcomeData(
+            id = this[OutcomesTable.id],
+            date = this[OutcomesTable.date],
+            purpose = this[OutcomesTable.purpose],
+            price = this[OutcomesTable.price],
+            remark = this[OutcomesTable.remark],
+            payment = this[OutcomesTable.payment]
+        )
     }
 }

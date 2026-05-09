@@ -46,7 +46,7 @@ class GrossRepository {
                 it[totalNominal] = gross.totalNominal
                 it[orderCount] = gross.orderCount
                 it[tax] = gross.tax
-                it[isSynced] = false
+                it[isSynced] = true
             }
             if (statement.insertedCount > 0) insertedCount++
         }

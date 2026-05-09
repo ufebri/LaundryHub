@@ -16,7 +16,8 @@ import io.ktor.server.routing.route
 
 fun Route.summaryRoutes(
     repository: SummaryRepository,
-    sheetsApiClient: GoogleSheetsApiClient
+    sheetsApiClient: GoogleSheetsApiClient,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/summary") {
         get {
@@ -49,27 +50,29 @@ fun Route.summaryRoutes(
             else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
         }
         
-        post("/migrate") {
-            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-            val accessToken = call.request.queryParameters["accessToken"]
-            if (spreadsheetId == null || accessToken == null) {
-                call.respond(HttpStatusCode.BadRequest, "Missing params")
-                return@post
-            }
-            try {
-                val response = sheetsApiClient.getValues(spreadsheetId, "summary", accessToken)
-                val rows = response.values ?: emptyList()
-                val summaries = rows.drop(1).mapNotNull { row -> 
-                    if (row.isEmpty()) return@mapNotNull null
-                    SpreadsheetData(
-                        key = row.getOrNull(0) ?: "",
-                        value = row.getOrNull(1) ?: ""
-                    )
+        if (migrationRoutesEnabled) {
+            post("/migrate") {
+                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val accessToken = call.request.queryParameters["accessToken"]
+                if (spreadsheetId == null || accessToken == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing params")
+                    return@post
                 }
-                val inserted = repository.insertAll(summaries)
-                call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                try {
+                    val response = sheetsApiClient.getValues(spreadsheetId, "summary", accessToken)
+                    val rows = response.values ?: emptyList()
+                    val summaries = rows.drop(1).mapNotNull { row ->
+                        if (row.isEmpty()) return@mapNotNull null
+                        SpreadsheetData(
+                            key = row.getOrNull(0) ?: "",
+                            value = row.getOrNull(1) ?: ""
+                        )
+                    }
+                    val inserted = repository.insertAll(summaries)
+                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                }
             }
         }
     }

@@ -22,7 +22,8 @@ data class HomeUiState(
     val currentSortOption: SortOption = SortOption.ORDER_DATE_DESC, // Default sort option
     val isRefreshing: Boolean = false, // Added for swipe-to-refresh
     val searchQuery: String = "", // Added for search functionality
-    val isSearchActive: Boolean = false // Added for search functionality
+    val isSearchActive: Boolean = false, // Added for search functionality
+    val refreshCounter: Int = 0 // Added to trigger Paging 3 refresh
 )
 
 data class ReminderDiscoveryUiState(

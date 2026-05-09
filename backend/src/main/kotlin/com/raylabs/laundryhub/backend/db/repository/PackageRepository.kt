@@ -46,7 +46,7 @@ class PackageRepository {
                 it[price] = pkg.price
                 it[duration] = pkg.duration
                 it[unit] = pkg.unit
-                it[isSynced] = false
+                it[isSynced] = true
             }
             if (statement.insertedCount > 0) insertedCount++
         }

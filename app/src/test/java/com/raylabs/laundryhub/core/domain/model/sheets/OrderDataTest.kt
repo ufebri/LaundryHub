@@ -24,6 +24,9 @@ class OrderDataTest {
 
         val unpaid = cash.copy(paymentMethod = UNPAID)
         assertEquals("Unpaid", unpaid.getSpreadSheetPaymentMethod)
+
+        val canonicalCash = cash.copy(paymentMethod = CASH)
+        assertEquals("cash", canonicalCash.getSpreadSheetPaymentMethod)
     }
 
     @Test
@@ -41,6 +44,9 @@ class OrderDataTest {
 
         val unpaid = cash.copy(paidStatus = UNPAID)
         assertEquals("belum", unpaid.getSpreadSheetPaidStatus)
+
+        val canonicalUnpaid = cash.copy(paidStatus = UNPAID_ID)
+        assertEquals("belum", canonicalUnpaid.getSpreadSheetPaidStatus)
     }
 
     @Test

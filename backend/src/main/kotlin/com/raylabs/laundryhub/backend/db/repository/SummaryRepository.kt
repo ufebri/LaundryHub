@@ -40,7 +40,7 @@ class SummaryRepository {
             val statement = SummaryTable.insertIgnore {
                 it[key] = summary.key
                 it[value] = summary.value
-                it[isSynced] = false
+                it[isSynced] = true
             }
             if (statement.insertedCount > 0) insertedCount++
         }

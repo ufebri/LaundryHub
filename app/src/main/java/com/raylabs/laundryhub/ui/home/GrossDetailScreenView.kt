@@ -1,10 +1,26 @@
 package com.raylabs.laundryhub.ui.home
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.*
+import androidx.compose.material.Card
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Scaffold
+import androidx.compose.material.Text
+import androidx.compose.material.TopAppBar
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.runtime.Composable
@@ -21,13 +37,11 @@ import androidx.core.view.WindowInsetsControllerCompat
 import androidx.paging.compose.LazyPagingItems
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
-import com.raylabs.laundryhub.ui.home.state.toUi
 import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
-import com.raylabs.laundryhub.ui.home.state.toUI
-import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
+import com.raylabs.laundryhub.ui.home.state.toUi
 import com.raylabs.laundryhub.ui.theme.appCardSurface
 import com.raylabs.laundryhub.ui.theme.appMutedInfoContainer
 import com.raylabs.laundryhub.ui.theme.appMutedInfoContent
@@ -99,7 +113,7 @@ fun GrossDetailContent(
     modifier: Modifier = Modifier
 ) {
     val isRefreshing = pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
-    
+
     Box(modifier = modifier.fillMaxSize()) {
         if (pagingItems.itemCount == 0 && !isRefreshing) {
             Text(
@@ -125,7 +139,7 @@ fun GrossDetailContent(
 
                 items(
                     count = pagingItems.itemCount,
-                    key = { index -> pagingItems[index]?.month ?: "placeholder_\$index" }
+                    key = { index -> pagingItems.peek(index)?.month ?: "placeholder_$index" }
                 ) { index ->
                     val data = pagingItems[index]
                     if (data != null) {
@@ -140,7 +154,7 @@ fun GrossDetailContent(
                 }
             }
         }
-        
+
         if (isRefreshing) {
             CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
         }

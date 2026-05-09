@@ -84,6 +84,10 @@
 -keep class com.google.api.** { *; }
 -dontwarn com.google.api.**
 
+# Ktor / SLF4J
+-dontwarn org.slf4j.**
+-dontwarn io.ktor.**
+
 # Drive capability response is parsed by Gson during spreadsheet validation.
 # Keep the DTO constructible after R8 so release builds do not surface
 # `Abstract classes can't be instantiated` errors on the spreadsheet setup flow.

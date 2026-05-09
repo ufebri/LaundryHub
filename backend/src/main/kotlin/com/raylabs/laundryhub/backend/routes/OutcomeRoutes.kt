@@ -16,9 +16,24 @@ import io.ktor.server.routing.route
 
 fun Route.outcomeRoutes(
     repository: OutcomeRepository,
-    sheetsApiClient: GoogleSheetsApiClient
+    sheetsApiClient: GoogleSheetsApiClient,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/outcomes") {
+        get("/last-id") {
+            call.respond(HttpStatusCode.OK, mapOf("lastId" to repository.getLatestId()))
+        }
+
+        get("/{id}") {
+            val id = call.parameters["id"] ?: return@get call.respond(HttpStatusCode.BadRequest)
+            val outcome = repository.getById(id)
+            if (outcome != null) {
+                call.respond(HttpStatusCode.OK, outcome)
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            }
+        }
+
         get {
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
             val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
@@ -51,31 +66,33 @@ fun Route.outcomeRoutes(
             else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
         }
         
-        post("/migrate") {
-            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-            val accessToken = call.request.queryParameters["accessToken"]
-            if (spreadsheetId == null || accessToken == null) {
-                call.respond(HttpStatusCode.BadRequest, "Missing params")
-                return@post
-            }
-            try {
-                val response = sheetsApiClient.getValues(spreadsheetId, "outcome", accessToken)
-                val rows = response.values ?: emptyList()
-                val outcomes = rows.drop(1).mapNotNull { row -> // Assuming row 0 is header
-                    if (row.isEmpty()) return@mapNotNull null
-                    OutcomeData(
-                        id = row.getOrNull(0) ?: "",
-                        date = row.getOrNull(1) ?: "",
-                        purpose = row.getOrNull(2) ?: "",
-                        price = row.getOrNull(3) ?: "",
-                        remark = row.getOrNull(4) ?: "",
-                        payment = row.getOrNull(5) ?: ""
-                    )
+        if (migrationRoutesEnabled) {
+            post("/migrate") {
+                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val accessToken = call.request.queryParameters["accessToken"]
+                if (spreadsheetId == null || accessToken == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing params")
+                    return@post
                 }
-                val inserted = repository.insertAll(outcomes)
-                call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                try {
+                    val response = sheetsApiClient.getValues(spreadsheetId, "outcome", accessToken)
+                    val rows = response.values ?: emptyList()
+                    val outcomes = rows.drop(1).mapNotNull { row -> // Assuming row 0 is header
+                        if (row.isEmpty()) return@mapNotNull null
+                        OutcomeData(
+                            id = row.getOrNull(0) ?: "",
+                            date = row.getOrNull(1) ?: "",
+                            purpose = row.getOrNull(2) ?: "",
+                            price = row.getOrNull(3) ?: "",
+                            remark = row.getOrNull(4) ?: "",
+                            payment = row.getOrNull(5) ?: ""
+                        )
+                    }
+                    val inserted = repository.insertAll(outcomes)
+                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                }
             }
         }
     }

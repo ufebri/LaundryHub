@@ -82,8 +82,13 @@ fun TransactionData.isQRISData(): Boolean = this.paymentMethod.equals(QRIS, igno
 fun TransactionData.isCashData(): Boolean = this.paymentMethod.equals(CASH, ignoreCase = true)
 
 fun TransactionData.paidDescription(): String {
-    return if (this.isPaidData())
-        "Paid by ${this.paymentMethod.replaceFirstChar { if (it.isLowerCase()) it.titlecase() else it.toString() }}"
-    else
-        "Unpaid"
+    return if (this.isPaidData()) {
+        when {
+            isQRISData() -> PAID_BY_QRIS
+            isCashData() -> PAID_BY_CASH
+            else -> "Paid"
+        }
+    } else {
+        UNPAID
+    }
 }

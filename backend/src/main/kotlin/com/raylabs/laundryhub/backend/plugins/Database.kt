@@ -1,14 +1,14 @@
 package com.raylabs.laundryhub.backend.plugins
 
-import com.zaxxer.hikari.HikariConfig
-import com.zaxxer.hikari.HikariDataSource
-import io.ktor.server.application.Application
-import kotlinx.coroutines.Dispatchers
 import com.raylabs.laundryhub.backend.db.schema.GrossTable
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
 import com.raylabs.laundryhub.backend.db.schema.PackagesTable
 import com.raylabs.laundryhub.backend.db.schema.SummaryTable
+import com.zaxxer.hikari.HikariConfig
+import com.zaxxer.hikari.HikariDataSource
+import io.ktor.server.application.Application
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
@@ -16,20 +16,23 @@ import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransacti
 
 fun Application.configureDatabase() {
     if (System.getProperty("isTest") == "true") return
-    
-    // Menggunakan Supavisor Pooler (IPv4 compatible) untuk Railway
-    val host = System.getenv("DATABASE_HOST") ?: "aws-1-ap-south-1.pooler.supabase.com"
-    val port = System.getenv("DATABASE_PORT") ?: "5432"
-    val database = System.getenv("DATABASE_NAME") ?: "postgres"
 
-    val user = System.getenv("DATABASE_USER") ?: "postgres.ludtihnzlskvzdqsvube"
-    val password = System.getenv("DATABASE_PASSWORD") ?: "password"
-
-    // Supavisor Pooler (Session Mode) mendukung SSL, gunakan sslmode=require untuk enkripsi
-    val jdbcUrl = "jdbc:postgresql://$host:$port/$database?ssl=true&sslmode=require"
-
-    val driverClassName = "org.postgresql.Driver"
-    println("DEBUG_DB: jdbcUrl=$jdbcUrl, user=$user")
+    val jdbcUrl = System.getenv("DATABASE_URL")
+        ?.takeIf { it.isNotBlank() }
+        ?: buildJdbcUrlFromEnv()
+        ?: environment.config.propertyOrNull("storage.jdbcUrl")?.getString()
+        ?: error("DATABASE_URL or storage.jdbcUrl must be configured")
+    val user = System.getenv("DATABASE_USER")
+        ?.takeIf { it.isNotBlank() }
+        ?: environment.config.propertyOrNull("storage.username")?.getString()
+        ?: error("DATABASE_USER or storage.username must be configured")
+    val password = System.getenv("DATABASE_PASSWORD")
+        ?.takeIf { it.isNotBlank() }
+        ?: environment.config.propertyOrNull("storage.password")?.getString()
+        ?: error("DATABASE_PASSWORD or storage.password must be configured")
+    val driverClassName = environment.config.propertyOrNull("storage.driverClassName")
+        ?.getString()
+        ?: "org.postgresql.Driver"
 
     val config = HikariConfig().apply {
         this.jdbcUrl = jdbcUrl
@@ -59,7 +62,18 @@ fun Application.configureDatabase() {
     }
 }
 
-
+private fun buildJdbcUrlFromEnv(): String? {
+    val host = System.getenv("DATABASE_HOST")?.takeIf { it.isNotBlank() } ?: return null
+    val port = System.getenv("DATABASE_PORT")?.takeIf { it.isNotBlank() } ?: "5432"
+    val database = System.getenv("DATABASE_NAME")?.takeIf { it.isNotBlank() } ?: "postgres"
+    val sslMode = System.getenv("DATABASE_SSL_MODE")?.takeIf { it.isNotBlank() } ?: "require"
+    val sslParams = if (sslMode.equals("disable", ignoreCase = true)) {
+        "ssl=false"
+    } else {
+        "ssl=true&sslmode=$sslMode"
+    }
+    return "jdbc:postgresql://$host:$port/$database?$sslParams"
+}
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
     newSuspendedTransaction(Dispatchers.IO) { block() }

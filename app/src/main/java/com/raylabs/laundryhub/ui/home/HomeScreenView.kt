@@ -1,12 +1,34 @@
 package com.raylabs.laundryhub.ui.home
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.material.*
+import androidx.compose.material.Card
+import androidx.compose.material.CircularProgressIndicator
+import androidx.compose.material.ContentAlpha
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.Icon
+import androidx.compose.material.IconButton
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.OutlinedTextField
+import androidx.compose.material.Text
+import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.Close
@@ -14,23 +36,37 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
-import com.raylabs.laundryhub.ui.component.*
-import com.raylabs.laundryhub.ui.home.state.*
+import com.raylabs.laundryhub.ui.component.GreetingWithImageBackground
+import com.raylabs.laundryhub.ui.component.InfoCard
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.component.OrderStatusCard
+import com.raylabs.laundryhub.ui.component.SectionOrLoading
+import com.raylabs.laundryhub.ui.component.SelectionSheetInlineOverlay
+import com.raylabs.laundryhub.ui.component.Transaction
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
+import com.raylabs.laundryhub.ui.home.state.SortOption
+import com.raylabs.laundryhub.ui.home.state.SummaryItem
+import com.raylabs.laundryhub.ui.home.state.TransactionItem
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 
 private const val PENDING_ORDER_SEARCH_FIELD_DESCRIPTION = "Pending order search field"
 
@@ -80,7 +116,6 @@ fun HomeScreenContent(
     onGrossCardClick: () -> Unit,
     onReminderDiscoveryClick: (Boolean) -> Unit
 ) {
-    val snackBarHostState = remember { SnackbarHostState() }
     var showSortSheet by remember { mutableStateOf(false) }
     val sortOptions = remember {
         listOf(
@@ -96,6 +131,11 @@ fun HomeScreenContent(
         SortOption.ORDER_DATE_ASC to stringResource(R.string.order_date_oldest),
         SortOption.ORDER_DATE_DESC to stringResource(R.string.order_date_newest)
     )
+    val searchIconDescription = stringResource(R.string.search_icon)
+    val clearSearchDescription = stringResource(R.string.clear_search)
+    val closeSearchDescription = stringResource(R.string.close_search_view)
+    val openSearchDescription = stringResource(R.string.open_search_view)
+    val sortOrdersDescription = stringResource(R.string.sort_orders)
 
     val isRefreshing = state.isRefreshing || pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
     val pullRefreshState = rememberPullRefreshState(
@@ -154,7 +194,7 @@ fun HomeScreenContent(
                     content = {
                         val list = state.todayIncome.data.orEmpty()
                         if (list.isEmpty()) {
-                            Text("No Transactions Today", modifier = Modifier.padding(horizontal = 16.dp))
+                            Text(stringResource(R.string.no_transactions_today), modifier = Modifier.padding(horizontal = 16.dp))
                         } else {
                             CardList(list, onItemClick = onTodayActivityClick)
                         }
@@ -179,13 +219,68 @@ fun HomeScreenContent(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = stringResource(R.string.pending_orders),
-                        style = MaterialTheme.typography.h6,
-                        modifier = Modifier.weight(1f)
-                    )
-                    IconButton(onClick = { showSortSheet = true }) {
-                        Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Sort")
+                    if (state.isSearchActive) {
+                        OutlinedTextField(
+                            value = state.searchQuery,
+                            onValueChange = onSearchQueryChanged,
+                            modifier = Modifier
+                                .weight(1f)
+                                .semantics {
+                                    contentDescription = PENDING_ORDER_SEARCH_FIELD_DESCRIPTION
+                                },
+                            placeholder = {
+                                Text(
+                                    text = stringResource(R.string.search_customer_placeholder),
+                                    style = MaterialTheme.typography.body2,
+                                    color = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.medium)
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Search,
+                                    contentDescription = searchIconDescription,
+                                    tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
+                                )
+                            },
+                            trailingIcon = {
+                                if (state.searchQuery.isNotEmpty()) {
+                                    IconButton(onClick = { onSearchQueryChanged("") }) {
+                                        Icon(
+                                            Icons.Filled.Close,
+                                            contentDescription = clearSearchDescription,
+                                            tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
+                                        )
+                                    }
+                                }
+                            },
+                            singleLine = true,
+                            colors = TextFieldDefaults.outlinedTextFieldColors(
+                                backgroundColor = MaterialTheme.colors.surface,
+                                cursorColor = MaterialTheme.colors.primary,
+                                focusedBorderColor = MaterialTheme.colors.primary,
+                                unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled)
+                            )
+                        )
+                        IconButton(onClick = onToggleSearch) {
+                            Icon(
+                                Icons.Filled.Close,
+                                contentDescription = closeSearchDescription,
+                                tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = stringResource(R.string.pending_orders),
+                            style = MaterialTheme.typography.h6,
+                            modifier = Modifier.weight(1f)
+                        )
+                        IconButton(onClick = onToggleSearch) {
+                            Icon(Icons.Filled.Search, contentDescription = openSearchDescription)
+                        }
+                        Spacer(modifier = Modifier.width(4.dp))
+                        IconButton(onClick = { showSortSheet = true }) {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = sortOrdersDescription)
+                        }
                     }
                 }
             }
@@ -193,7 +288,7 @@ fun HomeScreenContent(
             // Pending Orders List via Paging
             val itemCount = pagingItems.itemCount
             val rowCount = (itemCount + 1) / 2
-            
+
             items(rowCount) { rowIndex ->
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
@@ -201,7 +296,7 @@ fun HomeScreenContent(
                 ) {
                     val firstIndex = rowIndex * 2
                     val secondIndex = firstIndex + 1
-                    
+
                     pagingItems[firstIndex]?.let { item ->
                         OrderStatusCard(
                             item = item,
@@ -209,7 +304,7 @@ fun HomeScreenContent(
                             modifier = Modifier.weight(1f)
                         )
                     }
-                    
+
                     if (secondIndex < itemCount) {
                         pagingItems[secondIndex]?.let { item ->
                             OrderStatusCard(
@@ -223,7 +318,7 @@ fun HomeScreenContent(
                     }
                 }
             }
-            
+
             if (pagingItems.loadState.append is androidx.paging.LoadState.Loading) {
                 item {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {

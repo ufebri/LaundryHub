@@ -1,29 +1,48 @@
 package com.raylabs.laundryhub.ui.outcome
 
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.*
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.FloatingActionButton
+import androidx.compose.material.Icon
+import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Scaffold
+import androidx.compose.material.SnackbarHost
+import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.rememberScaffoldState
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.component.*
+import com.raylabs.laundryhub.ui.component.DateHeader
+import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
+import com.raylabs.laundryhub.ui.component.EntryItemCard
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
+import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.component.OutcomeBottomSheet
+import com.raylabs.laundryhub.ui.component.TransactionDeleteConfirmationSheet
+import com.raylabs.laundryhub.ui.component.TransactionEntryActionSheet
+import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
-import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterialApi::class)
@@ -62,7 +81,7 @@ fun OutcomeScreenView(
                 },
                 backgroundColor = MaterialTheme.colors.primary
             ) {
-                Icon(Icons.Filled.Add, contentDescription = "Add Outcome")
+                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_outcome))
             }
         }
     ) { padding ->
@@ -72,7 +91,6 @@ fun OutcomeScreenView(
                 .padding(padding)
         ) {
             OutcomeContent(
-                state = state,
                 pagingItems = pagingItems,
                 bannerState = resolvedBannerState,
                 modifier = Modifier.fillMaxSize(),
@@ -177,7 +195,6 @@ fun OutcomeScreenView(
 @OptIn(ExperimentalMaterialApi::class)
 @Composable
 fun OutcomeContent(
-    state: OutcomeUiState,
     pagingItems: LazyPagingItems<DateListItemUI>,
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier,
@@ -205,16 +222,14 @@ fun OutcomeContent(
             items(
                 count = pagingItems.itemCount,
                 key = { index ->
-                    val item = pagingItems[index]
-                    when (item) {
-                        is DateListItemUI.Header -> "header_\${item.date}_\$index"
-                        is DateListItemUI.Entry -> "entry_\${item.item.id}"
-                        null -> "placeholder_\$index"
+                    when (val item = pagingItems.peek(index)) {
+                        is DateListItemUI.Header -> "header_${item.date}_$index"
+                        is DateListItemUI.Entry -> "entry_${item.item.id}"
+                        null -> "placeholder_$index"
                     }
                 }
             ) { index ->
-                val item = pagingItems[index]
-                when (item) {
+                when (val item = pagingItems[index]) {
                     is DateListItemUI.Header -> {
                         DateHeader(item.date)
                     }
@@ -225,7 +240,7 @@ fun OutcomeContent(
                             onClick = { onEntryClick(item.item) }
                         )
                     }
-                    
+
                     null -> {
                         // Placeholder
                     }

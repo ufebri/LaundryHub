@@ -22,7 +22,7 @@ class SheetsBatchSyncJob(
                 try {
                     processUnsyncedOrders()
                 } catch (e: Exception) {
-                    println("Background Sync Error: \${e.message}")
+                    println("Background Sync Error: ${e.message}")
                 }
                 delay(SYNC_INTERVAL_MS)
             }
@@ -37,7 +37,7 @@ class SheetsBatchSyncJob(
             return 
         }
 
-        println("Found \${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
+        println("Found ${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
 
         var successCount = 0
         for (order in unsyncedOrders) {
@@ -49,7 +49,7 @@ class SheetsBatchSyncJob(
         }
 
         if (successCount > 0) {
-            println("Successfully synced \$successCount orders to Google Sheets.")
+            println("Successfully synced $successCount orders to Google Sheets.")
         }
     }
 }

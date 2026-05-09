@@ -13,7 +13,7 @@ import com.raylabs.laundryhub.shared.util.Resource
 interface LaundryRepository {
     suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>>
     suspend fun readGrossData(page: Int? = null, size: Int? = null): Resource<List<GrossData>>
-    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null, page: Int? = null, size: Int? = null): Resource<List<TransactionData>>
+    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null, page: Int? = null, size: Int? = null, searchQuery: String? = null, sort: String? = null): Resource<List<TransactionData>>
     suspend fun readPackageData(): Resource<List<PackageData>>
     suspend fun addPackage(packageData: PackageData): Resource<Boolean>
     suspend fun updatePackage(packageData: PackageData): Resource<Boolean>

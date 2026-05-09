@@ -151,7 +151,7 @@ class TransactionDataTest {
     fun `paidDescription returns correct string`() {
         val paidQris =
             TransactionData("", "", "", "", "", "", PAID, "", "", QRIS, "", "")
-        assertEquals("Paid by Qris", paidQris.paidDescription())
+        assertEquals(PAID_BY_QRIS, paidQris.paidDescription())
 
         val unpaid = paidQris.copy(paymentStatus = "Unpaid")
         assertEquals("Unpaid", unpaid.paidDescription())

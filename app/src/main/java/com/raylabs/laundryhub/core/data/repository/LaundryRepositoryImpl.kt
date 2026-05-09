@@ -1,24 +1,47 @@
 package com.raylabs.laundryhub.core.data.repository
 
-import com.raylabs.laundryhub.core.domain.model.sheets.*
+import com.raylabs.laundryhub.BuildConfig
+import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
+import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.util.Resource
-import io.ktor.client.*
-import io.ktor.client.call.*
-import io.ktor.client.request.*
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.request.delete
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.client.request.post
+import io.ktor.client.request.put
+import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
+import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import javax.inject.Inject
-
-import com.raylabs.laundryhub.BuildConfig
 
 class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
 
-    private val client: HttpClient = HttpClientProvider.createClient()
-    private val baseUrl = BuildConfig.BASE_URL
+    private var client: HttpClient = HttpClientProvider.createClient()
+    private var baseUrl = BuildConfig.BASE_URL
+
+    internal constructor(client: HttpClient, baseUrl: String) : this() {
+        this.client = client
+        this.baseUrl = baseUrl
+    }
 
     override suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>> = safeApiCall {
         client.get("$baseUrl/summary").body()
@@ -29,7 +52,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.get(url).body()
     }
 
-    override suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate?, page: Int?, size: Int?): Resource<List<TransactionData>> = safeApiCall {
+    override suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate?, page: Int?, size: Int?, searchQuery: String?, sort: String?): Resource<List<TransactionData>> = safeApiCall {
         val filterParam = when (filter) {
             FILTER.TODAY_TRANSACTION_ONLY -> "TODAY"
             FILTER.SHOW_UNPAID_DATA -> "UNPAID"
@@ -39,14 +62,15 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
             else -> null
         }
         
-        val urlBuilder = StringBuilder("$baseUrl/orders?")
-        if (page != null) urlBuilder.append("page=$page&")
-        if (size != null) urlBuilder.append("size=$size&")
-        if (filterParam != null) urlBuilder.append("filter=$filterParam&")
-        if (rangeDate?.startDate != null) urlBuilder.append("startDate=\${rangeDate.startDate}&")
-        if (rangeDate?.endDate != null) urlBuilder.append("endDate=\${rangeDate.endDate}&")
-        
-        client.get(urlBuilder.toString()).body()
+        client.get("$baseUrl/orders") {
+            page?.let { parameter("page", it) }
+            size?.let { parameter("size", it) }
+            filterParam?.let { parameter("filter", it) }
+            rangeDate?.startDate?.let { parameter("startDate", it) }
+            rangeDate?.endDate?.let { parameter("endDate", it) }
+            searchQuery?.takeIf { it.isNotBlank() }?.let { parameter("searchQuery", it) }
+            sort?.takeIf { it.isNotBlank() }?.let { parameter("sort", it) }
+        }.body()
     }
 
     override suspend fun readPackageData(): Resource<List<PackageData>> = safeApiCall {
@@ -57,7 +81,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.post("$baseUrl/packages") {
             contentType(ContentType.Application.Json)
             setBody(packageData)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
@@ -65,7 +89,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.put("$baseUrl/packages/${packageData.name}") {
             contentType(ContentType.Application.Json)
             setBody(packageData)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
@@ -75,16 +99,24 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
 
     override suspend fun readOtherPackage(): Resource<List<String>> = Resource.Success(emptyList())
 
-    override suspend fun getLastOrderId(): Resource<String> = safeApiCall {
-        val orders: List<OrderData> = client.get("$baseUrl/orders").body()
-        orders.maxByOrNull { it.orderId.toIntOrNull() ?: 0 }?.orderId ?: "0"
+    override suspend fun getLastOrderId(): Resource<String> = withContext(Dispatchers.IO) {
+        try {
+            val responseBody = client.get("$baseUrl/orders/last-id").bodyAsText()
+            Resource.Success(parseLastId(responseBody))
+        } catch (lastIdError: Exception) {
+            try {
+                Resource.Success(fetchNextOrderIdFromOrderList())
+            } catch (fallbackError: Exception) {
+                Resource.Error(lastIdError.message ?: fallbackError.message ?: "Network Error")
+            }
+        }
     }
 
     override suspend fun addOrder(order: OrderData): Resource<Boolean> = safeApiCall {
         client.post("$baseUrl/orders") {
             contentType(ContentType.Application.Json)
             setBody(order)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
@@ -96,12 +128,12 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.put("$baseUrl/orders/${order.orderId}") {
             contentType(ContentType.Application.Json)
             setBody(order)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
     override suspend fun deleteOrder(orderId: String): Resource<Boolean> = safeApiCall {
-        client.delete("$baseUrl/orders/$orderId")
+        client.delete("$baseUrl/orders/$orderId").requireSuccessfulResponse()
         true
     }
 
@@ -114,20 +146,19 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.post("$baseUrl/outcomes") {
             contentType(ContentType.Application.Json)
             setBody(outcome)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
     override suspend fun getLastOutcomeId(): Resource<String> = safeApiCall {
-        val outcomes: List<OutcomeData> = client.get("$baseUrl/outcomes").body()
-        outcomes.maxByOrNull { it.id.toIntOrNull() ?: 0 }?.id ?: "0"
+        parseLastId(client.get("$baseUrl/outcomes/last-id").bodyAsText())
     }
 
     override suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean> = safeApiCall {
         client.put("$baseUrl/outcomes/${outcome.id}") {
             contentType(ContentType.Application.Json)
             setBody(outcome)
-        }
+        }.requireSuccessfulResponse()
         true
     }
 
@@ -136,7 +167,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun deleteOutcome(outcomeId: String): Resource<Boolean> = safeApiCall {
-        client.delete("$baseUrl/outcomes/$outcomeId")
+        client.delete("$baseUrl/outcomes/$outcomeId").requireSuccessfulResponse()
         true
     }
 
@@ -147,4 +178,64 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
             Resource.Error(e.message ?: "Network Error")
         }
     }
+
+    private suspend fun fetchNextOrderIdFromOrderList(): String {
+        var page = 1
+        var maxOrderId: Int? = null
+
+        do {
+            val orders = client.get("$baseUrl/orders") {
+                parameter("page", page)
+                parameter("size", ORDER_ID_FALLBACK_PAGE_SIZE)
+            }.body<List<TransactionData>>()
+
+            orders
+                .mapNotNull { it.orderID.toIntOrNull() }
+                .maxOrNull()
+                ?.let { currentMax ->
+                    maxOrderId = maxOf(maxOrderId ?: currentMax, currentMax)
+                }
+
+            page += 1
+        } while (orders.size >= ORDER_ID_FALLBACK_PAGE_SIZE && page <= ORDER_ID_FALLBACK_MAX_PAGES)
+
+        return maxOrderId
+            ?.plus(1)
+            ?.toString()
+            ?: "0"
+    }
+}
+
+private val repositoryJson = Json { ignoreUnknownKeys = true }
+
+private const val ORDER_ID_FALLBACK_PAGE_SIZE = 500
+private const val ORDER_ID_FALLBACK_MAX_PAGES = 20
+
+private suspend fun HttpResponse.requireSuccessfulResponse() {
+    if (status.value in 200..299) return
+
+    val responseBody = bodyAsText()
+    error(extractApiErrorMessage(responseBody, status))
+}
+
+private fun extractApiErrorMessage(responseBody: String, status: HttpStatusCode): String {
+    val apiMessage = runCatching {
+        repositoryJson
+            .parseToJsonElement(responseBody)
+            .jsonObject["message"]
+            ?.jsonPrimitive
+            ?.contentOrNull
+    }.getOrNull()
+
+    return apiMessage?.takeIf { it.isNotBlank() }
+        ?: "HTTP ${status.value} ${status.description}"
+}
+
+private fun parseLastId(responseBody: String): String {
+    return repositoryJson
+        .parseToJsonElement(responseBody)
+        .jsonObject["lastId"]
+        ?.jsonPrimitive
+        ?.contentOrNull
+        ?: error("Missing lastId in response")
 }

@@ -2,6 +2,8 @@ package com.raylabs.laundryhub.ui.order.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus
+import com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaymentMethod
 import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodList
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
@@ -54,10 +56,10 @@ fun OrderUiState.toOrderData(orderId: String): OrderData {
         phoneNumber = phone,
         packageName = selectedPackage?.name ?: "",
         priceKg = selectedPackage?.price ?: "",
-        paymentMethod = paymentMethod,
+        paymentMethod = getDisplayPaymentMethod(paymentMethod),
         remark = note,
         totalPrice = price,
-        paidStatus = paymentMethod,
+        paidStatus = getDisplayPaidStatus(paymentMethod),
         weight = weight,
         orderDate = normalizedOrderDate,
         dueDate = computedDueDate

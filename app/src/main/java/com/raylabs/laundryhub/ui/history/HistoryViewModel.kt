@@ -19,7 +19,6 @@ import com.raylabs.laundryhub.ui.history.state.HistoryUiState
 import com.raylabs.laundryhub.ui.history.state.toUiItem
 import com.raylabs.laundryhub.ui.history.state.toUiItems
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
-import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -35,10 +34,15 @@ class HistoryViewModel @Inject constructor(
     val historyPagingData: Flow<PagingData<DateListItemUI>> = 
         readIncomeUseCase.getPagingData(filter = FILTER.SHOW_ALL_DATA)
             .map { pagingData ->
-                pagingData.map { DateListItemUI.Entry(it.toUiItem()) }
-                    .insertSeparators { before: DateListItemUI.Entry?, after: DateListItemUI.Entry? ->
-                        if (after != null && (before == null || before.item.date != after.item.date)) {
-                            DateListItemUI.Header(after.item.date)
+                pagingData.map {
+                    val entry: DateListItemUI = DateListItemUI.Entry(it.toUiItem())
+                    entry
+                }
+                    .insertSeparators { before: DateListItemUI?, after: DateListItemUI? ->
+                        val beforeEntry = before as? DateListItemUI.Entry
+                        val afterEntry = after as? DateListItemUI.Entry
+                        if (afterEntry != null && (beforeEntry == null || beforeEntry.item.date != afterEntry.item.date)) {
+                            DateListItemUI.Header(afterEntry.item.date)
                         } else {
                             null
                         }

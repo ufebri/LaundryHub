@@ -3,6 +3,10 @@ package com.raylabs.laundryhub.ui.outcome
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.insertSeparators
+import androidx.paging.map
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
@@ -18,20 +22,15 @@ import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComm
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.toDateListUiItems
-import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.launch
-import javax.inject.Inject
-
-import androidx.paging.PagingData
-import androidx.paging.cachedIn
-import androidx.paging.insertSeparators
-import androidx.paging.map
-import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.toEntryItemUI
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltViewModel
 class OutcomeViewModel @Inject constructor(
@@ -46,10 +45,15 @@ class OutcomeViewModel @Inject constructor(
     val outcomePagingData: Flow<PagingData<DateListItemUI>> = 
         readOutcomeUseCase.getPagingData()
             .map { pagingData ->
-                pagingData.map { DateListItemUI.Entry(it.toEntryItemUI()) }
-                    .insertSeparators { before: DateListItemUI.Entry?, after: DateListItemUI.Entry? ->
-                        if (after != null && (before == null || before.item.date != after.item.date)) {
-                            DateListItemUI.Header(after.item.date)
+                pagingData.map {
+                    val entry: DateListItemUI = DateListItemUI.Entry(it.toEntryItemUI())
+                    entry
+                }
+                    .insertSeparators { before: DateListItemUI?, after: DateListItemUI? ->
+                        val beforeEntry = before as? DateListItemUI.Entry
+                        val afterEntry = after as? DateListItemUI.Entry
+                        if (afterEntry != null && (beforeEntry == null || beforeEntry.item.date != afterEntry.item.date)) {
+                            DateListItemUI.Header(afterEntry.item.date)
                         } else {
                             null
                         }

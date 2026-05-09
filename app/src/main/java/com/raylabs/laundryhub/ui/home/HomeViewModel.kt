@@ -6,26 +6,44 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
-import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
-import com.raylabs.laundryhub.core.domain.model.sheets.*
-import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
+import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
-import com.raylabs.laundryhub.ui.home.state.*
+import com.raylabs.laundryhub.ui.home.state.HomeUiState
+import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
+import com.raylabs.laundryhub.ui.home.state.SortOption
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
+import com.raylabs.laundryhub.ui.home.state.toUI
+import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -47,11 +65,16 @@ class HomeViewModel @Inject constructor(
         grossUseCase.getPagingData()
             .cachedIn(viewModelScope)
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> = 
-        _uiState.map { it.searchQuery to it.currentSortOption }
+        _uiState.map { Triple(it.searchQuery, it.currentSortOption, it.refreshCounter) }
             .distinctUntilChanged()
-            .flatMapLatest { (query, sort) ->
-                readIncomeUseCase.getPagingData(filter = FILTER.SHOW_UNPAID_DATA)
+            .flatMapLatest { (query, sort, _) ->
+                readIncomeUseCase.getPagingData(
+                    filter = FILTER.SHOW_UNPAID_DATA,
+                    searchQuery = query,
+                    sort = sort.name
+                )
                     .map { pagingData -> 
                         pagingData.map { it.toUnpaidOrderItem() }
                     }
@@ -84,7 +107,11 @@ class HomeViewModel @Inject constructor(
             it.copy(todayIncome = it.todayIncome.loading())
         }
 
-        when (val result = readIncomeUseCase(filter = FILTER.TODAY_TRANSACTION_ONLY)) {
+        val today = com.raylabs.laundryhub.shared.util.PlatformDate.getTodayDate("yyyy-MM-dd")
+        when (val result = readIncomeUseCase(
+            filter = FILTER.RANGE_TRANSACTION_DATA,
+            rangeDate = RangeDate(startDate = today, endDate = today)
+        )) {
             is Resource.Success -> {
                 val uiData = result.data.toUI()
                 _uiState.update {
@@ -146,14 +173,36 @@ class HomeViewModel @Inject constructor(
             ) { settings, localStates, unpaidResource ->
                 val unpaidOrders = (unpaidResource as? Resource.Success<List<TransactionData>>)?.data.orEmpty()
                 val candidates = evaluateReminderCandidatesUseCase(unpaidOrders, localStates)
-                
-                ReminderDiscoveryUiState(
-                    eligibleCount = candidates.size,
-                    headline = "Punya \${candidates.size} Tagihan Pending",
-                    supportingText = "Kirim pengingat WhatsApp sekarang?",
-                    isReminderEnabled = settings.isReminderEnabled,
-                    ctaLabel = "Lihat Detail"
-                )
+
+                if (candidates.isEmpty()) {
+                    null
+                } else {
+                    val topCandidate = candidates.first()
+                    ReminderDiscoveryUiState(
+                        eligibleCount = candidates.size,
+                        headline = if (candidates.size == 1) {
+                            "1 order needs a cross-check"
+                        } else {
+                            "${candidates.size} orders need a cross-check"
+                        },
+                        supportingText = when {
+                            settings.isReminderEnabled && topCandidate.overdueDays <= 0 ->
+                                "Open Reminder Inbox to review orders that reached their due date."
+                            settings.isReminderEnabled ->
+                                "Open Reminder Inbox. The oldest one is already ${topCandidate.overdueDays} days past the due date."
+                            topCandidate.overdueDays <= 0 ->
+                                "Turn on reminders to review orders that may need a status update after the due date."
+                            else ->
+                                "Turn on reminders. The oldest one is already ${topCandidate.overdueDays} days past the due date."
+                        },
+                        isReminderEnabled = settings.isReminderEnabled,
+                        ctaLabel = if (settings.isReminderEnabled) {
+                            "Open Reminder Inbox"
+                        } else {
+                            "Turn on reminder"
+                        }
+                    )
+                }
             }.collect { discoveryState ->
                 _uiState.update { it.copy(reminderDiscovery = discoveryState) }
             }
@@ -173,7 +222,7 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshAllData() {
-        _uiState.update { it.copy(isRefreshing = true) }
+        _uiState.update { it.copy(isRefreshing = true, refreshCounter = it.refreshCounter + 1) }
         viewModelScope.launch {
             coroutineScope {
                 listOf(
@@ -201,7 +250,7 @@ class HomeViewModel @Inject constructor(
     fun changeSortOrder(option: SortOption) {
         _uiState.update { it.copy(currentSortOption = option) }
     }
-    
+
     fun refreshAfterOrderChanged() {
         refreshAllData()
     }

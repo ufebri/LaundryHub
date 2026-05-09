@@ -66,17 +66,17 @@ class SheetsSyncService {
 
             if (rowIndex != -1) {
                 // DATA ADA -> Gunakan UPDATE_VALUES
-                println("Order \${order.orderId} found at row \${rowIndex + 1}. Updating...")
-                val updateRange = "$sheetName!A\${rowIndex + 1}:L\${rowIndex + 1}"
+                println("Order ${order.orderId} found at row ${rowIndex + 1}. Updating...")
+                val updateRange = "$sheetName!A${rowIndex + 1}:L${rowIndex + 1}"
                 sheetsApiClient.updateValues(spreadsheetId, updateRange, valueRange, token)
             } else {
                 // DATA TIDAK ADA -> Gunakan APPEND_VALUES
-                println("Order \${order.orderId} not found. Appending...")
+                println("Order ${order.orderId} not found. Appending...")
                 sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
             }
             true
         } catch (e: Exception) {
-            println("Error syncing order \${order.orderId}: \${e.message}")
+            println("Error syncing order ${order.orderId}: ${e.message}")
             false
         }
     }
@@ -93,16 +93,16 @@ class SheetsSyncService {
             val rowIndex = rows.indexOfFirst { it.getOrNull(0) == orderId }
 
             if (rowIndex != -1) {
-                println("Order \$orderId found at row \${rowIndex + 1}. Clearing...")
-                val clearRange = "$sheetName!A\${rowIndex + 1}:L\${rowIndex + 1}"
+                println("Order $orderId found at row ${rowIndex + 1}. Clearing...")
+                val clearRange = "$sheetName!A${rowIndex + 1}:L${rowIndex + 1}"
                 sheetsApiClient.clearValues(spreadsheetId, clearRange, token)
                 true
             } else {
-                println("Order \$orderId not found in sheet. Nothing to clear.")
+                println("Order $orderId not found in sheet. Nothing to clear.")
                 true
             }
         } catch (e: Exception) {
-            println("Error clearing order \$orderId: \${e.message}")
+            println("Error clearing order $orderId: ${e.message}")
             false
         }
     }
@@ -137,7 +137,7 @@ class SheetsSyncService {
                 }
             }
         } catch (e: Exception) {
-            println("Error fetching orders from sheets: \${e.message}")
+            println("Error fetching orders from sheets: ${e.message}")
             emptyList()
         }
     }

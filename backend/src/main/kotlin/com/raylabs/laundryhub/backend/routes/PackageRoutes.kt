@@ -16,7 +16,8 @@ import io.ktor.server.routing.route
 
 fun Route.packageRoutes(
     repository: PackageRepository,
-    sheetsApiClient: GoogleSheetsApiClient
+    sheetsApiClient: GoogleSheetsApiClient,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/packages") {
         get {
@@ -49,29 +50,31 @@ fun Route.packageRoutes(
             else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
         }
         
-        post("/migrate") {
-            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-            val accessToken = call.request.queryParameters["accessToken"]
-            if (spreadsheetId == null || accessToken == null) {
-                call.respond(HttpStatusCode.BadRequest, "Missing params")
-                return@post
-            }
-            try {
-                val response = sheetsApiClient.getValues(spreadsheetId, "notes!A2:D", accessToken)
-                val rows = response.values ?: emptyList()
-                val packages = rows.mapNotNull { row ->
-                    if (row.isEmpty()) return@mapNotNull null
-                    PackageData(
-                        price = row.getOrNull(0) ?: "",
-                        name = row.getOrNull(1) ?: "",
-                        duration = row.getOrNull(2) ?: "",
-                        unit = row.getOrNull(3) ?: ""
-                    )
+        if (migrationRoutesEnabled) {
+            post("/migrate") {
+                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val accessToken = call.request.queryParameters["accessToken"]
+                if (spreadsheetId == null || accessToken == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing params")
+                    return@post
                 }
-                val inserted = repository.insertAll(packages)
-                call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                try {
+                    val response = sheetsApiClient.getValues(spreadsheetId, "notes!A2:D", accessToken)
+                    val rows = response.values ?: emptyList()
+                    val packages = rows.mapNotNull { row ->
+                        if (row.isEmpty()) return@mapNotNull null
+                        PackageData(
+                            price = row.getOrNull(0) ?: "",
+                            name = row.getOrNull(1) ?: "",
+                            duration = row.getOrNull(2) ?: "",
+                            unit = row.getOrNull(3) ?: ""
+                        )
+                    }
+                    val inserted = repository.insertAll(packages)
+                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                }
             }
         }
     }

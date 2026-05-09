@@ -11,7 +11,9 @@ import com.raylabs.laundryhub.shared.util.Resource
 class OrderPagingSource(
     private val repository: LaundryRepository,
     private val filter: FILTER,
-    private val rangeDate: RangeDate? = null
+    private val rangeDate: RangeDate? = null,
+    private val searchQuery: String? = null,
+    private val sort: String? = null
 ) : PagingSource<Int, TransactionData>() {
 
     override fun getRefreshKey(state: PagingState<Int, TransactionData>): Int? {
@@ -30,7 +32,9 @@ class OrderPagingSource(
                 filter = filter,
                 rangeDate = rangeDate,
                 page = page,
-                size = size
+                size = size,
+                searchQuery = searchQuery,
+                sort = sort
             )
 
             when (result) {

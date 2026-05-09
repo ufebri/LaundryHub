@@ -16,7 +16,8 @@ import io.ktor.server.routing.route
 
 fun Route.grossRoutes(
     repository: GrossRepository,
-    sheetsApiClient: GoogleSheetsApiClient
+    sheetsApiClient: GoogleSheetsApiClient,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/gross") {
         get {
@@ -51,29 +52,31 @@ fun Route.grossRoutes(
             else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
         }
         
-        post("/migrate") {
-            val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-            val accessToken = call.request.queryParameters["accessToken"]
-            if (spreadsheetId == null || accessToken == null) {
-                call.respond(HttpStatusCode.BadRequest, "Missing params")
-                return@post
-            }
-            try {
-                val response = sheetsApiClient.getValues(spreadsheetId, "gross", accessToken)
-                val rows = response.values ?: emptyList()
-                val grossList = rows.drop(1).mapNotNull { row -> 
-                    if (row.isEmpty()) return@mapNotNull null
-                    GrossData(
-                        month = row.getOrNull(0) ?: "",
-                        totalNominal = row.getOrNull(1) ?: "",
-                        orderCount = row.getOrNull(2) ?: "",
-                        tax = row.getOrNull(3) ?: ""
-                    )
+        if (migrationRoutesEnabled) {
+            post("/migrate") {
+                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val accessToken = call.request.queryParameters["accessToken"]
+                if (spreadsheetId == null || accessToken == null) {
+                    call.respond(HttpStatusCode.BadRequest, "Missing params")
+                    return@post
                 }
-                val inserted = repository.insertAll(grossList)
-                call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                try {
+                    val response = sheetsApiClient.getValues(spreadsheetId, "gross", accessToken)
+                    val rows = response.values ?: emptyList()
+                    val grossList = rows.drop(1).mapNotNull { row ->
+                        if (row.isEmpty()) return@mapNotNull null
+                        GrossData(
+                            month = row.getOrNull(0) ?: "",
+                            totalNominal = row.getOrNull(1) ?: "",
+                            orderCount = row.getOrNull(2) ?: "",
+                            tax = row.getOrNull(3) ?: ""
+                        )
+                    }
+                    val inserted = repository.insertAll(grossList)
+                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+                } catch (e: Exception) {
+                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
+                }
             }
         }
     }
