@@ -56,6 +56,7 @@ val dummyState = HomeUiState(
     gross = SectionState(
         data = listOf(
             GrossItem(
+                id = 1,
                 month = "desember",
                 totalNominal = "Rp3.944.000",
                 orderCount = "158",

@@ -56,10 +56,11 @@ class GrossRepository {
     suspend fun getAll(page: Int = 1, size: Int = 50): List<GrossData> = dbQuery {
         val offset = ((page - 1) * size).toLong()
         GrossTable.selectAll()
-            .orderBy(GrossTable.month to org.jetbrains.exposed.sql.SortOrder.DESC)
+            .orderBy(GrossTable.id to org.jetbrains.exposed.sql.SortOrder.DESC)
             .limit(size, offset = offset)
             .map {
                 GrossData(
+                    id = it[GrossTable.id],
                     month = it[GrossTable.month],
                     totalNominal = it[GrossTable.totalNominal],
                     orderCount = it[GrossTable.orderCount],
@@ -71,6 +72,7 @@ class GrossRepository {
     suspend fun getUnsyncedGross(): List<GrossData> = dbQuery {
         GrossTable.select { GrossTable.isSynced eq false }.map {
             GrossData(
+                id = it[GrossTable.id],
                 month = it[GrossTable.month],
                 totalNominal = it[GrossTable.totalNominal],
                 orderCount = it[GrossTable.orderCount],

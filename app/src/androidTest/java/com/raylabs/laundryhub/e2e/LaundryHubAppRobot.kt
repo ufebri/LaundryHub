@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.e2e
 
-import android.content.Intent
 import android.os.SystemClock
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
@@ -9,6 +8,7 @@ import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
 import org.junit.Assert.fail
+import java.io.File
 
 internal class LaundryHubAppRobot(
     private val device: UiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
@@ -20,26 +20,24 @@ internal class LaundryHubAppRobot(
         }
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("wm dismiss-keyguard")
-        closeSystemSurfaces()
+        collapseSystemSurfaces()
         device.waitForIdle()
     }
 
     fun launchFresh() {
-        closeSystemSurfaces()
-        val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val intent = Intent().setClassName(TARGET_PACKAGE, MAIN_ACTIVITY_CLASS).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
-        }
-
-        context.startActivity(intent)
-        closeSystemSurfaces()
-        device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), SHORT_TIMEOUT_MS)
+        collapseSystemSurfaces()
+        device.executeShellCommand("am start -W -n $TARGET_PACKAGE/$MAIN_ACTIVITY_CLASS -f $LAUNCH_FLAGS")
+        val launched = device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), STARTUP_TIMEOUT_MS)
+        collapseSystemSurfaces()
         device.waitForIdle()
+
+        if (!launched && device.currentPackageName != TARGET_PACKAGE) {
+            fail("Failed to launch app. Current package=${device.currentPackageName}")
+        }
     }
 
-    private fun closeSystemSurfaces() {
+    private fun collapseSystemSurfaces() {
         device.executeShellCommand("cmd statusbar collapse")
-        device.pressBack()
         device.waitForIdle()
     }
 
@@ -100,10 +98,10 @@ internal class LaundryHubAppRobot(
     }
 
     fun dumpWindowHierarchy(): String {
-        return device.executeShellCommand(
-            "uiautomator dump /sdcard/laundryhub-e2e-window.xml >/dev/null; " +
-                "cat /sdcard/laundryhub-e2e-window.xml"
-        )
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val hierarchyFile = File(context.cacheDir, "laundryhub-e2e-window.xml")
+        device.dumpWindowHierarchy(hierarchyFile)
+        return hierarchyFile.readText()
     }
 
     private fun tapNav(label: String) {
@@ -199,7 +197,7 @@ internal class LaundryHubAppRobot(
             SystemClock.sleep(300)
         }
 
-        fail("Timed out waiting for visible object: $debugLabel")
+        fail("Timed out waiting for visible object: $debugLabel. Markers=${summarizeWindowMarkers()}")
     }
 
     private fun isHomeShellVisible(): Boolean {
@@ -279,15 +277,17 @@ internal class LaundryHubAppRobot(
 
     private fun summarizeWindowMarkers(): String {
         val hierarchy = dumpWindowHierarchy()
+        val foundTexts = Regex("""text="([^"]*)"""").findAll(hierarchy).map { it.groupValues[1] }.toList()
         val markers = buildList {
             if (hierarchy.contains(LOGIN_WITH_GOOGLE_TEXT)) add("onboarding")
             if (hierarchy.contains(SPREADSHEET_SETUP_TITLE)) add("spreadsheet_setup")
             if (hierarchy.contains("content-desc=\"$HOME_NAV_DESCRIPTION\"")) add("home_nav")
+            if (hierarchy.contains("content-desc=\"$HISTORY_NAV_DESCRIPTION\"")) add("history_nav")
             if (hierarchy.contains("content-desc=\"$ORDER_NAV_DESCRIPTION\"")) add("order_nav")
             if (hierarchy.contains("content-desc=\"$PROFILE_NAV_DESCRIPTION\"")) add("profile_nav")
             if (hierarchy.contains(ORDER_SHEET_DESCRIPTION)) add("order_sheet")
         }
-        return if (markers.isEmpty()) "none" else markers.joinToString()
+        return "Markers=[${markers.joinToString()}], FoundTexts=[${foundTexts.take(20).joinToString()}${if (foundTexts.size > 20) "..." else ""}]"
     }
 
     private fun findFirstPackageOptionBoundsFromHierarchy(): NodeBounds? {
@@ -335,6 +335,7 @@ internal class LaundryHubAppRobot(
         value.forEach { char ->
             when {
                 char.isLetterOrDigit() -> append(char)
+                char == '_' || char == '-' -> append(char)
                 char == ' ' -> append("%s")
                 else -> append("\\").append(char)
             }
@@ -342,7 +343,7 @@ internal class LaundryHubAppRobot(
     }
 
     private fun formatTextForSearch(text: String): String {
-        return text.lowercase().replaceFirstChar { it.uppercase() }
+        return text
     }
 
     fun submitSandboxOutcome(purpose: String, price: String) {
@@ -377,13 +378,46 @@ internal class LaundryHubAppRobot(
         fillOrderRequiredFields(orderName = orderName, price = price)
         ensureObjectVisible(listOf(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION)), ORDER_SUBMIT_BUTTON_DESCRIPTION)
         tapObjectCenter(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION), ORDER_SUBMIT_BUTTON_DESCRIPTION, FORM_TIMEOUT_MS)
-        device.wait(Until.gone(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION)), SUBMIT_TIMEOUT_MS)
+        device.wait(Until.gone(By.desc(ORDER_SHEET_DESCRIPTION)), SUBMIT_TIMEOUT_MS)
+    }
+
+    private fun pullToRefreshHistory() {
+        val hierarchy = dumpWindowHierarchy()
+        if (hierarchy.contains(NO_TRANSACTIONS_TEXT)) return
+        
+        device.swipe(
+            device.displayWidth / 2,
+            (device.displayHeight * 0.25f).toInt(),
+            device.displayWidth / 2,
+            (device.displayHeight * 0.75f).toInt(),
+            40
+        )
+        device.waitForIdle()
+        SystemClock.sleep(2000)
+    }
+
+    private fun waitForHistoryPopulated() {
+        val deadline = SystemClock.elapsedRealtime() + DATA_TIMEOUT_MS
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val hierarchy = dumpWindowHierarchy()
+            if (hierarchy.contains("Order #") || hierarchy.contains("Outcome #")) {
+                return
+            }
+            if (hierarchy.contains(NO_TRANSACTIONS_TEXT)) {
+                return
+            }
+            device.waitForIdle()
+            SystemClock.sleep(500)
+        }
     }
 
     fun updateSandboxOrder(oldOrderName: String, newOrderSuffix: String): String {
         tapNav(HISTORY_NAV_DESCRIPTION)
+        waitForHistoryPopulated()
+        pullToRefreshHistory()
         
         val searchName = formatTextForSearch(oldOrderName)
+        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
@@ -414,8 +448,11 @@ internal class LaundryHubAppRobot(
 
     fun updateSandboxOutcome(oldPurpose: String, newPurposeSuffix: String): String {
         tapNav(HISTORY_NAV_DESCRIPTION)
+        waitForHistoryPopulated()
+        pullToRefreshHistory()
         
         val searchName = formatTextForSearch(oldPurpose)
+        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
@@ -446,8 +483,11 @@ internal class LaundryHubAppRobot(
 
     fun deleteTransactionFromHistory(transactionText: String) {
         tapNav(HISTORY_NAV_DESCRIPTION)
+        waitForHistoryPopulated()
+        pullToRefreshHistory()
         
         val searchName = formatTextForSearch(transactionText)
+        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
@@ -497,6 +537,7 @@ internal class LaundryHubAppRobot(
     companion object {
         private const val TARGET_PACKAGE = "com.raylabs.laundryhub"
         private const val MAIN_ACTIVITY_CLASS = "com.raylabs.laundryhub.ui.MainActivity"
+        private const val LAUNCH_FLAGS = "0x10008000"
         private const val LOGIN_WITH_GOOGLE_TEXT = "Login with Google"
         private const val SPREADSHEET_SETUP_TITLE = "Set Up Your Spreadsheet"
         private const val HOME_NAV_DESCRIPTION = "Home"

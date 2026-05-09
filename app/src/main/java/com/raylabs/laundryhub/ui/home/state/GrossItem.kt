@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 
 data class GrossItem(
+    val id: Int,
     val month: String,
     val totalNominal: String,
     val orderCount: String,
@@ -13,6 +14,7 @@ data class GrossItem(
 fun List<GrossData>.toUi(): List<GrossItem> = map { it.toUi() }
 
 fun GrossData.toUi(): GrossItem = GrossItem(
+    id = id,
     month = month,
     totalNominal = totalNominal,
     orderCount = orderCount,

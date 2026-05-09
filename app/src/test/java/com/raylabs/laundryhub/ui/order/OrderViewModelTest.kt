@@ -56,7 +56,7 @@ class OrderViewModelTest {
             Resource.Success(
                 listOf(
                     PackageData(
-                        "Reguler", "5000", "3d", unit = "kg"
+                        name = "Reguler", price = "5000", duration = "3d", unit = "kg"
                     )
                 )
             )
@@ -295,10 +295,10 @@ class OrderViewModelTest {
             Resource.Success(
                 listOf(
                     PackageData(
-                        "5000", "Express", "3d", "kg"
+                        price = "5000", name = "Express", duration = "3d", unit = "kg"
                     ),
                     PackageData(
-                        "10000", "Express", "6h", "kg"
+                        price = "10000", name = "Express", duration = "6h", unit = "kg"
                     ),
                 )
             )

@@ -54,19 +54,23 @@ class PackageRepository {
     }
 
     suspend fun getAll(): List<PackageData> = dbQuery {
-        PackagesTable.selectAll().map {
-            PackageData(
-                name = it[PackagesTable.name],
-                price = it[PackagesTable.price],
-                duration = it[PackagesTable.duration],
-                unit = it[PackagesTable.unit]
-            )
-        }
+        PackagesTable.selectAll()
+            .orderBy(PackagesTable.id to org.jetbrains.exposed.sql.SortOrder.ASC)
+            .map {
+                PackageData(
+                    id = it[PackagesTable.id],
+                    name = it[PackagesTable.name],
+                    price = it[PackagesTable.price],
+                    duration = it[PackagesTable.duration],
+                    unit = it[PackagesTable.unit]
+                )
+            }
     }
 
     suspend fun getUnsyncedPackages(): List<PackageData> = dbQuery {
         PackagesTable.select { PackagesTable.isSynced eq false }.map {
             PackageData(
+                id = it[PackagesTable.id],
                 name = it[PackagesTable.name],
                 price = it[PackagesTable.price],
                 duration = it[PackagesTable.duration],

@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class GrossData(
+    val id: Int = 0,
     val month: String,
     val totalNominal: String,
     val orderCount: String,

@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class PackageData(
+    val id: Int = 0,
     val price: String,
     val name: String,
     val duration: String,
