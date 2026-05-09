@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.core.data.repository
 
 import com.raylabs.laundryhub.BuildConfig
+import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -99,25 +100,13 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
 
     override suspend fun readOtherPackage(): Resource<List<String>> = Resource.Success(emptyList())
 
-    override suspend fun getLastOrderId(): Resource<String> = withContext(Dispatchers.IO) {
-        try {
-            val responseBody = client.get("$baseUrl/orders/last-id").bodyAsText()
-            Resource.Success(parseLastId(responseBody))
-        } catch (lastIdError: Exception) {
-            try {
-                Resource.Success(fetchNextOrderIdFromOrderList())
-            } catch (fallbackError: Exception) {
-                Resource.Error(lastIdError.message ?: fallbackError.message ?: "Network Error")
-            }
-        }
-    }
-
-    override suspend fun addOrder(order: OrderData): Resource<Boolean> = safeApiCall {
-        client.post("$baseUrl/orders") {
+    override suspend fun addOrder(order: OrderData): Resource<String> = safeApiCall {
+        val response = client.post("$baseUrl/orders") {
             contentType(ContentType.Application.Json)
             setBody(order)
-        }.requireSuccessfulResponse()
-        true
+        }
+        response.requireSuccessfulResponse()
+        response.body<CreateOrderResponse>().orderId
     }
 
     override suspend fun getOrderById(orderId: String): Resource<TransactionData> = safeApiCall {
@@ -179,37 +168,9 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         }
     }
 
-    private suspend fun fetchNextOrderIdFromOrderList(): String {
-        var page = 1
-        var maxOrderId: Int? = null
-
-        do {
-            val orders = client.get("$baseUrl/orders") {
-                parameter("page", page)
-                parameter("size", ORDER_ID_FALLBACK_PAGE_SIZE)
-            }.body<List<TransactionData>>()
-
-            orders
-                .mapNotNull { it.orderID.toIntOrNull() }
-                .maxOrNull()
-                ?.let { currentMax ->
-                    maxOrderId = maxOf(maxOrderId ?: currentMax, currentMax)
-                }
-
-            page += 1
-        } while (orders.size >= ORDER_ID_FALLBACK_PAGE_SIZE && page <= ORDER_ID_FALLBACK_MAX_PAGES)
-
-        return maxOrderId
-            ?.plus(1)
-            ?.toString()
-            ?: "0"
-    }
 }
 
 private val repositoryJson = Json { ignoreUnknownKeys = true }
-
-private const val ORDER_ID_FALLBACK_PAGE_SIZE = 500
-private const val ORDER_ID_FALLBACK_MAX_PAGES = 20
 
 private suspend fun HttpResponse.requireSuccessfulResponse() {
     if (status.value in 200..299) return

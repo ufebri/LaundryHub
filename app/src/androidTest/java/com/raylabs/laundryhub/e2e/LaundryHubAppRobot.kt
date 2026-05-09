@@ -20,17 +20,26 @@ internal class LaundryHubAppRobot(
         }
         device.executeShellCommand("input keyevent KEYCODE_WAKEUP")
         device.executeShellCommand("wm dismiss-keyguard")
+        closeSystemSurfaces()
         device.waitForIdle()
     }
 
     fun launchFresh() {
+        closeSystemSurfaces()
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val intent = Intent().setClassName(TARGET_PACKAGE, MAIN_ACTIVITY_CLASS).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
 
         context.startActivity(intent)
+        closeSystemSurfaces()
         device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), SHORT_TIMEOUT_MS)
+        device.waitForIdle()
+    }
+
+    private fun closeSystemSurfaces() {
+        device.executeShellCommand("cmd statusbar collapse")
+        device.pressBack()
         device.waitForIdle()
     }
 

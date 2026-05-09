@@ -1,12 +1,7 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
 import com.raylabs.laundryhub.shared.util.PlatformDate
-
 import kotlinx.serialization.Serializable
-
-
-
-
 
 @Serializable
 data class OrderData(
@@ -45,6 +40,13 @@ data class OrderData(
             return PlatformDate.getDueDate(normalized, startDate)
         }
 }
+
+@Serializable
+data class CreateOrderResponse(
+    val status: String,
+    val message: String,
+    val orderId: String,
+)
 
 fun OrderData.toSheetValues(): List<List<String>> {
     return listOf(
@@ -117,4 +119,3 @@ fun getDisplayPaidStatus(paidStatus: String): String {
 
 val paymentMethodList = listOf(UNPAID, PAID_BY_CASH, PAID_BY_QRIS)
 val paymentMethodOutcomeList = listOf(PAID_BY_CASH, PAID_BY_QRIS, PAID_BY_PERSONAL)
-

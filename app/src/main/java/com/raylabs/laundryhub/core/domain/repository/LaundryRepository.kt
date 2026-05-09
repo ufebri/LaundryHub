@@ -19,8 +19,7 @@ interface LaundryRepository {
     suspend fun updatePackage(packageData: PackageData): Resource<Boolean>
     suspend fun deletePackage(sheetRowIndex: Int): Resource<Boolean>
     suspend fun readOtherPackage(): Resource<List<String>>
-    suspend fun getLastOrderId(): Resource<String>
-    suspend fun addOrder(order: OrderData): Resource<Boolean>
+    suspend fun addOrder(order: OrderData): Resource<String>
     suspend fun getOrderById(orderId: String): Resource<TransactionData>
     suspend fun updateOrder(order: OrderData): Resource<Boolean>
     suspend fun deleteOrder(orderId: String): Resource<Boolean>

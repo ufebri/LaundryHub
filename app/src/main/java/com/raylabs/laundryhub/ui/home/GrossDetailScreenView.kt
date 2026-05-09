@@ -139,7 +139,7 @@ fun GrossDetailContent(
 
                 items(
                     count = pagingItems.itemCount,
-                    key = { index -> pagingItems.peek(index)?.month ?: "placeholder_$index" }
+                    key = { index -> "${pagingItems.peek(index)?.month}_$index" }
                 ) { index ->
                     val data = pagingItems[index]
                     if (data != null) {

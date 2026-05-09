@@ -7,7 +7,7 @@
 
 This section supersedes the older optimistic go-live notes below. The KMP/API direction is still valid, but the previous document overstated final E2E confidence and included stale test-count claims. The current verified state is:
 
-- Android repository contract now matches backend order/outcome detail and last-id routes.
+- Android repository contract now matches backend order/outcome detail routes, and Add Order now receives its created id from `POST /api/orders`.
 - Backend order filtering, searching, sorting, date ranges, and `TODAY` handling were repaired.
 - Backend runtime config no longer includes project-specific hardcoded DB or spreadsheet fallbacks.
 - Migration/debug routes are disabled by default with `ENABLE_MIGRATION_ROUTES=true`.

@@ -12,6 +12,7 @@ import com.raylabs.laundryhub.backend.routes.summaryRoutes
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
@@ -94,12 +95,22 @@ fun Application.configureRouting() {
         post("/api/orders") {
             try {
                 val order = call.receive<OrderData>()
-                val inserted = orderRepository.insert(order)
-                if (inserted) {
-                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success", "message" to "Order created"))
+                val createdOrder = orderRepository.insertWithNextId(order)
+                if (createdOrder != null) {
+                    call.respond(
+                        HttpStatusCode.Created,
+                        CreateOrderResponse(
+                            status = "Success",
+                            message = "Order created",
+                            orderId = createdOrder.orderId
+                        )
+                    )
                     // Trigger background sync here if needed
                 } else {
-                    call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error", "message" to "Order already exists"))
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        mapOf("status" to "Error", "message" to "Order id allocation failed")
+                    )
                 }
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to "Invalid data format"))

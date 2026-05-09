@@ -17,7 +17,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LaundryRepositoryImplTest {
@@ -37,76 +36,21 @@ class LaundryRepositoryImplTest {
     }
 
     @Test
-    fun `getLastOrderId uses last id endpoint when available`() = runTest {
-        val calls = AtomicInteger(0)
+    fun `addOrder returns created order id from backend`() = runTest {
         val repository = LaundryRepositoryImpl(
             client = mockClient {
-                calls.incrementAndGet()
-                mockResponse("""{"lastId":"1546"}""")
+                mockResponse(
+                    content = """{"status":"Success","message":"Order created","orderId":"1550"}""",
+                    status = HttpStatusCode.Created
+                )
             },
             baseUrl = "https://example.test/api"
         )
 
-        val result = repository.getLastOrderId()
-
-        assertTrue("Expected Success, got $result after ${calls.get()} calls", result is Resource.Success)
-        assertEquals("1546", (result as Resource.Success).data)
-        assertEquals(1, calls.get())
-    }
-
-    @Test
-    fun `getLastOrderId falls back to highest order id when last id endpoint is unavailable`() = runTest {
-        val calls = AtomicInteger(0)
-        val repository = LaundryRepositoryImpl(
-            client = mockClient {
-                when (calls.incrementAndGet()) {
-                    1 ->
-                        mockResponse("", HttpStatusCode.NotFound)
-                    2 -> mockResponse(
-                        """
-                        [
-                          {
-                            "orderId": "1540",
-                            "orderDate": "09/05/2026",
-                            "name": "A",
-                            "weight": "1",
-                            "priceKg": "8000",
-                            "totalPrice": "8000",
-                            "paidStatus": "belum",
-                            "packageName": "Regular",
-                            "remark": "",
-                            "paymentMethod": "Unpaid",
-                            "phoneNumber": "",
-                            "dueDate": "10/05/2026"
-                          },
-                          {
-                            "orderId": "1548",
-                            "orderDate": "09/05/2026",
-                            "name": "B",
-                            "weight": "1",
-                            "priceKg": "8000",
-                            "totalPrice": "8000",
-                            "paidStatus": "belum",
-                            "packageName": "Regular",
-                            "remark": "",
-                            "paymentMethod": "Unpaid",
-                            "phoneNumber": "",
-                            "dueDate": "10/05/2026"
-                          }
-                        ]
-                        """.trimIndent()
-                    )
-                    else -> mockResponse("[]")
-                }
-            },
-            baseUrl = "https://example.test/api"
-        )
-
-        val result = repository.getLastOrderId()
+        val result = repository.addOrder(sampleOrder(orderId = ""))
 
         assertTrue(result is Resource.Success)
-        assertEquals("1549", (result as Resource.Success).data)
-        assertEquals(2, calls.get())
+        assertEquals("1550", (result as Resource.Success).data)
     }
 
     @Test

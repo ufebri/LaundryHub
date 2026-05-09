@@ -5,7 +5,6 @@ import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.usecase.settings.ObserveShowWhatsAppSettingUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetLastOrderIdUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
@@ -32,7 +31,6 @@ import org.mockito.kotlin.whenever
 class OrderViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
-    private val mockGetLastOrderIdUseCase: GetLastOrderIdUseCase = mock()
     private val mockSubmitOrderUseCase: SubmitOrderUseCase = mock()
     private val mockPackageListUseCase: ReadPackageUseCase = mock()
     private val mockGetOrderByIdUseCase: GetOrderUseCase = mock()
@@ -53,8 +51,7 @@ class OrderViewModelTest {
     }
 
     @Test
-    fun `init triggers fetchLastOrderId and getPackageList`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-123"))
+    fun `init triggers getPackageList`() = runTest {
         whenever(mockPackageListUseCase.invoke()).thenReturn(
             Resource.Success(
                 listOf(
@@ -65,7 +62,6 @@ class OrderViewModelTest {
             )
         )
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -75,7 +71,6 @@ class OrderViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
 
         val state = vm.uiState.value
-        assertEquals("ORD-123", state.lastOrderId)
         assertFalse(state.packageNameList.isLoading)
         assertEquals(1, state.packageNameList.data?.size)
     }
@@ -83,10 +78,8 @@ class OrderViewModelTest {
     @Test
     fun `observe settings updates showWhatsAppOption`() = runTest {
         whenever(mockObserveShowWhatsAppSettingUseCase.invoke()).thenReturn(flowOf(false))
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-123"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -121,7 +114,6 @@ class OrderViewModelTest {
         )
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(listOf()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -141,7 +133,6 @@ class OrderViewModelTest {
     fun `onOrderEditClick error sets error state`() = runTest {
         whenever(mockGetOrderByIdUseCase.invoke(orderID = "ORD-1")).thenReturn(Resource.Error("not found"))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -173,7 +164,6 @@ class OrderViewModelTest {
         )
         whenever(mockUpdateOrderUseCase.invoke(order = order)).thenReturn(Resource.Success(true))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -192,7 +182,6 @@ class OrderViewModelTest {
     @Test
     fun `updateField updates fields correctly`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -210,7 +199,6 @@ class OrderViewModelTest {
     @Test
     fun `onPhoneChanged trims leading zero`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -226,7 +214,6 @@ class OrderViewModelTest {
     @Test
     fun `onPackageSelected updates selectedPackage and weight`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -243,7 +230,6 @@ class OrderViewModelTest {
     @Test
     fun `onPriceChanged updates price and recalculates weight`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -260,7 +246,6 @@ class OrderViewModelTest {
     @Test
     fun `resetForm resets state`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -275,78 +260,9 @@ class OrderViewModelTest {
     }
 
     @Test
-    fun `fetchLastOrderId error sets fallback text`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Error("x"))
-        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
-        vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
-            mockSubmitOrderUseCase,
-            mockPackageListUseCase,
-            mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase,
-            mockObserveShowWhatsAppSettingUseCase
-        )
-        testDispatcher.scheduler.advanceUntilIdle()
-        assertEquals(null, vm.uiState.value.lastOrderId)
-        assertEquals("x", vm.uiState.value.lastOrderIdError)
-    }
-
-    @Test
-    fun `resolveLastOrderIdForSubmit returns id and marks submitting`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
-            Resource.Success("ORD-1"),
-            Resource.Success("ORD-2")
-        )
-        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
-        vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
-            mockSubmitOrderUseCase,
-            mockPackageListUseCase,
-            mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase,
-            mockObserveShowWhatsAppSettingUseCase
-        )
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val result = vm.resolveLastOrderIdForSubmit()
-
-        assertEquals("ORD-2", result)
-        assertEquals("ORD-2", vm.uiState.value.lastOrderId)
-        assertEquals(null, vm.uiState.value.lastOrderIdError)
-        assertTrue(vm.uiState.value.isSubmitting)
-    }
-
-    @Test
-    fun `resolveLastOrderIdForSubmit error clears id and stops submitting`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(
-            Resource.Success("ORD-1"),
-            Resource.Error("fail")
-        )
-        whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
-        vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
-            mockSubmitOrderUseCase,
-            mockPackageListUseCase,
-            mockGetOrderByIdUseCase,
-            mockUpdateOrderUseCase,
-            mockObserveShowWhatsAppSettingUseCase
-        )
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val result = vm.resolveLastOrderIdForSubmit()
-
-        assertEquals(null, result)
-        assertEquals(null, vm.uiState.value.lastOrderId)
-        assertEquals("fail", vm.uiState.value.lastOrderIdError)
-        assertFalse(vm.uiState.value.isSubmitting)
-    }
-
-    @Test
     fun `getPackageList error sets errorMessage`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-1"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Error("pkg err"))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -388,7 +304,6 @@ class OrderViewModelTest {
             )
         )
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -408,7 +323,6 @@ class OrderViewModelTest {
         whenever(mockGetOrderByIdUseCase.invoke(orderID = "X")).thenReturn(Resource.Empty)
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -425,7 +339,6 @@ class OrderViewModelTest {
         whenever(mockGetOrderByIdUseCase.invoke(orderID = "X")).thenReturn(Resource.Loading)
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -453,22 +366,21 @@ class OrderViewModelTest {
             orderDate = "21/08/2025",
             dueDate = ""
         )
-        whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Success(true))
+        whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Success("1550"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
             mockUpdateOrderUseCase,
             mockObserveShowWhatsAppSettingUseCase
         )
-        var done = false
-        vm.submitOrder(order = order, onComplete = { done = true })
+        var createdOrderId: String? = null
+        vm.submitOrder(order = order, onComplete = { createdOrderId = it })
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
-        assertTrue(done)
-        assertTrue(vm.uiState.value.submitNewOrder.data == true)
+        assertEquals("1550", createdOrderId)
+        assertEquals("1550", vm.uiState.value.submitNewOrder.data)
     }
 
     @Test
@@ -490,7 +402,6 @@ class OrderViewModelTest {
         whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("submit err"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -499,11 +410,7 @@ class OrderViewModelTest {
         )
         var done = false
         var error: String? = null
-        vm.submitOrder(
-            order = order,
-            onComplete = { done = true },
-            onError = { error = it }
-        )
+        vm.submitOrder(order = order, onComplete = { done = true }, onError = { error = it })
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(vm.uiState.value.isSubmitting)
         assertEquals("submit err", vm.uiState.value.submitNewOrder.errorMessage)
@@ -530,7 +437,6 @@ class OrderViewModelTest {
         whenever(mockSubmitOrderUseCase.invoke(order = order)).thenReturn(Resource.Loading)
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -563,7 +469,6 @@ class OrderViewModelTest {
         whenever(mockUpdateOrderUseCase.invoke(order = order)).thenReturn(Resource.Error("upd err"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -587,7 +492,6 @@ class OrderViewModelTest {
     @Test
     fun `updateField unknown key does not change state`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -602,7 +506,6 @@ class OrderViewModelTest {
     @Test
     fun `recalculateWeight returns empty when minPrice is zero`() {
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -616,14 +519,12 @@ class OrderViewModelTest {
 
     @Test
     fun `onOrderDateSelected updates date and recalculates due date`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-10"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(
             Resource.Success(
                 listOf(PackageData(name = "Express", price = "10000", duration = "3d", unit = "kg"))
             )
         )
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,
@@ -644,14 +545,12 @@ class OrderViewModelTest {
 
     @Test
     fun `onOrderDateSelected normalizes supported app date formats before recalculating due date`() = runTest {
-        whenever(mockGetLastOrderIdUseCase.invoke()).thenReturn(Resource.Success("ORD-11"))
         whenever(mockPackageListUseCase.invoke()).thenReturn(
             Resource.Success(
                 listOf(PackageData(name = "Express", price = "10000", duration = "3d", unit = "kg"))
             )
         )
         vm = OrderViewModel(
-            mockGetLastOrderIdUseCase,
             mockSubmitOrderUseCase,
             mockPackageListUseCase,
             mockGetOrderByIdUseCase,

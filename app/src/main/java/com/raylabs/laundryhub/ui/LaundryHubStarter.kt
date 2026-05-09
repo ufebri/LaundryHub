@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.ui
 
+import android.app.Activity
 import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -23,16 +24,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.activity.ComponentActivity
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalView
-import android.app.Activity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -369,7 +367,6 @@ fun ShowOrderBottomSheet(
 ) {
     val context = LocalContext.current
     val uiState by orderViewModel.uiState.collectAsState()
-    val orderIdUnavailableMessage = stringResource(R.string.order_id_unavailable)
     val submitFailedMessage = stringResource(R.string.order_submit_failed)
     val updateFailedMessage = stringResource(R.string.order_update_failed)
 
@@ -384,20 +381,9 @@ fun ShowOrderBottomSheet(
         onOrderDateSelected = { orderViewModel.onOrderDateSelected(it) },
         onSubmit = {
             scope.launch {
-                val currentState = orderViewModel.uiState.value
-                val orderId = currentState.lastOrderId
-                    ?: orderViewModel.resolveLastOrderIdForSubmit()
-
-                if (orderId.isNullOrBlank()) {
-                    val errorMessage = orderViewModel.uiState.value.lastOrderIdError
-                        ?: orderIdUnavailableMessage
-                    snackBarHostState.showQuickSnackbar(errorMessage)
-                    return@launch
-                }
-
                 orderViewModel.submitOrder(
-                    orderViewModel.uiState.value.toOrderData(orderId),
-                    onComplete = {
+                    orderViewModel.uiState.value.toOrderData(""),
+                    onComplete = { createdOrderId ->
                         val submittedState = orderViewModel.uiState.value
                         scope.launchOrderChangedRefresh(homeViewModel)
                         dismissSheet()
@@ -414,9 +400,9 @@ fun ShowOrderBottomSheet(
                         }
 
                         val successMessage = if (phone.isNotEmpty()) {
-                            context.getString(R.string.order_submit_success_opening_whatsapp, orderId)
+                            context.getString(R.string.order_submit_success_opening_whatsapp, createdOrderId)
                         } else {
-                            context.getString(R.string.order_submit_success, orderId)
+                            context.getString(R.string.order_submit_success, createdOrderId)
                         }
                         snackBarHostState.showQuickSnackbar(successMessage)
                     },

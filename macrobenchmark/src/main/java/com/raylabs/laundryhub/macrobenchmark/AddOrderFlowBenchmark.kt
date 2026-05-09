@@ -36,8 +36,8 @@ class AddOrderFlowBenchmark {
             packageName = TARGET_PACKAGE,
             metrics = listOf(FrameTimingMetric()),
             compilationMode = CompilationMode.Partial(
-                baselineProfileMode = BaselineProfileMode.Disable,
-                warmupIterations = 1
+                baselineProfileMode = BaselineProfileMode.UseIfAvailable,
+                warmupIterations = 0
             ),
             iterations = 1,
             setupBlock = {
@@ -68,12 +68,17 @@ class AddOrderFlowBenchmark {
             ).text.orEmpty()
             val submitToSuccessMs = SystemClock.elapsedRealtime() - submitStart
             val submittedOrderId = extractSubmittedOrderId(successMessage)
+            Log.i(
+                LOG_TAG,
+                "BENCHMARK_SUBMIT_SUCCESS " +
+                    "iteration=$iteration " +
+                    "submit_to_success_ms=$submitToSuccessMs " +
+                    "order_name=$orderName " +
+                    "order_id=$submittedOrderId"
+            )
 
             val pendingWaitStart = SystemClock.elapsedRealtime()
-            waitForPendingOrderVisibility(
-                orderId = submittedOrderId,
-                orderName = orderName
-            )
+            waitForPendingOrderVisibility(orderId = submittedOrderId)
             val successToPendingMs = SystemClock.elapsedRealtime() - pendingWaitStart
 
             val totalFlowMs = SystemClock.elapsedRealtime() - totalStart
@@ -222,9 +227,14 @@ class AddOrderFlowBenchmark {
     }
 
     private fun MacrobenchmarkScope.isHomeVisible(): Boolean {
+        return isHomeContentVisible() ||
+            device.hasObject(By.desc(ORDER_NAV_DESCRIPTION))
+    }
+
+    private fun MacrobenchmarkScope.isHomeContentVisible(): Boolean {
         return device.hasObject(By.text(TODAY_ACTIVITY_TITLE)) ||
             device.hasObject(By.text(PENDING_ORDERS_TITLE)) ||
-            device.hasObject(By.desc(ORDER_NAV_DESCRIPTION))
+            device.hasObject(By.desc(OPEN_SEARCH_DESCRIPTION))
     }
 
     private fun MacrobenchmarkScope.fillRequiredFields(orderName: String, price: String) {
@@ -259,10 +269,12 @@ class AddOrderFlowBenchmark {
     }
 
     private fun MacrobenchmarkScope.selectFirstPackage() {
-        tapObjectCenter(
-            selector = firstPackageSelector(),
+        tapAnyObjectCenterOrPackageFallback(
+            selectors = listOf(firstPackageSelector()) + PACKAGE_OPTION_FALLBACK_TEXTS.map(By::text),
             debugLabel = "first package option",
-            timeoutMs = FORM_READY_TIMEOUT_MS
+            timeoutMs = FORM_READY_TIMEOUT_MS,
+            packageOptionDescriptionPrefix = ORDER_PACKAGE_OPTION_DESCRIPTION_PREFIX,
+            dumpWindowHierarchy = { dumpWindowHierarchy() },
         )
         device.waitForIdle()
     }
@@ -310,7 +322,7 @@ class AddOrderFlowBenchmark {
         val deadline = SystemClock.elapsedRealtime() + FORM_READY_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             val field = waitForOptionalAnyObject(selectors, SHORT_WAIT_TIMEOUT_MS)
-            if (field != null && !field.visibleBounds.isEmpty) {
+            if (field != null && field.hasVisibleBounds()) {
                 return
             }
 
@@ -328,143 +340,100 @@ class AddOrderFlowBenchmark {
         error("Timed out waiting for field to become visible: $debugLabel")
     }
 
-    private fun MacrobenchmarkScope.waitForPendingOrderVisibility(
-        orderId: String,
-        orderName: String
-    ) {
-        ensurePendingOrdersVisible()
-
-        if (filterPendingOrdersByName(orderName)) {
-            val displayName = orderName.replaceFirstChar { firstChar ->
-                firstChar.uppercase()
-            }
-            waitForSingleFilteredPendingResult(displayName)
-            return
-        }
-
+    private fun MacrobenchmarkScope.waitForPendingOrderVisibility(orderId: String) {
+        returnToHomeTab()
+        scrollHomeFeedTowardTop()
         waitForPendingOrderLabel(orderId)
     }
 
-    private fun MacrobenchmarkScope.filterPendingOrdersByName(orderName: String): Boolean {
-        if (!openPendingOrderSearch()) {
-            return false
-        }
+    private fun MacrobenchmarkScope.returnToHomeTab() {
+        val deadline = SystemClock.elapsedRealtime() + HOME_LOAD_TIMEOUT_MS
+        var relaunchedApp = false
+        while (SystemClock.elapsedRealtime() < deadline) {
+            if (isHomeContentVisible()) return
 
-        val searchField = waitForOptionalAnyObject(
-            selectors = listOf(
-                By.desc(PENDING_ORDER_SEARCH_FIELD_DESCRIPTION),
-                By.clazz("android.widget.EditText"),
-                By.text(SEARCH_CUSTOMER_PLACEHOLDER)
-            ),
-            timeoutMs = SHORT_WAIT_TIMEOUT_MS
-        )
-        if (searchField == null || searchField.visibleBounds.isEmpty) {
-            Log.i(LOG_TAG, "Pending search field did not appear; falling back to order id scan")
-            device.pressBack()
+            val homeTab = waitForOptionalObject(
+                selector = By.desc(HOME_NAV_DESCRIPTION),
+                timeoutMs = SHORT_WAIT_TIMEOUT_MS
+            )
+            if (homeTab != null) {
+                val bounds = homeTab.visibleBounds
+                check(device.click(bounds.centerX(), bounds.centerY())) {
+                    "Failed to tap Home navigation tab at $bounds"
+                }
+                device.waitForIdle()
+                SystemClock.sleep(500)
+                if (isHomeContentVisible()) return
+            }
+
+            val orderSheet = waitForOptionalObject(
+                selector = By.desc(ORDER_SHEET_DESCRIPTION),
+                timeoutMs = SHORT_WAIT_TIMEOUT_MS
+            )
+            if (orderSheet != null && orderSheet.hasVisibleBounds()) {
+                device.pressBack()
+                device.waitForIdle()
+                SystemClock.sleep(500)
+                continue
+            }
+
+            if (!relaunchedApp) {
+                launchAppFromShell()
+                relaunchedApp = true
+            }
             device.waitForIdle()
-            return false
+            SystemClock.sleep(500)
         }
 
-        inputTextIntoObject(
-            field = searchField,
-            value = orderName,
-            debugLabel = PENDING_ORDER_SEARCH_LABEL
-        )
-        device.pressBack()
-        device.waitForIdle()
-        return true
+        val windowHierarchy = dumpWindowHierarchy()
+        error(
+            "Timed out returning to Home before pending-order verification. " +
+                "Window markers=${summarizeWindowMarkers(windowHierarchy)}"
+            )
+    }
+
+    private fun MacrobenchmarkScope.scrollHomeFeedTowardTop() {
+        repeat(6) {
+            if (device.hasObject(By.text(TODAY_ACTIVITY_TITLE))) return
+
+            device.swipe(
+                device.displayWidth / 2,
+                (device.displayHeight * 0.38f).toInt(),
+                device.displayWidth / 2,
+                (device.displayHeight * 0.82f).toInt(),
+                24
+            )
+            device.waitForIdle()
+            SystemClock.sleep(350)
+        }
     }
 
     private fun MacrobenchmarkScope.waitForPendingOrderLabel(orderId: String) {
-        val orderLabel = "Order #$orderId"
+        val orderLabel = "$ORDER_LABEL_PREFIX$orderId"
         val deadline = SystemClock.elapsedRealtime() + PENDING_UPDATE_TIMEOUT_MS
+        var scanStep = 0
         while (SystemClock.elapsedRealtime() < deadline) {
             if (device.hasObject(By.text(orderLabel))) {
                 return
             }
 
-            device.swipe(
-                device.displayWidth / 2,
-                (device.displayHeight * 0.78f).toInt(),
-                device.displayWidth / 2,
-                (device.displayHeight * 0.34f).toInt(),
-                24
-            )
+            if (scanStep > 0 && scanStep % HOME_FEED_SCAN_STEPS_BEFORE_RESET == 0) {
+                scrollHomeFeedTowardTop()
+            } else {
+                device.swipe(
+                    device.displayWidth / 2,
+                    (device.displayHeight * 0.78f).toInt(),
+                    device.displayWidth / 2,
+                    (device.displayHeight * 0.34f).toInt(),
+                    24
+                )
+            }
+            scanStep += 1
             device.waitForIdle()
             SystemClock.sleep(400)
         }
 
         error("Timed out waiting for pending order card to show $orderLabel")
-    }
-
-    private fun MacrobenchmarkScope.openPendingOrderSearch(): Boolean {
-        repeat(6) {
-            val searchButton = waitForOptionalObject(
-                selector = By.desc(OPEN_SEARCH_DESCRIPTION),
-                timeoutMs = SHORT_WAIT_TIMEOUT_MS
-            )
-            if (searchButton != null) {
-                val bounds = searchButton.visibleBounds
-                check(device.click(bounds.centerX(), bounds.centerY())) {
-                    "Failed to tap Pending Order search button at $bounds"
-                }
-                device.waitForIdle()
-                return true
-            }
-
-            device.swipe(
-                device.displayWidth / 2,
-                (device.displayHeight * 0.34f).toInt(),
-                device.displayWidth / 2,
-                (device.displayHeight * 0.74f).toInt(),
-                24
-            )
-            device.waitForIdle()
-            SystemClock.sleep(400)
-        }
-
-        return false
-    }
-
-    private fun MacrobenchmarkScope.waitForSingleFilteredPendingResult(displayName: String) {
-        val deadline = SystemClock.elapsedRealtime() + PENDING_UPDATE_TIMEOUT_MS
-        while (SystemClock.elapsedRealtime() < deadline) {
-            val visibleOrderLabels = device.findObjects(By.textStartsWith(ORDER_LABEL_PREFIX))
-                .count { !it.visibleBounds.isEmpty }
-            val hasDisplayName = device.hasObject(By.text(displayName))
-
-            if (hasDisplayName && visibleOrderLabels == 1) {
-                return
-            }
-
-            device.waitForIdle()
-            SystemClock.sleep(300)
-        }
-
-        error("Timed out waiting for exactly one filtered pending result for $displayName")
-    }
-
-    private fun MacrobenchmarkScope.ensurePendingOrdersVisible() {
-        val deadline = SystemClock.elapsedRealtime() + PENDING_UPDATE_TIMEOUT_MS
-        while (SystemClock.elapsedRealtime() < deadline) {
-            val hasPendingHeader = device.hasObject(By.text(PENDING_ORDERS_TITLE)) ||
-                device.hasObject(By.desc(OPEN_SEARCH_DESCRIPTION))
-            if (hasPendingHeader) {
-                return
-            }
-
-            device.swipe(
-                device.displayWidth / 2,
-                (device.displayHeight * 0.82f).toInt(),
-                device.displayWidth / 2,
-                (device.displayHeight * 0.42f).toInt(),
-                24
-            )
-            device.waitForIdle()
-            SystemClock.sleep(400)
-        }
-
-        error("Timed out waiting for Pending Orders section to become visible")
     }
 
     private fun MacrobenchmarkScope.waitForObject(
@@ -532,6 +501,7 @@ class AddOrderFlowBenchmark {
         private const val ORDER_PRICE = "8000"
 
         private const val ORDER_NAV_DESCRIPTION = "Order"
+        private const val HOME_NAV_DESCRIPTION = "Home"
         private const val ORDER_SHEET_DESCRIPTION = "Order sheet"
         private const val ORDER_NAME_FIELD_DESCRIPTION = "Order name field"
         private const val ORDER_PACKAGE_OPTION_DESCRIPTION_PREFIX = "Package option "
@@ -541,12 +511,9 @@ class AddOrderFlowBenchmark {
         private const val PENDING_ORDERS_TITLE = "Pending Orders"
         private const val ORDER_LABEL_PREFIX = "Order #"
         private const val OPEN_SEARCH_DESCRIPTION = "Open Search"
-        private const val PENDING_ORDER_SEARCH_LABEL = "Pending order search"
-        private const val PENDING_ORDER_SEARCH_FIELD_DESCRIPTION = "Pending order search field"
         private const val ORDER_SUBMIT_SUCCESS_TEXT = "submitted successfully."
         private const val NAME_LABEL = "Name"
         private const val PRICE_LABEL = "Price"
-        private const val SEARCH_CUSTOMER_PLACEHOLDER = "Search Customer"
         private const val SPREADSHEET_SETUP_TITLE = "Set Up Your Spreadsheet"
         private const val VALIDATE_AND_CONTINUE_TEXT = "Validate & Continue"
         private const val CONNECT_GOOGLE_SHEETS_TEXT = "Connect Google Sheets"
@@ -559,6 +526,7 @@ class AddOrderFlowBenchmark {
         private const val SUBMIT_TIMEOUT_MS = 45_000L
         private const val PENDING_UPDATE_TIMEOUT_MS = 45_000L
         private const val SHORT_WAIT_TIMEOUT_MS = 2_500L
+        private const val HOME_FEED_SCAN_STEPS_BEFORE_RESET = 5
 
         private fun firstPackageSelector(): BySelector = By.descStartsWith(
             ORDER_PACKAGE_OPTION_DESCRIPTION_PREFIX

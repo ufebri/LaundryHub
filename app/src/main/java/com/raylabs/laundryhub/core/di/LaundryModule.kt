@@ -2,9 +2,24 @@ package com.raylabs.laundryhub.core.di
 
 import com.raylabs.laundryhub.core.data.repository.LaundryRepositoryImpl
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
-import com.raylabs.laundryhub.core.domain.usecase.sheets.*
-import com.raylabs.laundryhub.core.domain.usecase.sheets.income.*
-import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.*
+import com.raylabs.laundryhub.core.domain.usecase.sheets.DeletePackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitPackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdatePackageUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.DeleteOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.GetOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.SubmitOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.UpdateOrderUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.DeleteOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetLastOutcomeIdUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -52,10 +67,6 @@ object LaundryModule {
     @Provides
     @Singleton
     fun provideDeletePackageUseCase(repository: LaundryRepository) = DeletePackageUseCase(repository)
-
-    @Provides
-    @Singleton
-    fun provideGetLastOrderIdUseCase(repository: LaundryRepository) = GetLastOrderIdUseCase(repository)
 
     @Provides
     @Singleton

@@ -9,6 +9,7 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -16,6 +17,34 @@ import java.util.Date
 import java.util.Locale
 
 class OrderRepository {
+
+    suspend fun insertWithNextId(order: OrderData): OrderData? = dbQuery {
+        TransactionManager.current().exec("SELECT pg_advisory_xact_lock($ORDER_ID_ALLOCATION_LOCK_KEY)")
+        val nextId = OrdersTable
+            .selectAll()
+            .mapNotNull { it[OrdersTable.id].toIntOrNull() }
+            .maxOrNull()
+            ?.plus(1)
+            ?.toString()
+            ?: "0"
+        val createdOrder = order.copy(orderId = nextId)
+        val statement = OrdersTable.insertIgnore {
+            it[id] = createdOrder.orderId
+            it[name] = createdOrder.name
+            it[phoneNumber] = createdOrder.phoneNumber
+            it[packageName] = createdOrder.packageName
+            it[priceKg] = createdOrder.priceKg
+            it[totalPrice] = createdOrder.totalPrice
+            it[paidStatus] = createdOrder.paidStatus
+            it[paymentMethod] = createdOrder.paymentMethod
+            it[remark] = createdOrder.remark
+            it[weight] = createdOrder.weight
+            it[orderDate] = createdOrder.orderDate
+            it[dueDate] = createdOrder.dueDate
+            it[isSynced] = false
+        }
+        if (statement.insertedCount > 0) createdOrder else null
+    }
 
     suspend fun insert(order: OrderData): Boolean = dbQuery {
         val statement = OrdersTable.insertIgnore {
@@ -304,3 +333,5 @@ class OrderRepository {
         }
     }
 }
+
+private const val ORDER_ID_ALLOCATION_LOCK_KEY = 53319041
