@@ -397,13 +397,14 @@ internal class LaundryHubAppRobot(
     }
 
     private fun waitForHistoryPopulated() {
+        // Wait for the snackbar to disappear first so it doesn't trip our text checks
+        device.wait(Until.gone(By.textContains("submitted successfully")), SHORT_TIMEOUT_MS)
+        
         val deadline = SystemClock.elapsedRealtime() + DATA_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             val hierarchy = dumpWindowHierarchy()
-            if (hierarchy.contains("Order #") || hierarchy.contains("Outcome #")) {
-                return
-            }
-            if (hierarchy.contains(NO_TRANSACTIONS_TEXT)) {
+            // In the list, we show IDs like "#1606" (just the hash and number), or "Rp" for prices
+            if (hierarchy.contains("Rp ") || hierarchy.contains(NO_TRANSACTIONS_TEXT)) {
                 return
             }
             device.waitForIdle()
@@ -447,12 +448,12 @@ internal class LaundryHubAppRobot(
     }
 
     fun updateSandboxOutcome(oldPurpose: String, newPurposeSuffix: String): String {
-        tapNav(HISTORY_NAV_DESCRIPTION)
+        tapNav(OUTCOME_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
         
         val searchName = formatTextForSearch(oldPurpose)
-        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
+        ensureObjectVisible(listOf(By.textContains(searchName)), "Outcome entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
@@ -481,13 +482,13 @@ internal class LaundryHubAppRobot(
         return "$oldPurpose$newPurposeSuffix"
     }
 
-    fun deleteTransactionFromHistory(transactionText: String) {
-        tapNav(HISTORY_NAV_DESCRIPTION)
+    fun deleteTransactionFromHistory(transactionText: String, isOutcome: Boolean = false) {
+        tapNav(if (isOutcome) OUTCOME_NAV_DESCRIPTION else HISTORY_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
         
         val searchName = formatTextForSearch(transactionText)
-        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
+        ensureObjectVisible(listOf(By.textContains(searchName)), "Entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())

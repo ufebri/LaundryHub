@@ -53,7 +53,7 @@ class LaundryHubGuardedMutatingE2eTest {
         val updatedName = robot.updateSandboxOrder(baseName, "_mod")
         
         // Delete
-        robot.deleteTransactionFromHistory(updatedName)
+        robot.deleteTransactionFromHistory(updatedName, isOutcome = false)
     }
 
     @Test
@@ -67,6 +67,6 @@ class LaundryHubGuardedMutatingE2eTest {
         val updatedPurpose = robot.updateSandboxOutcome(basePurpose, "_mod")
         
         // Delete
-        robot.deleteTransactionFromHistory(updatedPurpose)
+        robot.deleteTransactionFromHistory(updatedPurpose, isOutcome = true)
     }
 }

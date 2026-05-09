@@ -40,9 +40,14 @@ Verification:
 
 Benchmark status:
 
-- Add Order macrobenchmark rerun is still pending. AndroidX Benchmark stopped before measurement because the connected device was at low battery and not charging.
-- Do not record a before/after performance delta for this optimization until the Add Order benchmark is rerun on a charged, stable device.
+- Add Order macrobenchmark was rerun on a charged physical `SM-S931B - 16` device.
+- Results for backend-owned ID allocation: `open_add_order_ms=807`, `submit_to_success_ms=3279`, `success_to_pending_ms=10691`, `total_flow_ms=22055`.
+- Frame CPU performance: `P50=3.3ms`, `P90=4.9ms`, `P95=6.1ms`, `P99=10.0ms`.
 
+Notes:
+
+- The `success_to_pending_ms` metric remains high due to Paging 3 invalidation and network latency fetching the new list head.
+- The overall flow remains stable and correctly captures the allocated ID 1604 from the backend response.
 Next command:
 
 - `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=com.raylabs.laundryhub.macrobenchmark.AddOrderFlowBenchmark`

@@ -385,6 +385,17 @@ fun ShowOrderBottomSheet(
                     orderViewModel.uiState.value.toOrderData(""),
                     onComplete = { createdOrderId ->
                         val submittedState = orderViewModel.uiState.value
+                        val newOrderData = submittedState.toOrderData(createdOrderId)
+                        val optimisticOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+                            orderID = newOrderData.orderId,
+                            customerName = newOrderData.name,
+                            packageType = newOrderData.packageName,
+                            nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(newOrderData.paidStatus),
+                            dueDate = newOrderData.dueDate,
+                            orderDate = newOrderData.orderDate
+                        )
+                        homeViewModel.addOptimisticOrder(optimisticOrder)
+                        
                         scope.launchOrderChangedRefresh(homeViewModel)
                         dismissSheet()
 

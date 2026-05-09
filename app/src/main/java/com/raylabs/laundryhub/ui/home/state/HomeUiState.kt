@@ -23,7 +23,8 @@ data class HomeUiState(
     val isRefreshing: Boolean = false, // Added for swipe-to-refresh
     val searchQuery: String = "", // Added for search functionality
     val isSearchActive: Boolean = false, // Added for search functionality
-    val refreshCounter: Int = 0 // Added to trigger Paging 3 refresh
+    val refreshCounter: Int = 0, // Added to trigger Paging 3 refresh
+    val optimisticOrders: List<UnpaidOrderItem> = emptyList() // Added for Optimistic UI
 )
 
 data class ReminderDiscoveryUiState(

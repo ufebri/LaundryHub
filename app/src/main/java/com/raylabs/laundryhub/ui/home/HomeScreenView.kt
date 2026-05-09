@@ -285,6 +285,40 @@ fun HomeScreenContent(
                 }
             }
 
+            // Optimistic Orders List
+            val optimisticItemCount = state.optimisticOrders.size
+            val optimisticRowCount = (optimisticItemCount + 1) / 2
+
+            items(optimisticRowCount) { rowIndex ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    val firstIndex = rowIndex * 2
+                    val secondIndex = firstIndex + 1
+
+                    state.optimisticOrders.getOrNull(firstIndex)?.let { item ->
+                        OrderStatusCard(
+                            item = item,
+                            onClick = { onOrderCardClick(item.orderID) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+
+                    if (secondIndex < optimisticItemCount) {
+                        state.optimisticOrders.getOrNull(secondIndex)?.let { item ->
+                            OrderStatusCard(
+                                item = item,
+                                onClick = { onOrderCardClick(item.orderID) },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                }
+            }
+
             // Pending Orders List via Paging
             val itemCount = pagingItems.itemCount
             val rowCount = (itemCount + 1) / 2

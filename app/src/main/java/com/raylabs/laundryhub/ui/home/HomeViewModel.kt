@@ -252,15 +252,20 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshAfterOrderChanged() {
+        _uiState.update { it.copy(optimisticOrders = emptyList()) }
         refreshAllData()
     }
 
     fun refreshAfterOutcomeChanged() {
         refreshAllData()
     }
+
+    fun addOptimisticOrder(order: UnpaidOrderItem) {
+        _uiState.update { it.copy(optimisticOrders = listOf(order) + it.optimisticOrders) }
+    }
 }
 
-private fun TransactionData.toUnpaidOrderItem(): UnpaidOrderItem {
+fun TransactionData.toUnpaidOrderItem(): UnpaidOrderItem {
     return UnpaidOrderItem(
         orderID = orderID,
         customerName = name,
