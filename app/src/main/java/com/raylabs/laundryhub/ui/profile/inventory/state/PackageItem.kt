@@ -10,6 +10,7 @@ data class PackageItem(
     val work: String,
     val unit: String = "",
     val sheetRowIndex: Int = -1,
+    val id: Int = 0,
 ) {
     val displayPrice: String
         get() = formatPackagePrice(price)
@@ -31,7 +32,8 @@ fun List<PackageData>.toUi(): List<PackageItem> {
             price = it.price,
             work = it.duration,
             unit = it.unit,
-            sheetRowIndex = it.sheetRowIndex
+            sheetRowIndex = it.sheetRowIndex,
+            id = it.id
         )
     }
 }

@@ -24,6 +24,9 @@ out/
 .gradle/
 build/
 
+# Gemini CLI settings
+.gemini/
+
 # Local configuration file (sdk path, etc)
 local.properties
 

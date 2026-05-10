@@ -7,9 +7,10 @@ import com.raylabs.laundryhub.ui.common.util.SectionState
 data class OutcomeUiState(
     val lastOutcomeId: String? = null,
     val outcome: SectionState<List<DateListItemUI>> = SectionState(),
-    val submitNewOutcome: SectionState<Boolean> = SectionState(),
+    val submitNewOutcome: SectionState<String> = SectionState(),
     val updateOutcome: SectionState<Boolean> = SectionState(),
     val deleteOutcome: SectionState<Boolean> = SectionState(),
+    val hiddenOutcomeIds: Set<String> = emptySet(),
 
     //For Edit
     val outcomeID: String = "",

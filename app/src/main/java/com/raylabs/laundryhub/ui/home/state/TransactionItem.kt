@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.core.domain.model.sheets.PAID
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 import com.raylabs.laundryhub.ui.theme.RedLaundryHub
 
@@ -21,7 +22,7 @@ fun List<TransactionData>.toUI(): List<TransactionItem> {
         TransactionItem(
             id = it.orderID,
             name = it.name,
-            totalPrice = "${it.totalPrice.ifEmpty { "Rp 0" }},-",
+            totalPrice = it.totalPrice.toRupiahFormat(),
             status = it.paidDescription(),
             statusColor = it.paymentStatus.toColor(),
             packageDuration = it.packageType
@@ -30,10 +31,10 @@ fun List<TransactionData>.toUI(): List<TransactionItem> {
 }
 
 fun String.toColor(): Color {
-    return when (this) {
-        "" -> RedLaundryHub
-        PAID -> PurpleLaundryHub
-        else -> Color.Black
+    return when (this.lowercase()) {
+        "unpaid", "belum", "" -> RedLaundryHub
+        "paid", "lunas", PAID.lowercase() -> PurpleLaundryHub
+        else -> if (this.contains("Paid", ignoreCase = true)) PurpleLaundryHub else Color.Black
     }
 }
 

@@ -3,6 +3,10 @@ package com.raylabs.laundryhub.ui.outcome
 import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.insertSeparators
+import androidx.paging.map
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.getPaymentValueFromDescription
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
@@ -12,15 +16,19 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCa
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
+import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.DateUtil
-import com.raylabs.laundryhub.ui.common.util.Resource
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
+import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.toDateListUiItems
+import com.raylabs.laundryhub.ui.outcome.state.toEntryItemUI
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -33,6 +41,25 @@ class OutcomeViewModel @Inject constructor(
     private val getOutcomeUseCase: GetOutcomeUseCase,
     private val deleteOutcomeUseCase: DeleteOutcomeUseCase
 ) : ViewModel() {
+
+    val outcomePagingData: Flow<PagingData<DateListItemUI>> = 
+        readOutcomeUseCase.getPagingData()
+            .map { pagingData ->
+                pagingData.map {
+                    val entry: DateListItemUI = DateListItemUI.Entry(it.toEntryItemUI())
+                    entry
+                }
+                    .insertSeparators { before: DateListItemUI?, after: DateListItemUI? ->
+                        val beforeEntry = before as? DateListItemUI.Entry
+                        val afterEntry = after as? DateListItemUI.Entry
+                        if (afterEntry != null && (beforeEntry == null || beforeEntry.item.date != afterEntry.item.date)) {
+                            DateListItemUI.Header(afterEntry.item.date)
+                        } else {
+                            null
+                        }
+                    }
+            }
+            .cachedIn(viewModelScope)
 
     private val _uiState = mutableStateOf(OutcomeUiState())
     val uiState: OutcomeUiState get() = _uiState.value
@@ -57,7 +84,7 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    suspend fun submitOutcome(outcome: OutcomeData, onComplete: suspend () -> Unit) {
+    suspend fun submitOutcome(outcome: OutcomeData, onComplete: suspend (String) -> Unit) {
         _uiState.value = _uiState.value.copy(
             submitNewOutcome = _uiState.value.submitNewOutcome.loading(),
             isSubmitting = true
@@ -69,9 +96,11 @@ class OutcomeViewModel @Inject constructor(
                     submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
                     isSubmitting = false
                 )
-                loadOutcomeList()
-                loadLastOutcomeId()
-                onComplete()
+                onComplete(result.data)
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                    loadLastOutcomeId()
+                }
             }
 
             is Resource.Error -> {
@@ -140,8 +169,10 @@ class OutcomeViewModel @Inject constructor(
                     updateOutcome = _uiState.value.updateOutcome.success(result.data),
                     isSubmitting = false
                 )
-                loadOutcomeList()
                 onComplete()
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                }
             }
 
             is Resource.Error -> {
@@ -169,11 +200,14 @@ class OutcomeViewModel @Inject constructor(
         when (val result = deleteOutcomeUseCase(outcomeId = outcomeId)) {
             is Resource.Success -> {
                 _uiState.value = _uiState.value.copy(
-                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data)
+                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data),
+                    hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds + outcomeId
                 )
-                loadOutcomeList()
-                loadLastOutcomeId()
                 onComplete()
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                    loadLastOutcomeId()
+                }
             }
 
             is Resource.Error -> {
@@ -219,14 +253,12 @@ class OutcomeViewModel @Inject constructor(
         )
     }
 
-    fun buildOutcomeDataForSubmit(): OutcomeData? {
-        val id =
-            _uiState.value.lastOutcomeId?.takeIf { it.all { ch -> ch.isDigit() } } ?: return null
+    fun buildOutcomeDataForSubmit(): OutcomeData {
         val date =
             _uiState.value.date.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) }
 
         return OutcomeData(
-            id = id,
+            id = "",
             date = date,
             purpose = _uiState.value.name,
             price = sanitizePrice(_uiState.value.price),
@@ -282,15 +314,19 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadOutcomeList() {
-        _uiState.value = _uiState.value.copy(
-            outcome = _uiState.value.outcome.loading()
-        )
+    private suspend fun loadOutcomeList(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.value = _uiState.value.copy(
+                outcome = _uiState.value.outcome.loading()
+            )
+        }
 
         when (val result = readOutcomeUseCase()) {
             is Resource.Success -> {
+                val loadedIds = result.data.map { it.id }.toSet()
                 _uiState.value = _uiState.value.copy(
-                    outcome = _uiState.value.outcome.success(result.data.toDateListUiItems())
+                    outcome = _uiState.value.outcome.success(result.data.toDateListUiItems()),
+                    hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds - loadedIds
                 )
             }
 

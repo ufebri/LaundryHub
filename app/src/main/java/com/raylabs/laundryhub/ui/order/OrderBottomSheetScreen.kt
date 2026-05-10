@@ -26,18 +26,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
 import com.raylabs.laundryhub.ui.component.DatePickerField
 import com.raylabs.laundryhub.ui.component.HorizontalSelectionCards
@@ -70,11 +74,16 @@ fun OrderBottomSheet(
     modifier: Modifier = Modifier
 ) {
     val orderDate = state.orderDate.ifBlank { "" }
+    val nameFocusRequester = remember { FocusRequester() }
 
     LaunchedEffect(key1 = state.paymentMethod, key2 = state.paymentOption) {
         if (state.paymentMethod.isBlank() && state.paymentOption.isNotEmpty()) {
             onPaymentMethodSelected(state.paymentOption.first())
         }
+    }
+
+    LaunchedEffect(Unit) {
+        nameFocusRequester.requestFocus()
     }
 
     Box(
@@ -107,12 +116,25 @@ fun OrderBottomSheet(
             )
 
             Text(
-                text = if (state.isEditMode) "Update Order" else "New Order",
+                text = if (state.isEditMode) {
+                    stringResource(R.string.order_editor_update_title)
+                } else {
+                    stringResource(R.string.order_editor_new_title)
+                },
                 style = MaterialTheme.typography.h6,
                 modifier = Modifier.align(Alignment.CenterHorizontally)
             )
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            DatePickerField(
+                label = stringResource(R.string.order_date),
+                value = orderDate,
+                onDateSelected = onOrderDateSelected,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             OutlinedTextField(
                 value = state.name,
@@ -121,9 +143,10 @@ fun OrderBottomSheet(
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Next
                 ),
-                label = { Text("Name") },
+                label = { Text(stringResource(R.string.name)) },
                 modifier = Modifier
                     .fillMaxWidth()
+                    .focusRequester(nameFocusRequester)
                     .semantics {
                         contentDescription = ORDER_NAME_FIELD_DESCRIPTION
                     }
@@ -135,7 +158,7 @@ fun OrderBottomSheet(
                 OutlinedTextField(
                     value = state.phone,
                     onValueChange = { if (it.length <= 13) onPhoneChanged(it) },
-                    label = { Text("Phone Number") },
+                    label = { Text(stringResource(R.string.phone_number)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions.Default.copy(
                         imeAction = ImeAction.Next,
@@ -177,23 +200,16 @@ fun OrderBottomSheet(
                 }
 
                 Text(
-                    text = "Make sure the WhatsApp is Available",
+                    text = stringResource(R.string.whatsapp_available_hint),
                     style = MaterialTheme.typography.caption,
                     modifier = Modifier.padding(top = 4.dp, bottom = 12.dp)
                 )
             }
 
-            DatePickerField(
-                label = "Order Date",
-                value = orderDate,
-                onDateSelected = onOrderDateSelected,
-                modifier = Modifier.fillMaxWidth()
-            )
-
             Spacer(modifier = Modifier.height(12.dp))
 
             HorizontalSelectionCards(
-                label = "Package",
+                label = stringResource(R.string.package_label),
                 options = state.packageNameList.data.orEmpty(),
                 selectedOption = state.selectedPackage,
                 onOptionSelected = onPackageSelected,
@@ -206,22 +222,17 @@ fun OrderBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             OutlinedTextField(
-                value = state.price.removeRupiahFormat(),
+                value = state.price.filter { it.isDigit() },
                 onValueChange = { input ->
-                    val rawDigits = input.filter { it.isDigit() }.take(7)
+                    val rawDigits = input.filter { it.isDigit() }.take(10)
                     onPriceChanged(rawDigits)
                 },
                 keyboardOptions = KeyboardOptions.Default.copy(
                     imeAction = ImeAction.Next,
                     keyboardType = KeyboardType.Number
                 ),
-                label = { Text("Price") },
-                leadingIcon = {
-                    Text("Rp", modifier = Modifier.padding(start = 4.dp))
-                },
-                trailingIcon = {
-                    Text(",-", modifier = Modifier.padding(end = 4.dp))
-                },
+                visualTransformation = com.raylabs.laundryhub.ui.common.util.CurrencyVisualTransformation(),
+                label = { Text(stringResource(R.string.price)) },
                 singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
@@ -231,7 +242,7 @@ fun OrderBottomSheet(
             )
 
             Text(
-                text = "The weight is ${state.weight.ifBlank { "0" }} Kg",
+                text = stringResource(R.string.order_weight_value, state.weight.ifBlank { "0" }),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 4.dp, bottom = 12.dp),
@@ -241,7 +252,7 @@ fun OrderBottomSheet(
             Spacer(modifier = Modifier.height(12.dp))
 
             SingleSelectChipRow(
-                label = "Payment Method",
+                label = stringResource(R.string.payment_method),
                 options = state.paymentOption,
                 selectedValue = state.paymentMethod,
                 onOptionSelected = onPaymentMethodSelected,
@@ -257,7 +268,7 @@ fun OrderBottomSheet(
                 OutlinedTextField(
                     value = state.note,
                     onValueChange = { if (it.length <= 30) onNoteChanged(it) },
-                    label = { Text("Note") },
+                    label = { Text(stringResource(R.string.note)) },
                     modifier = Modifier.weight(1f)
                 )
 

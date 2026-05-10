@@ -1,7 +1,14 @@
 package com.raylabs.laundryhub.ui.home.state
 
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+
+enum class SyncStatus {
+    SYNCED,
+    PENDING,
+    FAILED
+}
 
 data class UnpaidOrderItem(
     val orderID: String,
@@ -9,7 +16,9 @@ data class UnpaidOrderItem(
     val packageType: String,
     val nowStatus: String,
     val dueDate: String,
-    val orderDate: String // Added orderDate
+    val orderDate: String, // Added orderDate
+    val syncStatus: SyncStatus = SyncStatus.SYNCED,
+    val rawPayload: OrderData? = null
 )
 
 fun List<TransactionData>.toUi(): List<UnpaidOrderItem> {
@@ -20,7 +29,8 @@ fun List<TransactionData>.toUi(): List<UnpaidOrderItem> {
             packageType = it.packageType,
             nowStatus = it.paidDescription(),
             dueDate = it.dueDate,
-            orderDate = it.date // Mapped from TransactionData.date
+            orderDate = it.date, // Mapped from TransactionData.date
+            syncStatus = SyncStatus.SYNCED
         )
     }
 }

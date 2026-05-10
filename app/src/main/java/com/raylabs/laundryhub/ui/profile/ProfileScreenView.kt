@@ -1,6 +1,5 @@
 package com.raylabs.laundryhub.ui.profile
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -25,7 +24,6 @@ import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedButton
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Switch
 import androidx.compose.material.SwitchDefaults
@@ -46,23 +44,22 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import coil.compose.AsyncImage
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
 import com.raylabs.laundryhub.ui.common.dummy.profile.dummyProfileUiState
 import com.raylabs.laundryhub.ui.component.AppConfirmationDialog
-import com.raylabs.laundryhub.ui.component.AppConfirmationSheet
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.profile.state.ProfileUiState
+import com.raylabs.laundryhub.ui.reminder.formatReminderTime
 import java.util.Locale
 
 private val ProfileHeroColor = Color(0xFF31284B)
@@ -71,9 +68,6 @@ private val ProfileCardColorSoft = Color(0xFF55447A)
 private val ProfileCardLine = Color.White.copy(alpha = 0.12f)
 private val ProfileBadgeFill = Color(0xFFE3D7FF)
 private val ProfileMutedText = Color(0xFFE0D7F5)
-private val ProfileSuccess = Color(0xFFB7F1C2)
-private val ProfileWarning = Color(0xFFFFE2A4)
-private val ProfileDangerSoft = Color(0xFFFFD0D0)
 private val ProfileContentPadding = 16.dp
 
 @Composable
@@ -88,7 +82,7 @@ fun ProfileScreenView(
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("profile_inline")
 
     Scaffold(
-        topBar = { DefaultTopAppBar("Profile") }
+        topBar = { DefaultTopAppBar(stringResource(R.string.profile)) }
     ) { padding ->
         ProfileScreenContent(
             state = state,
@@ -96,17 +90,12 @@ fun ProfileScreenView(
             modifier = Modifier.padding(padding),
             onLoggedOut = {
                 viewModel.logOut(onSuccess = {
-                    // Handle successful logout, e.g., navigate to login screen
                     loginViewModel.clearUser()
                 })
             },
             onInventoryClick = onInventoryClick,
             onReminderSettingsClick = onReminderSettingsClick,
             onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption,
-            onRevalidateSpreadsheet = viewModel::revalidateSpreadsheet,
-            onChangeSpreadsheetClick = viewModel::openChangeSpreadsheetDialog,
-            onConfirmChangeSpreadsheet = viewModel::confirmChangeSpreadsheet,
-            onDismissChangeSpreadsheet = viewModel::dismissChangeSpreadsheetDialog,
             onClearCacheClick = viewModel::openClearCacheDialog,
             onConfirmClearCache = viewModel::clearCache,
             onDismissClearCache = viewModel::dismissClearCacheDialog
@@ -123,10 +112,6 @@ fun ProfileScreenContent(
     onInventoryClick: () -> Unit = {},
     onReminderSettingsClick: () -> Unit = {},
     onWhatsAppOptionChanged: (Boolean) -> Unit = {},
-    onRevalidateSpreadsheet: () -> Unit = {},
-    onChangeSpreadsheetClick: () -> Unit = {},
-    onConfirmChangeSpreadsheet: () -> Unit = {},
-    onDismissChangeSpreadsheet: () -> Unit = {},
     onClearCacheClick: () -> Unit = {},
     onConfirmClearCache: () -> Unit = {},
     onDismissClearCache: () -> Unit = {}
@@ -136,13 +121,12 @@ fun ProfileScreenContent(
         state.cacheSize.errorMessage != null -> stringResource(R.string.cache_size_unavailable)
         else -> formatCacheSize(state.cacheSize.data)
     }
+
     LaunchedEffect(state.logout.data) {
         if (state.logout.data == true) {
             onLoggedOut()
         }
     }
-
-    val scrollState = rememberScrollState()
 
     Box(
         modifier = modifier
@@ -152,7 +136,7 @@ fun ProfileScreenContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(scrollState)
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = ProfileContentPadding, vertical = 20.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
@@ -165,15 +149,6 @@ fun ProfileScreenContent(
                     description = stringResource(R.string.inventory_description),
                     iconRes = R.drawable.ic_admin,
                     onClick = onInventoryClick
-                )
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                SectionHeader(title = stringResource(R.string.spreadsheet_settings))
-                SpreadsheetManagementCard(
-                    state = state,
-                    onRevalidateSpreadsheet = onRevalidateSpreadsheet,
-                    onChangeSpreadsheetClick = onChangeSpreadsheetClick
                 )
             }
 
@@ -211,22 +186,6 @@ fun ProfileScreenContent(
                 onDismiss = onDismissClearCache
             )
         }
-
-        if (state.showChangeSpreadsheetDialog) {
-            AppConfirmationSheet(
-                title = stringResource(R.string.change_spreadsheet_sheet_title),
-                message = stringResource(R.string.change_spreadsheet_sheet_message),
-                confirmLabel = stringResource(R.string.continue_label),
-                dismissLabel = stringResource(R.string.not_now),
-                onConfirm = onConfirmChangeSpreadsheet,
-                onDismiss = onDismissChangeSpreadsheet,
-                animationRes = R.raw.lottie_report,
-                bulletPoints = listOf(
-                    stringResource(R.string.change_spreadsheet_sheet_point_connection),
-                    stringResource(R.string.change_spreadsheet_sheet_point_local)
-                )
-            )
-        }
     }
 }
 
@@ -238,45 +197,39 @@ private fun ProfileHeroCard(state: ProfileUiState) {
         elevation = 0.dp,
         modifier = Modifier.fillMaxWidth()
     ) {
-        Column(
+        Row(
             modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                AsyncImage(
-                    model = state.user.data?.photoUrl,
-                    error = painterResource(R.drawable.ic_branding),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(60.dp)
-                        .clip(CircleShape)
+            AsyncImage(
+                model = state.user.data?.photoUrl,
+                error = painterResource(R.drawable.ic_branding),
+                contentDescription = null,
+                modifier = Modifier
+                    .size(60.dp)
+                    .clip(CircleShape)
+            )
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = state.user.data?.displayName ?: stringResource(R.string.guest),
+                    color = Color.White,
+                    style = MaterialTheme.typography.h6,
+                    fontWeight = FontWeight.Bold
                 )
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = state.user.data?.displayName ?: stringResource(R.string.guest),
-                        color = Color.White,
-                        style = MaterialTheme.typography.h6,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = state.user.data?.email.orEmpty(),
-                        color = ProfileMutedText,
-                        style = MaterialTheme.typography.body2
-                    )
-                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = state.user.data?.email.orEmpty(),
+                    color = ProfileMutedText,
+                    style = MaterialTheme.typography.body2
+                )
             }
         }
     }
 }
 
 @Composable
-private fun SectionHeader(
-    title: String
-) {
+private fun SectionHeader(title: String) {
     Text(
         text = title,
         style = MaterialTheme.typography.h6,
@@ -319,153 +272,6 @@ private fun ProfileActionCard(
                     color = ProfileMutedText,
                     style = MaterialTheme.typography.caption
                 )
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpreadsheetManagementCard(
-    state: ProfileUiState,
-    onRevalidateSpreadsheet: () -> Unit,
-    onChangeSpreadsheetClick: () -> Unit
-) {
-    val connectedSpreadsheet = state.connectedSpreadsheet.data
-    val statusText = if (connectedSpreadsheet == null) {
-        stringResource(R.string.spreadsheet_status_not_connected)
-    } else {
-        stringResource(R.string.spreadsheet_status_connected)
-    }
-    val statusBackground = if (connectedSpreadsheet == null) {
-        Color.White.copy(alpha = 0.10f)
-    } else {
-        Color(0xFF315B43)
-    }
-    val statusTextColor = if (connectedSpreadsheet == null) {
-        ProfileMutedText
-    } else {
-        ProfileSuccess
-    }
-    val validationMessage = state.spreadsheetValidation.errorMessage ?: state.spreadsheetValidation.data
-    val validationColor = if (state.spreadsheetValidation.errorMessage != null) {
-        ProfileDangerSoft
-    } else {
-        ProfileSuccess
-    }
-    val validationBackground = if (state.spreadsheetValidation.errorMessage != null) {
-        Color(0xFF5C3740)
-    } else {
-        Color(0xFF314E3F)
-    }
-
-    Card(
-        backgroundColor = ProfileCardColor,
-        shape = RoundedCornerShape(22.dp),
-        elevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(18.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Row(verticalAlignment = Alignment.Top) {
-                ProfileIconBadge(painterRes = R.drawable.ic_assignment)
-                Spacer(modifier = Modifier.width(14.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = connectedSpreadsheet?.spreadsheetName
-                            ?: stringResource(R.string.spreadsheet_not_connected),
-                        color = Color.White,
-                        style = MaterialTheme.typography.body1,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = connectedSpreadsheet?.let {
-                            stringResource(R.string.spreadsheet_id_label, it.shortSpreadsheetId)
-                        } ?: stringResource(R.string.spreadsheet_not_connected_description),
-                        color = ProfileMutedText,
-                        style = MaterialTheme.typography.caption
-                    )
-                }
-                Box(
-                    modifier = Modifier
-                        .background(
-                            color = statusBackground,
-                            shape = RoundedCornerShape(14.dp)
-                        )
-                        .padding(horizontal = 10.dp, vertical = 6.dp)
-                ) {
-                    Text(
-                        text = statusText,
-                        color = statusTextColor,
-                        style = MaterialTheme.typography.caption,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            if (!validationMessage.isNullOrBlank()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(
-                            color = validationBackground,
-                            shape = RoundedCornerShape(16.dp)
-                        )
-                        .padding(horizontal = 14.dp, vertical = 12.dp)
-                ) {
-                    Text(
-                        text = validationMessage,
-                        color = validationColor,
-                        style = MaterialTheme.typography.caption
-                    )
-                }
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                Button(
-                    onClick = onRevalidateSpreadsheet,
-                    enabled = !state.spreadsheetValidation.isLoading && connectedSpreadsheet != null,
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = ProfileCardColorSoft,
-                        disabledBackgroundColor = ProfileCardColorSoft.copy(alpha = 0.55f)
-                    ),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    if (state.spreadsheetValidation.isLoading) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(16.dp),
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text(
-                            text = stringResource(R.string.revalidate_spreadsheet),
-                            color = Color.White
-                        )
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = onChangeSpreadsheetClick,
-                    enabled = connectedSpreadsheet != null,
-                    border = BorderStroke(1.dp, Color.White.copy(alpha = 0.22f)),
-                    colors = darkOutlinedButtonColors(),
-                    shape = RoundedCornerShape(14.dp),
-                    modifier = Modifier.weight(1f)
-                ) {
-                    Text(
-                        text = stringResource(R.string.change_spreadsheet_short),
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = TextAlign.Center
-                    )
-                }
             }
         }
     }
@@ -588,21 +394,7 @@ private fun SettingsCard(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Box(
-                        modifier = Modifier
-                            .background(
-                                color = ProfileCardColorSoft,
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = cacheSizeText,
-                            color = Color.White,
-                            style = MaterialTheme.typography.caption,
-                            fontWeight = FontWeight.Bold
-                        )
-                    }
+                    CacheSizeBadge(cacheSizeText)
                 }
             }
         }
@@ -610,9 +402,7 @@ private fun SettingsCard(
 }
 
 @Composable
-private fun rememberReminderSettingsSummary(
-    settings: com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
-): String {
+private fun rememberReminderSettingsSummary(settings: ReminderSettings): String {
     val context = LocalContext.current
 
     if (!settings.isReminderEnabled) {
@@ -622,7 +412,7 @@ private fun rememberReminderSettingsSummary(
     return if (settings.isDailyNotificationEnabled) {
         stringResource(
             R.string.reminder_settings_summary_on_with_time,
-            com.raylabs.laundryhub.ui.reminder.formatReminderTime(
+            formatReminderTime(
                 context = context,
                 hourOfDay = settings.notificationHour,
                 minute = settings.notificationMinute
@@ -700,6 +490,25 @@ private fun AccountCard(
 }
 
 @Composable
+private fun CacheSizeBadge(cacheSizeText: String) {
+    Box(
+        modifier = Modifier
+            .background(
+                color = ProfileCardColorSoft,
+                shape = RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 8.dp)
+    ) {
+        Text(
+            text = cacheSizeText,
+            color = Color.White,
+            style = MaterialTheme.typography.caption,
+            fontWeight = FontWeight.Bold
+        )
+    }
+}
+
+@Composable
 private fun ProfileIconBadge(painterRes: Int) {
     Card(
         backgroundColor = ProfileBadgeFill,
@@ -735,13 +544,6 @@ private fun ProfileVectorBadge(imageVector: ImageVector) {
     }
 }
 
-@Composable
-private fun darkOutlinedButtonColors() = ButtonDefaults.outlinedButtonColors(
-    backgroundColor = Color.Transparent,
-    contentColor = Color.White,
-    disabledContentColor = Color.White.copy(alpha = 0.42f)
-)
-
 private fun formatCacheSize(sizeBytes: Long?): String {
     if (sizeBytes == null) return "-"
     val megaBytes = sizeBytes.toDouble() / (1024.0 * 1024.0)
@@ -753,7 +555,7 @@ private fun formatCacheSize(sizeBytes: Long?): String {
 fun PreviewProfileScreen() {
     val bannerState = rememberInlineAdaptiveBannerAdState("preview_profile_inline")
     Scaffold(
-        topBar = { DefaultTopAppBar("Profile") }
+        topBar = { DefaultTopAppBar(stringResource(R.string.profile)) }
     ) { padding ->
         ProfileScreenContent(
             state = dummyProfileUiState,

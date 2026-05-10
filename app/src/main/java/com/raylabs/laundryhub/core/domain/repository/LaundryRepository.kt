@@ -1,0 +1,33 @@
+package com.raylabs.laundryhub.core.domain.repository
+
+import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
+import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.shared.util.Resource
+
+interface LaundryRepository {
+    suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>>
+    suspend fun readGrossData(page: Int? = null, size: Int? = null): Resource<List<GrossData>>
+    suspend fun readIncomeTransaction(filter: FILTER, rangeDate: RangeDate? = null, page: Int? = null, size: Int? = null, searchQuery: String? = null, sort: String? = null): Resource<List<TransactionData>>
+    suspend fun readPackageData(): Resource<List<PackageData>>
+    suspend fun addPackage(packageData: PackageData): Resource<Boolean>
+    suspend fun updatePackage(packageName: String, packageData: PackageData): Resource<Boolean>
+    suspend fun deletePackage(packageName: String): Resource<Boolean>
+    suspend fun readOtherPackage(): Resource<List<String>>
+    suspend fun addOrder(order: OrderData): Resource<String>
+    suspend fun getOrderById(orderId: String): Resource<TransactionData>
+    suspend fun updateOrder(order: OrderData): Resource<Boolean>
+    suspend fun deleteOrder(orderId: String): Resource<Boolean>
+
+    suspend fun readOutcomeTransaction(page: Int? = null, size: Int? = null): Resource<List<OutcomeData>>
+    suspend fun addOutcome(outcome: OutcomeData): Resource<String>
+    suspend fun getLastOutcomeId(): Resource<String>
+    suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean>
+    suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData>
+    suspend fun deleteOutcome(outcomeId: String): Resource<Boolean>
+}

@@ -8,7 +8,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.GetOutcomeUseCa
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.ReadOutcomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.SubmitOutcomeUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUseCase
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -111,19 +111,22 @@ class OutcomeViewModelTest {
     }
 
     @Test
-    fun `buildOutcomeDataForSubmit returns null when last id invalid`() = runTest {
+    fun `buildOutcomeDataForSubmit leaves id blank for backend allocation`() = runTest {
         whenever(mockGetLastOutcomeId.invoke(onRetry = anyOrNull()))
             .thenReturn(Resource.Success("abc"))
         val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertTrue(vm.buildOutcomeDataForSubmit() == null)
+        val data = vm.buildOutcomeDataForSubmit()
+
+        assertNotNull(data)
+        assertEquals("", data!!.id)
     }
 
     @Test
     fun `submitOutcome resets submitting flag on success`() = runTest {
         whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
-            .thenReturn(Resource.Success(true))
+            .thenReturn(Resource.Success("42"))
         val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -136,12 +139,13 @@ class OutcomeViewModelTest {
         val data = vm.buildOutcomeDataForSubmit()
         assertNotNull(data)
 
-        var completed = false
-        vm.submitOutcome(data!!) { completed = true }
+        var completedId: String? = null
+        vm.submitOutcome(data!!) { completedId = it }
         dispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(vm.uiState.isSubmitting)
-        assertTrue(completed)
+        assertEquals("42", completedId)
+        assertEquals("42", vm.uiState.submitNewOutcome.data)
     }
 
     @Test
@@ -234,7 +238,7 @@ class OutcomeViewModelTest {
 
         val data = vm.buildOutcomeDataForSubmit()
         assertNotNull(data)
-        assertEquals("123", data!!.id)
+        assertEquals("", data!!.id)
         assertEquals("1000", data.price)
         assertEquals(getPaymentValueFromDescription("Paid by Cash"), data.payment)
     }

@@ -15,11 +15,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
@@ -28,7 +27,6 @@ import androidx.compose.material.Icon
 import androidx.compose.material.IconButton
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.SnackbarHostState
 import androidx.compose.material.Text
 import androidx.compose.material.TextFieldDefaults
 import androidx.compose.material.icons.Icons
@@ -39,7 +37,6 @@ import androidx.compose.material.pullrefresh.PullRefreshIndicator
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,13 +47,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.paging.compose.LazyPagingItems
+import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.common.dummy.home.dummyState
-import com.raylabs.laundryhub.ui.common.util.showQuickSnackbar
+import com.raylabs.laundryhub.shared.util.PlatformDate
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import com.raylabs.laundryhub.ui.component.GreetingWithImageBackground
 import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
@@ -71,6 +68,8 @@ import com.raylabs.laundryhub.ui.home.state.ReminderDiscoveryUiState
 import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
+import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
+import com.raylabs.laundryhub.ui.home.state.toColor
 
 private const val PENDING_ORDER_SEARCH_FIELD_DESCRIPTION = "Pending order search field"
 
@@ -81,21 +80,38 @@ fun HomeScreen(
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
     onGrossCardClick: () -> Unit,
-    onReminderDiscoveryClick: (Boolean) -> Unit
+    onReminderDiscoveryClick: (Boolean) -> Unit,
+    onRetryOptimisticOrder: (String) -> Unit,
+    onCancelOptimisticOrder: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
+    val pagingItems = viewModel.pendingOrdersPagingData.collectAsLazyPagingItems()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("home_inline")
+
+    // Trigger Paging 3 refresh when the counter changes, WITHOUT recreating the whole flow
+    androidx.compose.runtime.LaunchedEffect(state.refreshCounter) {
+        if (state.refreshCounter > 0) {
+            pagingItems.refresh()
+        }
+    }
+
     HomeScreenContent(
         state = state,
+        pagingItems = pagingItems,
         bannerState = resolvedBannerState,
-        onRefresh = viewModel::refreshAllData,
+        onRefresh = {
+            viewModel.refreshAllData()
+            pagingItems.refresh()
+        },
         onSearchQueryChanged = viewModel::onSearchQueryChanged,
         onToggleSearch = viewModel::toggleSearch,
         onChangeSortOrder = viewModel::changeSortOrder,
         onOrderCardClick = onOrderCardClick,
         onTodayActivityClick = onTodayActivityClick,
         onGrossCardClick = onGrossCardClick,
-        onReminderDiscoveryClick = onReminderDiscoveryClick
+        onReminderDiscoveryClick = onReminderDiscoveryClick,
+        onRetryOptimisticOrder = onRetryOptimisticOrder,
+        onCancelOptimisticOrder = onCancelOptimisticOrder
     )
 }
 
@@ -103,6 +119,7 @@ fun HomeScreen(
 @Composable
 fun HomeScreenContent(
     state: HomeUiState,
+    pagingItems: LazyPagingItems<UnpaidOrderItem>,
     bannerState: InlineAdaptiveBannerAdState,
     onRefresh: () -> Unit,
     onSearchQueryChanged: (String) -> Unit,
@@ -111,9 +128,10 @@ fun HomeScreenContent(
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
     onGrossCardClick: () -> Unit,
-    onReminderDiscoveryClick: (Boolean) -> Unit
+    onReminderDiscoveryClick: (Boolean) -> Unit,
+    onRetryOptimisticOrder: (String) -> Unit,
+    onCancelOptimisticOrder: (String) -> Unit
 ) {
-    val snackBarHostState = remember { SnackbarHostState() }
     var showSortSheet by remember { mutableStateOf(false) }
     val sortOptions = remember {
         listOf(
@@ -129,34 +147,48 @@ fun HomeScreenContent(
         SortOption.ORDER_DATE_ASC to stringResource(R.string.order_date_oldest),
         SortOption.ORDER_DATE_DESC to stringResource(R.string.order_date_newest)
     )
+    val searchIconDescription = stringResource(R.string.search_icon)
+    val clearSearchDescription = stringResource(R.string.clear_search)
+    val closeSearchDescription = stringResource(R.string.close_search_view)
+    val openSearchDescription = stringResource(R.string.open_search_view)
+    val sortOrdersDescription = stringResource(R.string.sort_orders)
 
+    // Only show the large refresh spinner if it's a manual refresh OR the very first load (itemCount == 0)
+    val isRefreshing = state.isRefreshing || (pagingItems.loadState.refresh is androidx.paging.LoadState.Loading && pagingItems.itemCount == 0)
+    val isPendingOrdersRefreshing =
+        pagingItems.loadState.refresh is androidx.paging.LoadState.Loading && pagingItems.itemCount > 0
     val pullRefreshState = rememberPullRefreshState(
-        refreshing = state.isRefreshing,
+        refreshing = isRefreshing,
         onRefresh = onRefresh
     )
 
-    LaunchedEffect(state.orderUpdateKey, state.user.errorMessage, state.todayIncome.errorMessage, state.summary.errorMessage, state.gross.errorMessage, state.unpaidOrder.errorMessage) {
-        listOf(state.user, state.todayIncome, state.summary, state.gross, state.unpaidOrder).forEach {
-            it.errorMessage?.let { msg -> snackBarHostState.showQuickSnackbar(msg) }
+    // Clean up synced orders from ViewModel if they are already in Paging
+    val pagingIds = mutableSetOf<String>()
+    for (i in 0 until pagingItems.itemCount) {
+        pagingItems.peek(i)?.orderID?.let { pagingIds.add(it) }
+    }
+    val syncedAndPresent = state.optimisticOrders.filter {
+        it.syncStatus == com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED && it.orderID in pagingIds
+    }
+    if (syncedAndPresent.isNotEmpty()) {
+        androidx.compose.runtime.LaunchedEffect(syncedAndPresent) {
+            syncedAndPresent.forEach { onCancelOptimisticOrder(it.orderID) }
         }
     }
 
     Box(modifier = Modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 80.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header Section
-            item {
+            item(span = { GridItemSpan(2) }) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     GreetingWithImageBackground(
                         username = state.user.data?.displayName ?: stringResource(R.string.guest),
-                        imageSeed = state.user.data?.uid
-                            ?.takeIf { it.isNotBlank() }
-                            ?: state.user.data?.email
-                            ?.takeIf { it.isNotBlank() }
-                            ?: state.user.data?.displayName
-                            ?: stringResource(R.string.guest)
+                        imageSeed = state.user.data?.uid ?: "guest"
                     )
 
                     SectionOrLoading(
@@ -179,108 +211,123 @@ fun HomeScreenContent(
                 }
             }
 
-            item { Spacer(Modifier.height(120.dp)) }
+            item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(120.dp)) }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 Text(
                     text = stringResource(R.string.today_activity),
                     style = MaterialTheme.typography.h6,
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp)
-                        .fillMaxWidth()
+                    modifier = Modifier.padding(horizontal = 16.dp).fillMaxWidth()
                 )
             }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 SectionOrLoading(
                     isLoading = state.todayIncome.isLoading,
                     error = state.todayIncome.errorMessage,
-                    hasContent = !state.todayIncome.data.isNullOrEmpty(),
-                    showMiniLoading = !state.isRefreshing,
+                    hasContent = !state.todayIncome.data.isNullOrEmpty() || state.optimisticOrders.any { it.orderDate == PlatformDate.getTodayDate("dd/MM/yyyy") },
                     content = {
-                        val list = state.todayIncome.data.orEmpty()
-                        if (list.isEmpty()) {
-                            Text(
-                                text = stringResource(R.string.no_transactions_today),
-                                modifier = Modifier.padding(horizontal = 16.dp)
-                            )
+                        val todayDate = PlatformDate.getTodayDate("dd/MM/yyyy")
+                        val optimisticForToday = state.optimisticOrders
+                            .filter { it.orderDate == todayDate }
+                            .map {
+                                TransactionItem(
+                                    id = it.orderID,
+                                    name = it.customerName,
+                                    totalPrice = it.rawPayload?.totalPrice?.toRupiahFormat() ?: "",
+                                    status = it.nowStatus,
+                                    statusColor = it.nowStatus.toColor(),
+                                    packageDuration = it.packageType
+                                )
+                            }
+                        val realList = state.todayIncome.data.orEmpty()
+                        val combinedList = (optimisticForToday + realList).distinctBy { it.id }
+
+                        if (combinedList.isEmpty()) {
+                            Text(stringResource(R.string.no_transactions_today), modifier = Modifier.padding(horizontal = 16.dp))
                         } else {
-                            CardList(list, onItemClick = onTodayActivityClick)
+                            CardList(combinedList, onItemClick = onTodayActivityClick)
                         }
                     }
                 )
             }
 
-            item { Spacer(Modifier.height(24.dp)) }
+            item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(24.dp)) }
 
             state.reminderDiscovery?.let { discovery ->
-                item(key = "home_reminder_discovery") {
-                    ReminderDiscoveryCard(
-                        state = discovery,
-                        onClick = { onReminderDiscoveryClick(discovery.isReminderEnabled) }
-                    )
+                item(span = { GridItemSpan(2) }) {
+                    ReminderDiscoveryCard(discovery, onClick = { onReminderDiscoveryClick(discovery.isReminderEnabled) })
                 }
-                item { Spacer(Modifier.height(8.dp)) }
+                item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(8.dp)) }
             }
 
-            item(key = "home_inline_banner") {
-                InlineAdaptiveBannerAd(state = bannerState)
+            item(span = { GridItemSpan(2) }) {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    InlineAdaptiveBannerAd(state = bannerState)
+                }
             }
 
-            // Pending Orders Section Title / Search Bar
-            item {
+            // Pending Orders Title
+            item(span = { GridItemSpan(2) }) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     if (state.isSearchActive) {
                         OutlinedTextField(
                             value = state.searchQuery,
                             onValueChange = onSearchQueryChanged,
+                            enabled = !isPendingOrdersRefreshing,
                             modifier = Modifier
                                 .weight(1f)
                                 .semantics {
                                     contentDescription = PENDING_ORDER_SEARCH_FIELD_DESCRIPTION
                                 },
-                            placeholder = { 
+                            placeholder = {
                                 Text(
-                                    stringResource(R.string.search_customer_placeholder),
-                                    color = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.medium) // Use onBackground
+                                    text = stringResource(R.string.search_customer_placeholder),
+                                    style = MaterialTheme.typography.body2,
+                                    color = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.medium)
                                 )
-                             },
-                            leadingIcon = { 
-                                Icon( 
-                                    Icons.Filled.Search, 
-                                    contentDescription = stringResource(R.string.search_icon),
-                                    tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Filled.Search,
+                                    contentDescription = searchIconDescription,
+                                    tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
                                 )
                             },
                             trailingIcon = {
                                 if (state.searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { onSearchQueryChanged("") }) {
+                                    IconButton(
+                                        enabled = !isPendingOrdersRefreshing,
+                                        onClick = { onSearchQueryChanged("") }
+                                    ) {
                                         Icon(
-                                            Icons.Filled.Close, 
-                                            contentDescription = stringResource(R.string.clear_search),
-                                            tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                            Icons.Filled.Close,
+                                            contentDescription = clearSearchDescription,
+                                            tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
                                         )
                                     }
                                 }
                             },
                             singleLine = true,
                             colors = TextFieldDefaults.outlinedTextFieldColors(
-                                textColor = MaterialTheme.colors.onBackground, // Use onBackground
+                                backgroundColor = MaterialTheme.colors.surface,
                                 cursorColor = MaterialTheme.colors.primary,
                                 focusedBorderColor = MaterialTheme.colors.primary,
-                                unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled) // Use onBackground
+                                unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled)
                             )
                         )
-                        IconButton(onClick = onToggleSearch) { 
+                        if (isPendingOrdersRefreshing) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = onToggleSearch) {
                             Icon(
-                                Icons.Filled.Close, 
-                                contentDescription = stringResource(R.string.close_search_view),
-                                tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high) // Use onBackground
+                                Icons.Filled.Close,
+                                contentDescription = closeSearchDescription,
+                                tint = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.high)
                             )
                         }
                     } else {
@@ -289,95 +336,69 @@ fun HomeScreenContent(
                             style = MaterialTheme.typography.h6,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = onToggleSearch) {
-                            Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.open_search_view))
+                        if (isPendingOrdersRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = onToggleSearch) {
+                            Icon(Icons.Filled.Search, contentDescription = openSearchDescription)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(onClick = { showSortSheet = true }) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.List,
-                                contentDescription = stringResource(R.string.sort_orders)
-                            )
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = { showSortSheet = true }) {
+                            Icon(Icons.AutoMirrored.Filled.List, contentDescription = sortOrdersDescription)
                         }
                     }
                 }
             }
 
-            // Pending Orders List or Loading Indicator
-            val ordersToDisplay = state.unpaidOrder.data.orEmpty()
-            val orderRows = ordersToDisplay.chunked(2)
+            // Unified Orders Grid (Optimistic + Paging)
+            val filteredOptimistic = state.optimisticOrders.filter { it.orderID !in pagingIds }
 
-            if (state.unpaidOrder.isLoading && !state.isRefreshing && ordersToDisplay.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 16.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
+            // 1. Filtered Optimistic Items
+            items(
+                count = filteredOptimistic.size,
+                key = { index -> filteredOptimistic[index].orderID }
+            ) { index ->
+                val item = filteredOptimistic[index]
+                Box(Modifier.padding(start = if (index % 2 == 0) 16.dp else 0.dp, end = if (index % 2 == 0) 0.dp else 16.dp, bottom = 12.dp)) {
+                    OrderStatusCard(
+                        item = item,
+                        onClick = { onOrderCardClick(item.orderID) },
+                        onRetry = { onRetryOptimisticOrder(item.orderID) },
+                        onCancel = { onCancelOptimisticOrder(item.orderID) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            if (!state.isRefreshing && state.unpaidOrder.isLoading && ordersToDisplay.isNotEmpty()) {
-                item(key = "pending_orders_loading_overlay") {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
-
-            if (!state.isRefreshing) {
-                if (ordersToDisplay.isEmpty()) {
-                    item {
-                        Text(
-                            text = if (state.isSearchActive && state.searchQuery.isNotEmpty()) stringResource(R.string.no_search_results, state.searchQuery)
-                            else stringResource(R.string.no_data),
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp)
+            // 2. Real Paging Items
+            items(
+                count = pagingItems.itemCount,
+                key = { index -> pagingItems.peek(index)?.orderID ?: "paging_$index" }
+            ) { index ->
+                val item = pagingItems[index]
+                if (item != null) {
+                    val globalIndex = filteredOptimistic.size + index
+                    Box(Modifier.padding(start = if (globalIndex % 2 == 0) 16.dp else 0.dp, end = if (globalIndex % 2 == 0) 0.dp else 16.dp, bottom = 12.dp)) {
+                        OrderStatusCard(
+                            item = item,
+                            onClick = { onOrderCardClick(item.orderID) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
-                } else {
-                    items(
-                        items = orderRows,
-                        key = { row -> row.joinToString(separator = "_") { it.orderID } },
-                        contentType = { "pending_order_row" }
-                    ) { rowItems ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            rowItems.forEach { item ->
-                                OrderStatusCard(
-                                    item = item,
-                                    onClick = { onOrderCardClick(item.orderID) },
-                                    modifier = Modifier.weight(1f)
-                                )
-                            }
-                            if (rowItems.size == 1) {
-                                Spacer(modifier = Modifier.weight(1f))
-                            }
-                        }
+                }
+            }
+
+            if (pagingItems.loadState.append is androidx.paging.LoadState.Loading) {
+                item(span = { GridItemSpan(2) }) {
+                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }
                 }
             }
-        } 
+        }
 
-        PullRefreshIndicator(
-            refreshing = state.isRefreshing,
-            state = pullRefreshState,
-            modifier = Modifier.align(Alignment.TopCenter)
-        )
+        PullRefreshIndicator(isRefreshing, pullRefreshState, Modifier.align(Alignment.TopCenter))
 
         SelectionSheetInlineOverlay(
             visible = showSortSheet,
@@ -392,63 +413,29 @@ fun HomeScreenContent(
 }
 
 @Composable
-private fun ReminderDiscoveryCard(
-    state: ReminderDiscoveryUiState,
-    onClick: () -> Unit
-) {
+private fun ReminderDiscoveryCard(state: ReminderDiscoveryUiState, onClick: () -> Unit) {
     Card(
         backgroundColor = MaterialTheme.colors.primary.copy(alpha = 0.12f),
-        elevation = 0.dp,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp)
-            .clickable(onClick = onClick)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).clickable(onClick = onClick)
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Text(
-                text = state.headline,
-                style = MaterialTheme.typography.subtitle1
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(
-                text = state.supportingText,
-                style = MaterialTheme.typography.body2
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                text = state.ctaLabel,
-                style = MaterialTheme.typography.subtitle2,
-                color = MaterialTheme.colors.primary,
-                modifier = Modifier.align(Alignment.End)
-            )
+        Column(Modifier.padding(16.dp)) {
+            Text(state.headline, style = MaterialTheme.typography.subtitle1)
+            Text(state.supportingText, style = MaterialTheme.typography.body2)
+            Text(state.ctaLabel, color = MaterialTheme.colors.primary, modifier = Modifier.align(Alignment.End))
         }
     }
 }
 
 @Composable
-fun InfoCardSection(
-    summary: List<SummaryItem>,
-    onGrossCardClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
+fun InfoCardSection(summary: List<SummaryItem>, onGrossCardClick: () -> Unit, modifier: Modifier = Modifier) {
     LazyVerticalGrid(
         modifier = modifier,
         columns = GridCells.Fixed(2),
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         content = {
-            items(
-                items = summary,
-                key = { it.title }
-            ) { mData ->
-                InfoCard(
-                    summaryItem = mData,
-                    onClick = if (mData.isInteractive) onGrossCardClick else null
-                )
+            items(items = summary, key = { it.title }) { mData ->
+                InfoCard(summaryItem = mData, onClick = if (mData.isInteractive) onGrossCardClick else null)
             }
         }
     )
@@ -456,74 +443,7 @@ fun InfoCardSection(
 
 @Composable
 fun CardList(state: List<TransactionItem>, onItemClick: (String) -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        state.forEach { mData ->
-            Transaction(mTransaction = mData, onClick = { onItemClick(mData.id) })
-        }
-    }
-}
-
-@Preview(showBackground = true, name = "Default View")
-@Composable
-fun PreviewHomeScreenContent_Default() {
-    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_default_inline")
-    MaterialTheme {
-        HomeScreenContent(
-            state = dummyState.copy(isRefreshing = false, isSearchActive = false),
-            bannerState = bannerState,
-            onRefresh = {},
-            onSearchQueryChanged = {},
-            onToggleSearch = {},
-            onChangeSortOrder = {},
-            onOrderCardClick = {},
-            onTodayActivityClick = {},
-            onGrossCardClick = {},
-            onReminderDiscoveryClick = {}
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Search Active View - Dark Theme")
-@Composable
-fun PreviewHomeScreenContent_SearchActiveDark() {
-    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_dark_inline")
-    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = false)) { // Force dark theme for preview
-        HomeScreenContent(
-            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            bannerState = bannerState,
-            onRefresh = {},
-            onSearchQueryChanged = {},
-            onToggleSearch = {},
-            onChangeSortOrder = {},
-            onOrderCardClick = {},
-            onTodayActivityClick = {},
-            onGrossCardClick = {},
-            onReminderDiscoveryClick = {}
-        )
-    }
-}
-
-@Preview(showBackground = true, name = "Search Active View - Light Theme")
-@Composable
-fun PreviewHomeScreenContent_SearchActiveLight() {
-    val bannerState = rememberInlineAdaptiveBannerAdState("preview_home_light_inline")
-    MaterialTheme(colors = MaterialTheme.colors.copy(isLight = true)) { // Force light theme for preview
-        HomeScreenContent(
-            state = dummyState.copy(isRefreshing = false, isSearchActive = true, searchQuery = "Test Query"),
-            bannerState = bannerState,
-            onRefresh = {},
-            onSearchQueryChanged = {},
-            onToggleSearch = {},
-            onChangeSortOrder = {},
-            onOrderCardClick = {},
-            onTodayActivityClick = {},
-            onGrossCardClick = {},
-            onReminderDiscoveryClick = {}
-        )
+    Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        state.forEach { Transaction(it, onClick = { onItemClick(it.id) }) }
     }
 }
