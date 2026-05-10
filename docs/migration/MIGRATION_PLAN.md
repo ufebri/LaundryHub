@@ -2,25 +2,26 @@
 
 ## Current Recovery Status
 
-**Date:** 2026-05-09
-**Status:** Recovery audit in progress. Unit, backend, shared, debug build, release build, Jacoco, benchmark assembly, master baseline checks, and safe device instrumentation are passing.
+**Date:** 2026-05-10
+**Status:** Recovery audit in progress. Unit, backend, shared, release build, and benchmark assembly checks are passing. The latest connected instrumentation run still needs a stable device rerun because Wi-Fi ADB dropped before a trustworthy app assertion result.
 
 This section supersedes the older optimistic go-live notes below. The KMP/API direction is still valid, but the previous document overstated final E2E confidence and included stale test-count claims. The current verified state is:
 
-- Android repository contract now matches backend order/outcome detail routes, and Add Order now receives its created id from `POST /api/orders`.
+- Android repository contract now matches backend order/outcome detail routes. Add Order receives its created id from `POST /api/orders`, and Outcome create now receives its created id from `POST /api/outcomes`.
 - Backend order filtering, searching, sorting, date ranges, and `TODAY` handling were repaired.
 - Backend runtime config no longer includes project-specific hardcoded DB or spreadsheet fallbacks.
 - Migration/debug routes are disabled by default with `ENABLE_MIGRATION_ROUTES=true`.
-- Google Sheets order sync update/delete ranges were fixed.
+- Google Sheets order sync update/delete ranges were fixed, and the batch sync path now also covers unsynced outcomes and packages when spreadsheet config is enabled.
 - Profile UI was restored closer to the original app hierarchy.
 - `origin/master` was checked in a separate worktree and used as the baseline for new KMP instrumentation contracts.
 - KMP instrumentation now covers Order WhatsApp visibility, Outcome bottom sheet form contracts, Profile section/navigation contracts, Inventory package contracts, startup smoke, and guarded add-order E2E scaffolding.
 - Supabase schema was audited without dumping personal rows. RLS is enabled on all public tables, but no policies exist. Keep app access through the backend unless policies are intentionally designed.
-- Existing live non-order rows still have `is_synced=false`; this was not changed in production and needs explicit confirmation before a data cleanup SQL is applied.
+- Existing live non-order rows with `is_synced=false` should be reviewed before enabling the expanded outcome/package sync job against a shared production spreadsheet.
 
 **Latest verification commands:**
 
-- `./gradlew testDebugUnitTest :backend:test :shared:jvmTest`
+- `./gradlew :app:testDebugUnitTest :backend:test --no-daemon`
+- `./gradlew :shared:jvmTest --no-daemon`
 - `./gradlew assembleDebug`
 - `./gradlew assembleRelease`
 - `./gradlew jacocoTestReport`
@@ -30,7 +31,7 @@ This section supersedes the older optimistic go-live notes below. The KMP/API di
 - Master baseline worktree: `./gradlew connectedDebugAndroidTest`
 - KMP branch: `./gradlew connectedDebugAndroidTest --no-daemon`
 
-The latest KMP connected run had 14 app instrumentation tests: 12 passed and 2 skipped by design. The full mutating macrobenchmark and guarded sandbox mutation run were not executed because they can create/delete live order data. Use a safe backend/database target or explicit approval before running them.
+The latest KMP connected run is not a valid green result: after fixing the robot launch path so it no longer force-stops instrumentation, Wi-Fi ADB still dropped during device service/property queries. The full mutating macrobenchmark and guarded sandbox mutation run were not executed because they can create/delete live order data. Use a safe backend/database target or explicit approval before running them.
 
 Dokumen ini adalah sumber kebenaran tunggal untuk proses migrasi. Setiap Sprint akan diakhiri dengan laporan teknis mendalam, bukan sekadar tanda centang.
 

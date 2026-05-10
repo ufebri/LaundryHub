@@ -85,7 +85,8 @@ class HistoryViewModel @Inject constructor(
             is Resource.Success -> {
                 // For Paging 3, we usually refresh the list or use a list of deleted IDs to filter
                 _uiState.value = _uiState.value.copy(
-                    deleteOrder = _uiState.value.deleteOrder.success(result.data)
+                    deleteOrder = _uiState.value.deleteOrder.success(result.data),
+                    hiddenOrderIds = _uiState.value.hiddenOrderIds + orderId
                 )
                 onComplete()
             }
@@ -107,8 +108,10 @@ class HistoryViewModel @Inject constructor(
         when (val result = readIncomeUseCase(filter = FILTER.SHOW_ALL_DATA)) {
             is Resource.Success -> {
                 val mapped = result.data.toUiItems()
+                val loadedIds = result.data.map { it.orderID }.toSet()
                 _uiState.value = _uiState.value.copy(
-                    history = SectionState(data = mapped)
+                    history = SectionState(data = mapped),
+                    hiddenOrderIds = _uiState.value.hiddenOrderIds - loadedIds
                 )
             }
 

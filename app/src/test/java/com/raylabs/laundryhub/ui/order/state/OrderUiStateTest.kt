@@ -28,7 +28,7 @@ class OrderUiStateTest {
         assertEquals("Regular", orderData.packageName)
         assertEquals("Rp5000", orderData.priceKg)
         assertEquals("15000", orderData.totalPrice)
-        assertEquals("belum", orderData.paidStatus)
+        assertEquals("Unpaid", orderData.paidStatus)
         assertEquals("01/01/2024", orderData.orderDate)
         // With 3d duration, due date should be 3 days after orderDate
         assertEquals("04/01/2024", orderData.dueDate)

@@ -72,6 +72,7 @@ fun HistoryScreenView(
             HistoryContent(
                 pagingItems = pagingItems,
                 bannerState = resolvedBannerState,
+                hiddenOrderIds = state.hiddenOrderIds,
                 modifier = Modifier.fillMaxSize(),
                 onRefresh = { pagingItems.refresh() },
                 onEntryClick = { selectedEntry = it }
@@ -105,10 +106,10 @@ fun HistoryScreenView(
                                 onComplete = {
                                     pendingDeleteEntry = null
                                     onOrderChanged()
-                                    pagingItems.refresh()
                                     scaffoldState.snackbarHostState.showSnackbar(
                                         context.getString(R.string.order_delete_success, entry.id)
                                     )
+                                    pagingItems.refresh()
                                 },
                                 onError = { message ->
                                     scaffoldState.snackbarHostState.showSnackbar(
@@ -137,6 +138,7 @@ fun HistoryContent(
     pagingItems: LazyPagingItems<DateListItemUI>,
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier,
+    hiddenOrderIds: Set<String> = emptySet(),
     onRefresh: () -> Unit = {},
     onEntryClick: (EntryItem) -> Unit = {}
 ) {
@@ -185,11 +187,13 @@ fun HistoryContent(
                             DateHeader(item.date)
                         }
 
-                        is DateListItemUI.Entry -> {
-                            EntryItemCard(
-                                item = item.item,
-                                onClick = { onEntryClick(item.item) }
-                            )
+                    is DateListItemUI.Entry -> {
+                            if (item.item.id !in hiddenOrderIds) {
+                                EntryItemCard(
+                                    item = item.item,
+                                    onClick = { onEntryClick(item.item) }
+                                )
+                            }
                         }
 
                         null -> {

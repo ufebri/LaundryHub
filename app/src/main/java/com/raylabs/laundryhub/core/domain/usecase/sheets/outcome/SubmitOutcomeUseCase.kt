@@ -13,7 +13,7 @@ class SubmitOutcomeUseCase @Inject constructor(
     suspend operator fun invoke(
         onRetry: ((Int) -> Unit)? = null,
         order: OutcomeData
-    ): Resource<Boolean> {
+    ): Resource<String> {
         return retry(onRetry = onRetry) {
             repository.addOutcome(order)
         } ?: UseCaseErrorHandling.handleFailedSubmit

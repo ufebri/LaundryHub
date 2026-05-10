@@ -2,6 +2,9 @@ package com.raylabs.laundryhub.backend.service
 
 import com.google.auth.oauth2.GoogleCredentials
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
+import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
@@ -103,6 +106,94 @@ class SheetsSyncService {
             }
         } catch (e: Exception) {
             println("Error clearing order $orderId: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun syncOutcome(spreadsheetId: String, outcome: OutcomeData): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "outcome"
+            val rowIndex = findRowIndex(spreadsheetId, outcome.id, "$sheetName!A:A", token)
+            val valueRange = ValueRange(
+                range = sheetName,
+                majorDimension = "ROWS",
+                values = outcome.toSheetValues()
+            )
+
+            if (rowIndex != -1) {
+                println("Outcome ${outcome.id} found at row $rowIndex. Updating...")
+                sheetsApiClient.updateValues(spreadsheetId, "$sheetName!A$rowIndex:F$rowIndex", valueRange, token)
+            } else {
+                println("Outcome ${outcome.id} not found. Appending...")
+                sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
+            }
+            true
+        } catch (e: Exception) {
+            println("Error syncing outcome ${outcome.id}: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun syncPackage(spreadsheetId: String, pkg: PackageData): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "notes"
+            val rowIndex = findRowIndex(spreadsheetId, pkg.name, "$sheetName!B:B", token)
+            val valueRange = ValueRange(
+                range = sheetName,
+                majorDimension = "ROWS",
+                values = pkg.toSheetValues()
+            )
+
+            if (rowIndex != -1) {
+                println("Package ${pkg.name} found at row $rowIndex. Updating...")
+                sheetsApiClient.updateValues(spreadsheetId, "$sheetName!A$rowIndex:D$rowIndex", valueRange, token)
+            } else {
+                println("Package ${pkg.name} not found. Appending...")
+                sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
+            }
+            true
+        } catch (e: Exception) {
+            println("Error syncing package ${pkg.name}: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun deleteOutcomeFromSheet(spreadsheetId: String, outcomeId: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "outcome"
+            val rowIndex = findRowIndex(spreadsheetId, outcomeId, "$sheetName!A:A", token)
+
+            if (rowIndex != -1) {
+                println("Outcome $outcomeId found at row $rowIndex. Clearing...")
+                sheetsApiClient.clearValues(spreadsheetId, "$sheetName!A$rowIndex:F$rowIndex", token)
+            } else {
+                println("Outcome $outcomeId not found in sheet. Nothing to clear.")
+            }
+            true
+        } catch (e: Exception) {
+            println("Error clearing outcome $outcomeId: ${e.message}")
+            false
+        }
+    }
+
+    suspend fun deletePackageFromSheet(spreadsheetId: String, packageName: String): Boolean = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "notes"
+            val rowIndex = findRowIndex(spreadsheetId, packageName, "$sheetName!B:B", token)
+
+            if (rowIndex != -1) {
+                println("Package $packageName found at row $rowIndex. Clearing...")
+                sheetsApiClient.clearValues(spreadsheetId, "$sheetName!A$rowIndex:D$rowIndex", token)
+            } else {
+                println("Package $packageName not found in sheet. Nothing to clear.")
+            }
+            true
+        } catch (e: Exception) {
+            println("Error clearing package $packageName: ${e.message}")
             false
         }
     }

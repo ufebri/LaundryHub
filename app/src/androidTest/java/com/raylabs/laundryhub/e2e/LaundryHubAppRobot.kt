@@ -349,7 +349,7 @@ internal class LaundryHubAppRobot(
     fun submitSandboxOutcome(purpose: String, price: String) {
         tapNav(OUTCOME_NAV_DESCRIPTION)
         tapObjectCenter(By.desc(ADD_OUTCOME_DESCRIPTION), "Add Outcome button", FORM_TIMEOUT_MS)
-        
+
         focusFieldAndInputText(
             selectors = listOf(By.text("Purpose")),
             value = purpose,
@@ -369,6 +369,51 @@ internal class LaundryHubAppRobot(
         ensureObjectVisible(listOf(By.text("Submit")), "Submit outcome button")
         tapObjectCenter(By.text("Submit"), "Submit outcome", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Submit")), SUBMIT_TIMEOUT_MS)
+        waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS)
+        // Wait for real ID
+        waitForObject(By.textContains("Outcome #"), SUBMIT_TIMEOUT_MS)
+    }
+
+    fun validateFlickerFreeSubmission(orderName: String, price: String) {
+        tapNav(ORDER_NAV_DESCRIPTION)
+        waitForObject(By.desc(ORDER_SHEET_DESCRIPTION), FORM_TIMEOUT_MS)
+        selectFirstPackage()
+        fillOrderRequiredFields(orderName = orderName, price = price)
+        ensureObjectVisible(listOf(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION)), ORDER_SUBMIT_BUTTON_DESCRIPTION)
+
+        tapObjectCenter(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION), "Submit", FORM_TIMEOUT_MS)
+
+        // 1. Immediately check for the optimistic card
+        val searchName = formatTextForSearch(orderName)
+        val deadline = SystemClock.elapsedRealtime() + SUBMIT_TIMEOUT_MS
+
+        var observedOptimistic = false
+        var observedReal = false
+
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val hasCard = device.hasObject(By.textContains(searchName))
+            if (!hasCard && (observedOptimistic || observedReal)) {
+                fail("FLICKER DETECTED! Card for $searchName disappeared during transition.")
+            }
+
+            if (hasCard) {
+                val hierarchy = dumpWindowHierarchy()
+                if (hierarchy.contains("Order #")) {
+                    observedReal = true
+                    // If we see the real ID and the card is still here, success!
+                    if (hierarchy.contains("submitted successfully")) {
+                         // Final check: snackbar is there, card is there, we are done.
+                         return
+                    }
+                } else {
+                    observedOptimistic = true
+                }
+            }
+
+            SystemClock.sleep(100) // High frequency polling
+        }
+
+        fail("Timed out waiting for submission completion for $orderName")
     }
 
     fun submitSandboxOrder(orderName: String, price: String) {
@@ -379,12 +424,16 @@ internal class LaundryHubAppRobot(
         ensureObjectVisible(listOf(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION)), ORDER_SUBMIT_BUTTON_DESCRIPTION)
         tapObjectCenter(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION), ORDER_SUBMIT_BUTTON_DESCRIPTION, FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.desc(ORDER_SHEET_DESCRIPTION)), SUBMIT_TIMEOUT_MS)
+        // Wait for the snackbar to appear
+        waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS)
+        // Wait for the optimistic card to be replaced by the real card (real ID starts with #)
+        waitForObject(By.textContains("Order #"), SUBMIT_TIMEOUT_MS)
     }
 
     private fun pullToRefreshHistory() {
         val hierarchy = dumpWindowHierarchy()
         if (hierarchy.contains(NO_TRANSACTIONS_TEXT)) return
-        
+
         device.swipe(
             device.displayWidth / 2,
             (device.displayHeight * 0.25f).toInt(),
@@ -399,7 +448,7 @@ internal class LaundryHubAppRobot(
     private fun waitForHistoryPopulated() {
         // Wait for the snackbar to disappear first so it doesn't trip our text checks
         device.wait(Until.gone(By.textContains("submitted successfully")), SHORT_TIMEOUT_MS)
-        
+
         val deadline = SystemClock.elapsedRealtime() + DATA_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             val hierarchy = dumpWindowHierarchy()
@@ -416,20 +465,20 @@ internal class LaundryHubAppRobot(
         tapNav(HISTORY_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
-        
+
         val searchName = formatTextForSearch(oldOrderName)
         ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
-        
+
         tapAnyObjectCenterOrHierarchyBounds(
             selectors = listOf(By.text("Update order")),
             debugLabel = "Update order action",
             timeoutMs = SHORT_TIMEOUT_MS
         )
-        
+
         focusFieldAndInputText(
             selectors = listOf(By.desc(ORDER_NAME_FIELD_DESCRIPTION), By.text("Name")),
             value = newOrderSuffix,
@@ -439,11 +488,11 @@ internal class LaundryHubAppRobot(
         device.waitForIdle()
 
         SystemClock.sleep(500)
-        
+
         ensureObjectVisible(listOf(By.text("Update")), "Update button")
         tapObjectCenter(By.text("Update"), "Update button", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Update")), SUBMIT_TIMEOUT_MS)
-        
+
         return "$oldOrderName$newOrderSuffix"
     }
 
@@ -451,20 +500,20 @@ internal class LaundryHubAppRobot(
         tapNav(OUTCOME_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
-        
+
         val searchName = formatTextForSearch(oldPurpose)
         ensureObjectVisible(listOf(By.textContains(searchName)), "Outcome entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
-        
+
         tapAnyObjectCenterOrHierarchyBounds(
             selectors = listOf(By.text("Update outcome")),
             debugLabel = "Update outcome action",
             timeoutMs = SHORT_TIMEOUT_MS
         )
-        
+
         focusFieldAndInputText(
             selectors = listOf(By.text("Purpose")),
             value = newPurposeSuffix,
@@ -474,11 +523,11 @@ internal class LaundryHubAppRobot(
         device.waitForIdle()
 
         SystemClock.sleep(500)
-        
+
         ensureObjectVisible(listOf(By.text("Update")), "Update button")
         tapObjectCenter(By.text("Update"), "Update button", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Update")), SUBMIT_TIMEOUT_MS)
-        
+
         return "$oldPurpose$newPurposeSuffix"
     }
 
@@ -486,20 +535,20 @@ internal class LaundryHubAppRobot(
         tapNav(if (isOutcome) OUTCOME_NAV_DESCRIPTION else HISTORY_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
-        
+
         val searchName = formatTextForSearch(transactionText)
         ensureObjectVisible(listOf(By.textContains(searchName)), "Entry $searchName")
         val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
-        
+
         tapAnyObjectCenterOrHierarchyBounds(
             selectors = listOf(By.text("Delete order"), By.text("Delete outcome")),
             debugLabel = "Delete action",
             timeoutMs = SHORT_TIMEOUT_MS
         )
-        
+
         tapObjectCenter(By.text("Delete"), "Confirm Delete", SHORT_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Delete")), SUBMIT_TIMEOUT_MS)
         device.waitForIdle()
@@ -507,21 +556,21 @@ internal class LaundryHubAppRobot(
 
     fun cleanUpAllE2eTransactions() {
         tapNav(HISTORY_NAV_DESCRIPTION)
-        
+
         while (true) {
             SystemClock.sleep(500)
             val e2eItem = device.findObject(By.textContains("E2E")) ?: device.findObject(By.textContains("E2e")) ?: break
-            
+
             val bounds = e2eItem.visibleBounds
             device.click(bounds.centerX(), bounds.centerY())
             device.waitForIdle()
-            
+
             tapAnyObjectCenterOrHierarchyBounds(
                 selectors = listOf(By.text("Delete order"), By.text("Delete outcome")),
                 debugLabel = "Delete action",
                 timeoutMs = SHORT_TIMEOUT_MS
             )
-            
+
             tapObjectCenter(By.text("Delete"), "Confirm Delete", SHORT_TIMEOUT_MS)
             device.wait(Until.gone(By.text("Delete")), SUBMIT_TIMEOUT_MS)
             device.waitForIdle()

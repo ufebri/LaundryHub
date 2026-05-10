@@ -147,7 +147,7 @@ fun InventoryScreenView(
                     val item = pendingDeletePackage ?: return@InventoryPackageDeleteConfirmationSheet
                     coroutineScope.launch {
                         viewModel.deletePackage(
-                            sheetRowIndex = item.sheetRowIndex,
+                            packageName = item.name,
                             onComplete = {
                                 pendingDeletePackage = null
                                 scaffoldState.snackbarHostState.showQuickSnackbar(
@@ -206,6 +206,7 @@ fun InventoryScreenView(
                         if (draft.isEditMode) {
                             viewModel.updatePackage(
                                 packageData = draft.toPackageData(),
+                                originalPackageName = draft.originalName,
                                 onComplete = {
                                     packageEditorState = null
                                     scaffoldState.snackbarHostState.showQuickSnackbar(
@@ -587,7 +588,9 @@ private fun packageDurationText(item: PackageItem): String {
 }
 
 private data class InventoryPackageEditorState(
+    val id: Int = 0,
     val sheetRowIndex: Int? = null,
+    val originalName: String? = null,
     val name: String = "",
     val price: String = "",
     val duration: String = "",
@@ -608,6 +611,7 @@ private data class InventoryPackageEditorState(
             name = normalizeInventoryLabel(name),
             duration = duration.trim(),
             unit = unit.trim(),
+            id = id,
             sheetRowIndex = sheetRowIndex ?: -1
         )
     }
@@ -615,7 +619,9 @@ private data class InventoryPackageEditorState(
 
 private fun PackageItem.toEditorState(): InventoryPackageEditorState {
     return InventoryPackageEditorState(
+        id = id,
         sheetRowIndex = sheetRowIndex,
+        originalName = name,
         name = name,
         price = price.filter(Char::isDigit),
         duration = work,

@@ -61,21 +61,21 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
-    val grossPagingData: Flow<PagingData<GrossData>> = 
+    val grossPagingData: Flow<PagingData<GrossData>> =
         grossUseCase.getPagingData()
             .cachedIn(viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> = 
-        _uiState.map { Triple(it.searchQuery, it.currentSortOption, it.refreshCounter) }
+    val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> =
+        _uiState.map { it.searchQuery to it.currentSortOption }
             .distinctUntilChanged()
-            .flatMapLatest { (query, sort, _) ->
+            .flatMapLatest { (query, sort) ->
                 readIncomeUseCase.getPagingData(
                     filter = FILTER.SHOW_UNPAID_DATA,
                     searchQuery = query,
                     sort = sort.name
                 )
-                    .map { pagingData -> 
+                    .map { pagingData ->
                         pagingData.map { it.toUnpaidOrderItem() }
                     }
             }.cachedIn(viewModelScope)
@@ -102,9 +102,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { fetchTodayIncome() }
     }
 
-    suspend fun fetchTodayIncome() {
-        _uiState.update {
-            it.copy(todayIncome = it.todayIncome.loading())
+    suspend fun fetchTodayIncome(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.update {
+                it.copy(todayIncome = it.todayIncome.loading())
+            }
         }
 
         val today = com.raylabs.laundryhub.shared.util.PlatformDate.getTodayDate("yyyy-MM-dd")
@@ -139,9 +141,11 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch { fetchSummary() }
     }
 
-    suspend fun fetchSummary() {
-        _uiState.update {
-            it.copy(summary = it.summary.loading())
+    suspend fun fetchSummary(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.update {
+                it.copy(summary = it.summary.loading())
+            }
         }
 
         val grossResult = grossUseCase()
@@ -256,12 +260,66 @@ class HomeViewModel @Inject constructor(
         refreshAllData()
     }
 
+    fun refreshAfterOrderChangedSilent() {
+        // Silent refresh: don't clear optimistic orders immediately so they stay on screen until real data arrives
+        // We also avoid setting isRefreshing = true so the pull-to-refresh spinner doesn't show
+        _uiState.update { it.copy(refreshCounter = it.refreshCounter + 1) }
+        viewModelScope.launch {
+            coroutineScope {
+                listOf(
+                    async { fetchTodayIncome(isSilent = true) },
+                    async { fetchSummary(isSilent = true) }
+                ).awaitAll()
+            }
+        }
+    }
+
     fun refreshAfterOutcomeChanged() {
         refreshAllData()
     }
 
     fun addOptimisticOrder(order: UnpaidOrderItem) {
         _uiState.update { it.copy(optimisticOrders = listOf(order) + it.optimisticOrders) }
+    }
+
+    fun updateOptimisticOrderStatus(fakeId: String, status: com.raylabs.laundryhub.ui.home.state.SyncStatus, realId: String? = null) {
+        _uiState.update { state ->
+            val updatedList = state.optimisticOrders.map {
+                if (it.orderID == fakeId) it.copy(
+                    syncStatus = status,
+                    orderID = realId ?: it.orderID
+                ) else it
+            }
+            state.copy(optimisticOrders = updatedList)
+        }
+    }
+
+    fun removeOptimisticOrder(fakeId: String) {
+        _uiState.update { state ->
+            state.copy(optimisticOrders = state.optimisticOrders.filter { it.orderID != fakeId })
+        }
+    }
+
+    fun retryOptimisticOrder(fakeId: String, orderViewModel: com.raylabs.laundryhub.ui.order.OrderViewModel, scope: kotlinx.coroutines.CoroutineScope, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        val orderToRetry = _uiState.value.optimisticOrders.find { it.orderID == fakeId } ?: return
+        val payload = orderToRetry.rawPayload ?: return
+
+        updateOptimisticOrderStatus(fakeId, com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING)
+
+        scope.launch {
+            orderViewModel.submitOrder(
+                payload,
+                onComplete = { createdOrderId ->
+                    updateOptimisticOrderStatus(fakeId, com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, createdOrderId)
+                    refreshAfterOrderChangedSilent()
+                    onSuccess(createdOrderId)
+                },
+                onError = { errorMessage ->
+                    updateOptimisticOrderStatus(fakeId, com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED)
+                    onError(errorMessage)
+                }
+            )
+        }
     }
 }
 

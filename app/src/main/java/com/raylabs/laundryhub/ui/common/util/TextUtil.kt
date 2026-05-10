@@ -14,21 +14,21 @@ object TextUtil {
 
     fun String.toRupiahFormat(): String {
         if (this.isEmpty()) return ""
-        val number = this.toLongOrNull() ?: return ""
+        val number = this.filter { it.isDigit() }.toLongOrNull() ?: return this
         val locale = Locale.Builder()
             .setLanguage("id")
             .setRegion("ID")
             .build()
         val formatter = NumberFormat.getInstance(locale)
-        return "${formatter.format(number)}"
+        return "Rp ${formatter.format(number)}"
     }
 
     fun String.removeRupiahFormat(): String {
-        return this.replace("Rp", "")
+        return this.replace("Rp ", "").replace("Rp", "")
     }
 
     fun String.removeRupiahFormatWithComma(): String {
-        return this.replace("Rp", "").replace(".", "").replace(",", "")
+        return this.replace("Rp ", "").replace("Rp", "").replace(".", "").replace(",", "")
     }
 
     fun SortOption.getDisplayName(): String {

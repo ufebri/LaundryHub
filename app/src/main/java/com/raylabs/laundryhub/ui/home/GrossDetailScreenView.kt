@@ -41,6 +41,7 @@ import com.raylabs.laundryhub.ui.common.util.TextUtil.capitalizeFirstLetter
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.home.state.stableGrossDetailKey
 import com.raylabs.laundryhub.ui.home.state.toUi
 import com.raylabs.laundryhub.ui.theme.appCardSurface
 import com.raylabs.laundryhub.ui.theme.appMutedInfoContainer
@@ -139,7 +140,7 @@ fun GrossDetailContent(
 
                 items(
                     count = pagingItems.itemCount,
-                    key = { index -> pagingItems.peek(index)?.id ?: "placeholder_$index" }
+                    key = { index -> pagingItems.peek(index)?.stableGrossDetailKey(index) ?: "placeholder_$index" }
                 ) { index ->
                     val data = pagingItems[index]
                     if (data != null) {

@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.core.data.repository
 
 import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.CreateOutcomeResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -26,6 +27,7 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import io.ktor.http.encodeURLPathPart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -86,16 +88,17 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         true
     }
 
-    override suspend fun updatePackage(packageData: PackageData): Resource<Boolean> = safeApiCall {
-        client.put("$baseUrl/packages/${packageData.name}") {
+    override suspend fun updatePackage(packageName: String, packageData: PackageData): Resource<Boolean> = safeApiCall {
+        client.put("$baseUrl/packages/${packageName.encodeURLPathPart()}") {
             contentType(ContentType.Application.Json)
             setBody(packageData)
         }.requireSuccessfulResponse()
         true
     }
 
-    override suspend fun deletePackage(sheetRowIndex: Int): Resource<Boolean> {
-        return Resource.Error("Delete by index not supported. Use backend API.")
+    override suspend fun deletePackage(packageName: String): Resource<Boolean> = safeApiCall {
+        client.delete("$baseUrl/packages/${packageName.encodeURLPathPart()}").requireSuccessfulResponse()
+        true
     }
 
     override suspend fun readOtherPackage(): Resource<List<String>> = Resource.Success(emptyList())
@@ -131,12 +134,13 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
         client.get(url).body()
     }
 
-    override suspend fun addOutcome(outcome: OutcomeData): Resource<Boolean> = safeApiCall {
-        client.post("$baseUrl/outcomes") {
+    override suspend fun addOutcome(outcome: OutcomeData): Resource<String> = safeApiCall {
+        val response = client.post("$baseUrl/outcomes") {
             contentType(ContentType.Application.Json)
             setBody(outcome)
-        }.requireSuccessfulResponse()
-        true
+        }
+        response.requireSuccessfulResponse()
+        response.body<CreateOutcomeResponse>().outcomeId
     }
 
     override suspend fun getLastOutcomeId(): Resource<String> = safeApiCall {

@@ -89,6 +89,6 @@ fun TransactionData.paidDescription(): String {
             else -> "Paid"
         }
     } else {
-        UNPAID
+        "Unpaid"
     }
 }

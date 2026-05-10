@@ -21,6 +21,7 @@ LaundryHub uses `origin/master` as the product-behavior baseline while the KMP/A
 - The signed-in shell smoke test navigates Home, History, Order sheet, Outcome, and Profile without submitting data. It skips when the device is not signed in.
 - `LaundryHubGuardedMutatingE2eTest` contains the first guarded mutating flow for add-order submission. It is skipped unless sandbox mutation arguments are explicitly passed.
 - The guarded add-order flow now validates the real app path far enough to catch backend duplicate-ID failures: package selection, required field entry, submit, backend `201`, home refresh, and database row visibility.
+- The app robot launch path no longer force-stops the target package during instrumentation because that can kill the process hosting `TestRunner`.
 
 ## Run Modes
 
@@ -46,18 +47,21 @@ Only use the guarded mutation run after confirming the installed app points to a
 - The first KMP run failed after the device screen became inactive, which destroyed the Compose hierarchy during tests.
 - Before running connected tests on this device, wake/unlock it and keep the display awake with `adb shell svc power stayon true`.
 - On Samsung devices, dismiss notification shade/keyguard before manual instrumentation. A system overlay can make the startup detector return `UNKNOWN` even when the app session is valid.
+- Prefer a stable USB connection for long connected runs. The latest Wi-Fi ADB attempt dropped during Gradle device service/property queries and produced `Unknown API Level` / `No compatible devices` before a trustworthy app assertion result.
 - Compose semantics are the primary selector path. The app robot also has a hierarchy-bounds fallback for package option cards because UIAutomator can intermittently miss clickable Compose nodes while the hierarchy dump still contains the semantic marker.
 
 ## Verification
 
 - Master baseline worktree: `./gradlew testDebugUnitTest` passed.
 - Master baseline worktree: `./gradlew connectedDebugAndroidTest` passed.
-- KMP branch: `./gradlew testDebugUnitTest --no-daemon` passed.
-- KMP branch: `./gradlew :backend:test --no-daemon` passed.
+- KMP branch: `./gradlew :app:testDebugUnitTest :backend:test --no-daemon` passed.
+- KMP branch: `./gradlew :shared:jvmTest --no-daemon` passed.
 - KMP branch: `./gradlew assembleDebug --no-daemon` passed.
+- KMP branch: `./gradlew assembleRelease --no-daemon` passed.
 - KMP branch: `./gradlew :app:assembleDebugAndroidTest --no-daemon` passed.
-- KMP branch: `./gradlew connectedDebugAndroidTest --no-daemon` passed with 14 app instrumentation tests: 13 passed and 1 guarded mutation skipped by design.
-- Manual guarded mutation run passed with `laundryhub.e2e.mutating=true` and `laundryhub.e2e.target=sandbox`. Device logs showed `POST /api/orders` returning `201`, and a narrow Supabase query confirmed the generated `e2e*` order row existed.
+- Earlier KMP branch run: `./gradlew connectedDebugAndroidTest --no-daemon` passed with the safe default instrumentation suite.
+- Latest KMP branch run: `./gradlew connectedDebugAndroidTest --no-daemon` is not green yet. The run was blocked by unstable Wi-Fi ADB/device transport after the robot force-stop issue was fixed.
+- Earlier manual guarded mutation run passed with `laundryhub.e2e.mutating=true` and `laundryhub.e2e.target=sandbox`. Treat that as historical evidence only; rerun after deploying the latest outcome/package API changes before relying on it for this branch state.
 
 ## Remaining E2E Risk
 

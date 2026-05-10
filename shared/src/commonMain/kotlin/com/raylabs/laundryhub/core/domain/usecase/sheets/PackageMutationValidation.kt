@@ -16,11 +16,15 @@ fun validatePackageForSave(packageData: PackageData): Resource.Error? {
 fun hasDuplicatePackageName(
     packageName: String,
     existingPackages: List<PackageData>,
-    excludingRowIndex: Int? = null
+    excludingRowIndex: Int? = null,
+    excludingId: Int? = null
 ): Boolean {
     val normalizedTarget = normalizePackageName(packageName)
     return existingPackages.any { item ->
-        item.sheetRowIndex != excludingRowIndex &&
+        val isExcludedRow = excludingRowIndex != null && item.sheetRowIndex == excludingRowIndex
+        val isExcludedId = excludingId != null && excludingId > 0 && item.id == excludingId
+        !isExcludedRow &&
+            !isExcludedId &&
             normalizePackageName(item.name) == normalizedTarget
     }
 }

@@ -10,14 +10,14 @@ class DeletePackageUseCase(
 ) {
     suspend operator fun invoke(
         onRetry: ((Int) -> Unit)? = null,
-        sheetRowIndex: Int
+        packageName: String
     ): Resource<Boolean> {
-        if (sheetRowIndex < 2) {
-            return Resource.Error("Package row not found.")
+        if (packageName.isBlank()) {
+            return Resource.Error("Package name is required.")
         }
 
         return retry(onRetry = onRetry) {
-            repository.deletePackage(sheetRowIndex)
+            repository.deletePackage(packageName)
         } ?: UseCaseErrorHandling.handleFailedSubmit
     }
 }

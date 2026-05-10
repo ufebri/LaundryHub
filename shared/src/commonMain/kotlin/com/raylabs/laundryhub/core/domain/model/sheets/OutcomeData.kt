@@ -18,6 +18,13 @@ data class OutcomeData(
     val payment: String,
 )
 
+@Serializable
+data class CreateOutcomeResponse(
+    val status: String,
+    val message: String,
+    val outcomeId: String,
+)
+
 fun Map<String, String>.toOutcomeList(): OutcomeData {
     return OutcomeData(
         id = (this["id"] ?: ""),

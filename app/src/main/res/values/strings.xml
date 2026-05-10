@@ -42,10 +42,18 @@
     <string name="profile">Profile</string>
 
     <string name="order_id">Order #%s</string>
+    <string name="order_editor_new_title">New Order</string>
+    <string name="order_editor_update_title">Update Order</string>
     <string name="outcome_id">Outcome #%s</string>
     <string name="add_outcome">Add Outcome</string>
     <string name="update_outcome">Update Outcome</string>
     <string name="Date">Date</string>
+    <string name="name">Name</string>
+    <string name="phone_number">Phone Number</string>
+    <string name="whatsapp_available_hint">Make sure the WhatsApp is available.</string>
+    <string name="package_label">Package</string>
+    <string name="order_weight_value">The weight is %1$s Kg</string>
+    <string name="note">Note</string>
     <string name="purpose">Purpose</string>
     <string name="price">Price</string>
     <string name="remark">Remark</string>

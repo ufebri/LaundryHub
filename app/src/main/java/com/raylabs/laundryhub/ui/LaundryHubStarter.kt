@@ -147,6 +147,7 @@ fun LaundryHubStarter(
     val orderViewModel: OrderViewModel = hiltViewModel()
     val homeViewModel: HomeViewModel = hiltViewModel()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val scaffoldState = rememberBottomSheetScaffoldState()
     val showNewOrderSheet = remember { mutableStateOf(false) }
     val snackBarHostState = remember { SnackbarHostState() }
@@ -286,6 +287,24 @@ fun LaundryHubStarter(
                             ) {
                                 launchSingleTop = true
                             }
+                        },
+                        onRetryOptimisticOrder = { fakeId ->
+                            homeViewModel.retryOptimisticOrder(
+                                fakeId = fakeId,
+                                orderViewModel = orderViewModel,
+                                scope = scope,
+                                onSuccess = { createdOrderId ->
+                                    val successMessage = context.getString(R.string.order_submit_success, createdOrderId)
+                                    scope.launch { snackBarHostState.showQuickSnackbar(successMessage) }
+                                },
+                                onError = { errorMessage ->
+                                    val submitFailedMessage = context.getString(R.string.order_submit_failed)
+                                    scope.launch { snackBarHostState.showQuickSnackbar(errorMessage.ifBlank { submitFailedMessage }) }
+                                }
+                            )
+                        },
+                        onCancelOptimisticOrder = { fakeId ->
+                            homeViewModel.removeOptimisticOrder(fakeId)
                         }
                     )
                 }
@@ -380,24 +399,28 @@ fun ShowOrderBottomSheet(
         onNoteChanged = { orderViewModel.updateField("note", it) },
         onOrderDateSelected = { orderViewModel.onOrderDateSelected(it) },
         onSubmit = {
+            val submittedState = orderViewModel.uiState.value
+            val orderData = submittedState.toOrderData("")
+            val fakeId = "PENDING_${System.currentTimeMillis()}"
+            val optimisticOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+                orderID = fakeId,
+                customerName = orderData.name,
+                packageType = orderData.packageName,
+                nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(orderData.paidStatus),
+                dueDate = orderData.dueDate,
+                orderDate = orderData.orderDate,
+                syncStatus = com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING,
+                rawPayload = orderData
+            )
+            homeViewModel.addOptimisticOrder(optimisticOrder)
+            dismissSheet()
+
             scope.launch {
                 orderViewModel.submitOrder(
-                    orderViewModel.uiState.value.toOrderData(""),
+                    orderData,
                     onComplete = { createdOrderId ->
-                        val submittedState = orderViewModel.uiState.value
-                        val newOrderData = submittedState.toOrderData(createdOrderId)
-                        val optimisticOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
-                            orderID = newOrderData.orderId,
-                            customerName = newOrderData.name,
-                            packageType = newOrderData.packageName,
-                            nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(newOrderData.paidStatus),
-                            dueDate = newOrderData.dueDate,
-                            orderDate = newOrderData.orderDate
-                        )
-                        homeViewModel.addOptimisticOrder(optimisticOrder)
-                        
-                        scope.launchOrderChangedRefresh(homeViewModel)
-                        dismissSheet()
+                        homeViewModel.updateOptimisticOrderStatus(fakeId, com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, createdOrderId)
+                        homeViewModel.refreshAfterOrderChangedSilent()
 
                         val phone = submittedState.phone
                         if (phone.isNotEmpty()) {
@@ -418,6 +441,7 @@ fun ShowOrderBottomSheet(
                         snackBarHostState.showQuickSnackbar(successMessage)
                     },
                     onError = { errorMessage ->
+                        homeViewModel.updateOptimisticOrderStatus(fakeId, com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED)
                         snackBarHostState.showQuickSnackbar(errorMessage.ifBlank { submitFailedMessage })
                     }
                 )

@@ -84,7 +84,7 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    suspend fun submitOutcome(outcome: OutcomeData, onComplete: suspend () -> Unit) {
+    suspend fun submitOutcome(outcome: OutcomeData, onComplete: suspend (String) -> Unit) {
         _uiState.value = _uiState.value.copy(
             submitNewOutcome = _uiState.value.submitNewOutcome.loading(),
             isSubmitting = true
@@ -96,9 +96,11 @@ class OutcomeViewModel @Inject constructor(
                     submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
                     isSubmitting = false
                 )
-                loadOutcomeList()
-                loadLastOutcomeId()
-                onComplete()
+                onComplete(result.data)
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                    loadLastOutcomeId()
+                }
             }
 
             is Resource.Error -> {
@@ -167,8 +169,10 @@ class OutcomeViewModel @Inject constructor(
                     updateOutcome = _uiState.value.updateOutcome.success(result.data),
                     isSubmitting = false
                 )
-                loadOutcomeList()
                 onComplete()
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                }
             }
 
             is Resource.Error -> {
@@ -196,11 +200,14 @@ class OutcomeViewModel @Inject constructor(
         when (val result = deleteOutcomeUseCase(outcomeId = outcomeId)) {
             is Resource.Success -> {
                 _uiState.value = _uiState.value.copy(
-                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data)
+                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data),
+                    hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds + outcomeId
                 )
-                loadOutcomeList()
-                loadLastOutcomeId()
                 onComplete()
+                viewModelScope.launch {
+                    loadOutcomeList(isSilent = true)
+                    loadLastOutcomeId()
+                }
             }
 
             is Resource.Error -> {
@@ -246,14 +253,12 @@ class OutcomeViewModel @Inject constructor(
         )
     }
 
-    fun buildOutcomeDataForSubmit(): OutcomeData? {
-        val id =
-            _uiState.value.lastOutcomeId?.takeIf { it.all { ch -> ch.isDigit() } } ?: return null
+    fun buildOutcomeDataForSubmit(): OutcomeData {
         val date =
             _uiState.value.date.ifBlank { DateUtil.getTodayDate(DateUtil.STANDARD_DATE_FORMATED) }
 
         return OutcomeData(
-            id = id,
+            id = "",
             date = date,
             purpose = _uiState.value.name,
             price = sanitizePrice(_uiState.value.price),
@@ -309,15 +314,19 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    private suspend fun loadOutcomeList() {
-        _uiState.value = _uiState.value.copy(
-            outcome = _uiState.value.outcome.loading()
-        )
+    private suspend fun loadOutcomeList(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.value = _uiState.value.copy(
+                outcome = _uiState.value.outcome.loading()
+            )
+        }
 
         when (val result = readOutcomeUseCase()) {
             is Resource.Success -> {
+                val loadedIds = result.data.map { it.id }.toSet()
                 _uiState.value = _uiState.value.copy(
-                    outcome = _uiState.value.outcome.success(result.data.toDateListUiItems())
+                    outcome = _uiState.value.outcome.success(result.data.toDateListUiItems()),
+                    hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds - loadedIds
                 )
             }
 

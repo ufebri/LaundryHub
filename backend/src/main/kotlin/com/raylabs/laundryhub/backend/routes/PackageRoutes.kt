@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -17,7 +18,9 @@ import io.ktor.server.routing.route
 fun Route.packageRoutes(
     repository: PackageRepository,
     sheetsApiClient: GoogleSheetsApiClient,
-    migrationRoutesEnabled: Boolean = false
+    migrationRoutesEnabled: Boolean = false,
+    syncService: SheetsSyncService? = null,
+    spreadsheetId: String? = null
 ) {
     route("/api/packages") {
         get {
@@ -46,8 +49,21 @@ fun Route.packageRoutes(
         }
         delete("/{name}") {
             val name = call.parameters["name"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            if (repository.delete(name)) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
-            else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            if (repository.delete(name)) {
+                val sheetSynced = spreadsheetId?.let { configuredId ->
+                    syncService?.deletePackageFromSheet(configuredId, name)
+                } ?: false
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "status" to "Success",
+                        "message" to "Package deleted",
+                        "sheetSynced" to sheetSynced.toString()
+                    )
+                )
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            }
         }
         
         if (migrationRoutesEnabled) {

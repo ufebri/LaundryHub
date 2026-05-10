@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.core.domain.model.sheets.CreateOutcomeResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -17,7 +19,9 @@ import io.ktor.server.routing.route
 fun Route.outcomeRoutes(
     repository: OutcomeRepository,
     sheetsApiClient: GoogleSheetsApiClient,
-    migrationRoutesEnabled: Boolean = false
+    migrationRoutesEnabled: Boolean = false,
+    syncService: SheetsSyncService? = null,
+    spreadsheetId: String? = null
 ) {
     route("/api/outcomes") {
         get("/last-id") {
@@ -42,9 +46,22 @@ fun Route.outcomeRoutes(
         post {
             try {
                 val outcome = call.receive<OutcomeData>()
-                val inserted = repository.insert(outcome)
-                if (inserted) call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
-                else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
+                val createdOutcome = repository.insertWithNextId(outcome)
+                if (createdOutcome != null) {
+                    call.respond(
+                        HttpStatusCode.Created,
+                        CreateOutcomeResponse(
+                            status = "Success",
+                            message = "Outcome created",
+                            outcomeId = createdOutcome.id
+                        )
+                    )
+                } else {
+                    call.respond(
+                        HttpStatusCode.Conflict,
+                        mapOf("status" to "Error", "message" to "Outcome id allocation failed")
+                    )
+                }
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
             }
@@ -62,8 +79,21 @@ fun Route.outcomeRoutes(
         }
         delete("/{id}") {
             val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            if (repository.delete(id)) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
-            else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            if (repository.delete(id)) {
+                val sheetSynced = spreadsheetId?.let { configuredId ->
+                    syncService?.deleteOutcomeFromSheet(configuredId, id)
+                } ?: false
+                call.respond(
+                    HttpStatusCode.OK,
+                    mapOf(
+                        "status" to "Success",
+                        "message" to "Outcome deleted",
+                        "sheetSynced" to sheetSynced.toString()
+                    )
+                )
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            }
         }
         
         if (migrationRoutesEnabled) {

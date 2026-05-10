@@ -15,8 +15,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.Card
@@ -52,6 +52,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
+import com.raylabs.laundryhub.shared.util.PlatformDate
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import com.raylabs.laundryhub.ui.component.GreetingWithImageBackground
 import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
@@ -67,6 +69,7 @@ import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.ui.home.state.SummaryItem
 import com.raylabs.laundryhub.ui.home.state.TransactionItem
 import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
+import com.raylabs.laundryhub.ui.home.state.toColor
 
 private const val PENDING_ORDER_SEARCH_FIELD_DESCRIPTION = "Pending order search field"
 
@@ -77,12 +80,21 @@ fun HomeScreen(
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
     onGrossCardClick: () -> Unit,
-    onReminderDiscoveryClick: (Boolean) -> Unit
+    onReminderDiscoveryClick: (Boolean) -> Unit,
+    onRetryOptimisticOrder: (String) -> Unit,
+    onCancelOptimisticOrder: (String) -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val pagingItems = viewModel.pendingOrdersPagingData.collectAsLazyPagingItems()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("home_inline")
-    
+
+    // Trigger Paging 3 refresh when the counter changes, WITHOUT recreating the whole flow
+    androidx.compose.runtime.LaunchedEffect(state.refreshCounter) {
+        if (state.refreshCounter > 0) {
+            pagingItems.refresh()
+        }
+    }
+
     HomeScreenContent(
         state = state,
         pagingItems = pagingItems,
@@ -97,7 +109,9 @@ fun HomeScreen(
         onOrderCardClick = onOrderCardClick,
         onTodayActivityClick = onTodayActivityClick,
         onGrossCardClick = onGrossCardClick,
-        onReminderDiscoveryClick = onReminderDiscoveryClick
+        onReminderDiscoveryClick = onReminderDiscoveryClick,
+        onRetryOptimisticOrder = onRetryOptimisticOrder,
+        onCancelOptimisticOrder = onCancelOptimisticOrder
     )
 }
 
@@ -114,7 +128,9 @@ fun HomeScreenContent(
     onOrderCardClick: (String) -> Unit,
     onTodayActivityClick: (String) -> Unit,
     onGrossCardClick: () -> Unit,
-    onReminderDiscoveryClick: (Boolean) -> Unit
+    onReminderDiscoveryClick: (Boolean) -> Unit,
+    onRetryOptimisticOrder: (String) -> Unit,
+    onCancelOptimisticOrder: (String) -> Unit
 ) {
     var showSortSheet by remember { mutableStateOf(false) }
     val sortOptions = remember {
@@ -137,19 +153,38 @@ fun HomeScreenContent(
     val openSearchDescription = stringResource(R.string.open_search_view)
     val sortOrdersDescription = stringResource(R.string.sort_orders)
 
-    val isRefreshing = state.isRefreshing || pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
+    // Only show the large refresh spinner if it's a manual refresh OR the very first load (itemCount == 0)
+    val isRefreshing = state.isRefreshing || (pagingItems.loadState.refresh is androidx.paging.LoadState.Loading && pagingItems.itemCount == 0)
+    val isPendingOrdersRefreshing =
+        pagingItems.loadState.refresh is androidx.paging.LoadState.Loading && pagingItems.itemCount > 0
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = onRefresh
     )
 
+    // Clean up synced orders from ViewModel if they are already in Paging
+    val pagingIds = mutableSetOf<String>()
+    for (i in 0 until pagingItems.itemCount) {
+        pagingItems.peek(i)?.orderID?.let { pagingIds.add(it) }
+    }
+    val syncedAndPresent = state.optimisticOrders.filter {
+        it.syncStatus == com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED && it.orderID in pagingIds
+    }
+    if (syncedAndPresent.isNotEmpty()) {
+        androidx.compose.runtime.LaunchedEffect(syncedAndPresent) {
+            syncedAndPresent.forEach { onCancelOptimisticOrder(it.orderID) }
+        }
+    }
+
     Box(modifier = Modifier.fillMaxSize().pullRefresh(pullRefreshState)) {
-        LazyColumn(
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(2),
             modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(bottom = 80.dp)
+            contentPadding = PaddingValues(bottom = 80.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             // Header Section
-            item {
+            item(span = { GridItemSpan(2) }) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     GreetingWithImageBackground(
                         username = state.user.data?.displayName ?: stringResource(R.string.guest),
@@ -176,9 +211,9 @@ fun HomeScreenContent(
                 }
             }
 
-            item { Spacer(Modifier.height(120.dp)) }
+            item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(120.dp)) }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 Text(
                     text = stringResource(R.string.today_activity),
                     style = MaterialTheme.typography.h6,
@@ -186,35 +221,54 @@ fun HomeScreenContent(
                 )
             }
 
-            item {
+            item(span = { GridItemSpan(2) }) {
                 SectionOrLoading(
                     isLoading = state.todayIncome.isLoading,
                     error = state.todayIncome.errorMessage,
-                    hasContent = !state.todayIncome.data.isNullOrEmpty(),
+                    hasContent = !state.todayIncome.data.isNullOrEmpty() || state.optimisticOrders.any { it.orderDate == PlatformDate.getTodayDate("dd/MM/yyyy") },
                     content = {
-                        val list = state.todayIncome.data.orEmpty()
-                        if (list.isEmpty()) {
+                        val todayDate = PlatformDate.getTodayDate("dd/MM/yyyy")
+                        val optimisticForToday = state.optimisticOrders
+                            .filter { it.orderDate == todayDate }
+                            .map {
+                                TransactionItem(
+                                    id = it.orderID,
+                                    name = it.customerName,
+                                    totalPrice = it.rawPayload?.totalPrice?.toRupiahFormat() ?: "",
+                                    status = it.nowStatus,
+                                    statusColor = it.nowStatus.toColor(),
+                                    packageDuration = it.packageType
+                                )
+                            }
+                        val realList = state.todayIncome.data.orEmpty()
+                        val combinedList = (optimisticForToday + realList).distinctBy { it.id }
+
+                        if (combinedList.isEmpty()) {
                             Text(stringResource(R.string.no_transactions_today), modifier = Modifier.padding(horizontal = 16.dp))
                         } else {
-                            CardList(list, onItemClick = onTodayActivityClick)
+                            CardList(combinedList, onItemClick = onTodayActivityClick)
                         }
                     }
                 )
             }
 
-            item { Spacer(Modifier.height(24.dp)) }
+            item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(24.dp)) }
 
             state.reminderDiscovery?.let { discovery ->
-                item {
+                item(span = { GridItemSpan(2) }) {
                     ReminderDiscoveryCard(discovery, onClick = { onReminderDiscoveryClick(discovery.isReminderEnabled) })
                 }
-                item { Spacer(Modifier.height(8.dp)) }
+                item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(8.dp)) }
             }
 
-            item { InlineAdaptiveBannerAd(state = bannerState) }
+            item(span = { GridItemSpan(2) }) {
+                Box(Modifier.padding(horizontal = 16.dp)) {
+                    InlineAdaptiveBannerAd(state = bannerState)
+                }
+            }
 
             // Pending Orders Title
-            item {
+            item(span = { GridItemSpan(2) }) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -223,6 +277,7 @@ fun HomeScreenContent(
                         OutlinedTextField(
                             value = state.searchQuery,
                             onValueChange = onSearchQueryChanged,
+                            enabled = !isPendingOrdersRefreshing,
                             modifier = Modifier
                                 .weight(1f)
                                 .semantics {
@@ -244,7 +299,10 @@ fun HomeScreenContent(
                             },
                             trailingIcon = {
                                 if (state.searchQuery.isNotEmpty()) {
-                                    IconButton(onClick = { onSearchQueryChanged("") }) {
+                                    IconButton(
+                                        enabled = !isPendingOrdersRefreshing,
+                                        onClick = { onSearchQueryChanged("") }
+                                    ) {
                                         Icon(
                                             Icons.Filled.Close,
                                             contentDescription = clearSearchDescription,
@@ -261,7 +319,11 @@ fun HomeScreenContent(
                                 unfocusedBorderColor = MaterialTheme.colors.onBackground.copy(alpha = ContentAlpha.disabled)
                             )
                         )
-                        IconButton(onClick = onToggleSearch) {
+                        if (isPendingOrdersRefreshing) {
+                            Spacer(modifier = Modifier.width(8.dp))
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                        }
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = onToggleSearch) {
                             Icon(
                                 Icons.Filled.Close,
                                 contentDescription = closeSearchDescription,
@@ -274,87 +336,61 @@ fun HomeScreenContent(
                             style = MaterialTheme.typography.h6,
                             modifier = Modifier.weight(1f)
                         )
-                        IconButton(onClick = onToggleSearch) {
+                        if (isPendingOrdersRefreshing) {
+                            CircularProgressIndicator(modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = onToggleSearch) {
                             Icon(Icons.Filled.Search, contentDescription = openSearchDescription)
                         }
                         Spacer(modifier = Modifier.width(4.dp))
-                        IconButton(onClick = { showSortSheet = true }) {
+                        IconButton(enabled = !isPendingOrdersRefreshing, onClick = { showSortSheet = true }) {
                             Icon(Icons.AutoMirrored.Filled.List, contentDescription = sortOrdersDescription)
                         }
                     }
                 }
             }
 
-            // Optimistic Orders List
-            val optimisticItemCount = state.optimisticOrders.size
-            val optimisticRowCount = (optimisticItemCount + 1) / 2
+            // Unified Orders Grid (Optimistic + Paging)
+            val filteredOptimistic = state.optimisticOrders.filter { it.orderID !in pagingIds }
 
-            items(optimisticRowCount) { rowIndex ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val firstIndex = rowIndex * 2
-                    val secondIndex = firstIndex + 1
-
-                    state.optimisticOrders.getOrNull(firstIndex)?.let { item ->
-                        OrderStatusCard(
-                            item = item,
-                            onClick = { onOrderCardClick(item.orderID) },
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    if (secondIndex < optimisticItemCount) {
-                        state.optimisticOrders.getOrNull(secondIndex)?.let { item ->
-                            OrderStatusCard(
-                                item = item,
-                                onClick = { onOrderCardClick(item.orderID) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
-                    }
+            // 1. Filtered Optimistic Items
+            items(
+                count = filteredOptimistic.size,
+                key = { index -> filteredOptimistic[index].orderID }
+            ) { index ->
+                val item = filteredOptimistic[index]
+                Box(Modifier.padding(start = if (index % 2 == 0) 16.dp else 0.dp, end = if (index % 2 == 0) 0.dp else 16.dp, bottom = 12.dp)) {
+                    OrderStatusCard(
+                        item = item,
+                        onClick = { onOrderCardClick(item.orderID) },
+                        onRetry = { onRetryOptimisticOrder(item.orderID) },
+                        onCancel = { onCancelOptimisticOrder(item.orderID) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
 
-            // Pending Orders List via Paging
-            val itemCount = pagingItems.itemCount
-            val rowCount = (itemCount + 1) / 2
-
-            items(rowCount) { rowIndex ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    val firstIndex = rowIndex * 2
-                    val secondIndex = firstIndex + 1
-
-                    pagingItems[firstIndex]?.let { item ->
+            // 2. Real Paging Items
+            items(
+                count = pagingItems.itemCount,
+                key = { index -> pagingItems.peek(index)?.orderID ?: "paging_$index" }
+            ) { index ->
+                val item = pagingItems[index]
+                if (item != null) {
+                    val globalIndex = filteredOptimistic.size + index
+                    Box(Modifier.padding(start = if (globalIndex % 2 == 0) 16.dp else 0.dp, end = if (globalIndex % 2 == 0) 0.dp else 16.dp, bottom = 12.dp)) {
                         OrderStatusCard(
                             item = item,
                             onClick = { onOrderCardClick(item.orderID) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    }
-
-                    if (secondIndex < itemCount) {
-                        pagingItems[secondIndex]?.let { item ->
-                            OrderStatusCard(
-                                item = item,
-                                onClick = { onOrderCardClick(item.orderID) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
-                    } else {
-                        Spacer(modifier = Modifier.weight(1f))
                     }
                 }
             }
 
             if (pagingItems.loadState.append is androidx.paging.LoadState.Loading) {
-                item {
+                item(span = { GridItemSpan(2) }) {
                     Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator(modifier = Modifier.size(24.dp))
                     }

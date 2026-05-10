@@ -40,29 +40,31 @@ Verification:
 
 Benchmark status:
 
-- Add Order macrobenchmark was rerun on a charged physical `SM-S931B - 16` device.
-- Results for backend-owned ID allocation: `open_add_order_ms=807`, `submit_to_success_ms=3279`, `success_to_pending_ms=10691`, `total_flow_ms=22055`.
-- Frame CPU performance: `P50=3.3ms`, `P90=4.9ms`, `P95=6.1ms`, `P99=10.0ms`.
+- Add Order macrobenchmark was rerun on a charged physical `SM-S931B - 16` device after implementing Optimistic UI.
+- Results for backend-owned ID allocation with Optimistic UI: `open_add_order_ms=644`, `submit_to_success_ms=4026`, `success_to_pending_ms=1897`, `total_flow_ms=12813`.
 
 Notes:
 
-- The `success_to_pending_ms` metric remains high due to Paging 3 invalidation and network latency fetching the new list head.
-- The overall flow remains stable and correctly captures the allocated ID 1604 from the backend response.
-Next command:
+- In that benchmark run, `success_to_pending_ms` dropped from about 10.6 seconds to 1.8 seconds after the Optimistic UI implementation.
+- The flow captures the allocated id from the backend response instead of relying on a local id guess.
+Next command, only on a safe mutating target:
 
 - `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon -Pandroid.testInstrumentationRunnerArguments.class=com.raylabs.laundryhub.macrobenchmark.AddOrderFlowBenchmark`
 
-## 2026-05-09 Recovery Check
+## 2026-05-10 Stabilization Check
 
-The current session was a correctness and recovery pass, not a measured runtime performance refactor. I still ran the available build-side checks to keep the benchmark path from drifting, then verified the safe instrumentation suite on a connected device.
+This pass was a correctness and recovery pass, not a new measured performance refactor. The main runtime-facing changes were immediate success feedback after backend writes, silent follow-up refreshes, local deletion overlays, and backend-owned IDs for outcomes. Those should make the app feel calmer, but they are not a benchmark claim until the same connected scenario is measured again.
 
 ## Verification
 
+- `./gradlew :app:testDebugUnitTest :backend:test --no-daemon` passed.
+- `./gradlew :shared:jvmTest --no-daemon` passed.
 - `./gradlew :macrobenchmark:assembleBenchmark` passed.
 - `./gradlew assembleRelease` passed with R8/minification.
-- `./gradlew connectedDebugAndroidTest --no-daemon` passed on `SM-S931B - 16` with the safe default instrumentation suite.
 
 ## Notes
 
+- `./gradlew connectedDebugAndroidTest --no-daemon` was attempted, but the device transport dropped during service/property queries and Gradle reported no compatible device. A separate earlier attempt exposed that force-stopping the target app from the robot can kill the instrumentation process, so the robot launch path was corrected before the final attempt.
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon` was intentionally skipped in this pass because the active benchmark flow mutates live backend data by creating orders. Use a confirmed sandbox or explicit cleanup plan before running it again.
 - Before claiming a master-vs-branch E2E performance result, rerun the same benchmark scenario on a stable device/build pair and record the metric names and deltas here.
-- Keep the test device awake before connected test runs. The first instrumentation attempt failed after the device screen became inactive and Compose test activities were stopped.
+- Keep the test device awake and prefer a stable USB connection before connected test runs.

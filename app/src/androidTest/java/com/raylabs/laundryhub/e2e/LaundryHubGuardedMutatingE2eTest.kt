@@ -43,6 +43,12 @@ class LaundryHubGuardedMutatingE2eTest {
     }
 
     @Test
+    fun testFlickerFreeTransition() {
+        val baseName = "E2E_stab_${SystemClock.elapsedRealtime() % 100000}"
+        robot.validateFlickerFreeSubmission(baseName, "9000")
+    }
+
+    @Test
     fun orderFlow_submitsUpdatesAndDeletesOnlyWhenSandboxMutationIsExplicitlyEnabled() {
         val baseName = "E2E_order_${SystemClock.elapsedRealtime() % 100000}"
         

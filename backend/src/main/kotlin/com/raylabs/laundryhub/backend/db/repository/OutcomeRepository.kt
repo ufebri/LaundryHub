@@ -8,9 +8,32 @@ import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
 
 class OutcomeRepository {
+
+    suspend fun insertWithNextId(outcome: OutcomeData): OutcomeData? = dbQuery {
+        TransactionManager.current().exec("SELECT pg_advisory_xact_lock($OUTCOME_ID_ALLOCATION_LOCK_KEY)")
+        val nextId = OutcomesTable
+            .selectAll()
+            .mapNotNull { it[OutcomesTable.id].toIntOrNull() }
+            .maxOrNull()
+            ?.plus(1)
+            ?.toString()
+            ?: "0"
+        val createdOutcome = outcome.copy(id = nextId)
+        val statement = OutcomesTable.insertIgnore {
+            it[id] = createdOutcome.id
+            it[date] = createdOutcome.date
+            it[purpose] = createdOutcome.purpose
+            it[price] = createdOutcome.price
+            it[remark] = createdOutcome.remark
+            it[payment] = createdOutcome.payment
+            it[isSynced] = false
+        }
+        if (statement.insertedCount > 0) createdOutcome else null
+    }
 
     suspend fun insert(outcome: OutcomeData): Boolean = dbQuery {
         val statement = OutcomesTable.insertIgnore {
@@ -54,6 +77,16 @@ class OutcomeRepository {
             .selectAll()
             .map { it[OutcomesTable.id] }
             .maxByOrNull { it.toIntOrNull() ?: Int.MIN_VALUE }
+            ?: "0"
+    }
+
+    suspend fun getNextId(): String = dbQuery {
+        OutcomesTable
+            .selectAll()
+            .mapNotNull { it[OutcomesTable.id].toIntOrNull() }
+            .maxOrNull()
+            ?.plus(1)
+            ?.toString()
             ?: "0"
     }
 
@@ -115,3 +148,5 @@ class OutcomeRepository {
         )
     }
 }
+
+private const val OUTCOME_ID_ALLOCATION_LOCK_KEY = 63119042

@@ -71,6 +71,41 @@ class LaundryRepositoryImplTest {
         assertEquals("Order already exists", (result as Resource.Error).message)
     }
 
+    @Test
+    fun `addOutcome returns created outcome id from backend`() = runTest {
+        val repository = LaundryRepositoryImpl(
+            client = mockClient {
+                mockResponse(
+                    content = """{"status":"Success","message":"Outcome created","outcomeId":"42"}""",
+                    status = HttpStatusCode.Created
+                )
+            },
+            baseUrl = "https://example.test/api"
+        )
+
+        val result = repository.addOutcome(sampleOutcome(id = ""))
+
+        assertTrue(result is Resource.Success)
+        assertEquals("42", (result as Resource.Success).data)
+    }
+
+    @Test
+    fun `deletePackage calls backend package name endpoint`() = runTest {
+        var requestedUrl = ""
+        val repository = LaundryRepositoryImpl(
+            client = mockClient { url ->
+                requestedUrl = url
+                mockResponse(content = """{"status":"Success"}""")
+            },
+            baseUrl = "https://example.test/api"
+        )
+
+        val result = repository.deletePackage("Express 6H")
+
+        assertTrue(result is Resource.Success)
+        assertEquals("https://example.test/api/packages/Express%206H", requestedUrl)
+    }
+
     private fun mockClient(handler: (String) -> MockResponse): HttpClient {
         return HttpClient(MockEngine) {
             expectSuccess = false
@@ -108,6 +143,15 @@ class LaundryRepositoryImplTest {
         weight = "1",
         orderDate = "09/05/2026",
         dueDate = "10/05/2026"
+    )
+
+    private fun sampleOutcome(id: String) = OutcomeData(
+        id = id,
+        date = "09/05/2026",
+        purpose = "Supplies",
+        price = "10000",
+        remark = "",
+        payment = "cash"
     )
 
     private data class MockResponse(

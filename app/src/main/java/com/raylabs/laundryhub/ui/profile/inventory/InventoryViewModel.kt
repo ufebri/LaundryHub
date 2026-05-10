@@ -14,6 +14,7 @@ import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.profile.inventory.state.InventoryUiState
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import com.raylabs.laundryhub.ui.profile.inventory.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -36,9 +37,9 @@ class InventoryViewModel @Inject constructor(
         fetchOtherPackages()
     }
 
-    fun refreshInventory() {
-        fetchPackages()
-        fetchOtherPackages()
+    fun refreshInventory(isSilent: Boolean = false) {
+        fetchPackages(isSilent)
+        fetchOtherPackages(isSilent)
     }
 
     suspend fun submitPackage(
@@ -55,8 +56,9 @@ class InventoryViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(
                     savePackage = _uiState.value.savePackage.success(result.data)
                 )
-                refreshInventory()
                 onComplete()
+                addPackageLocally(packageData)
+                refreshInventory(isSilent = true)
             }
 
             is Resource.Error -> {
@@ -72,6 +74,7 @@ class InventoryViewModel @Inject constructor(
 
     suspend fun updatePackage(
         packageData: PackageData,
+        originalPackageName: String? = null,
         onComplete: suspend () -> Unit,
         onError: suspend (String) -> Unit = {}
     ) {
@@ -79,13 +82,14 @@ class InventoryViewModel @Inject constructor(
             savePackage = _uiState.value.savePackage.loading()
         )
 
-        when (val result = updatePackageUseCase(packageData = packageData)) {
+        when (val result = updatePackageUseCase(packageData = packageData, originalPackageName = originalPackageName)) {
             is Resource.Success -> {
                 _uiState.value = _uiState.value.copy(
                     savePackage = _uiState.value.savePackage.success(result.data)
                 )
-                refreshInventory()
                 onComplete()
+                updatePackageLocally(packageData)
+                refreshInventory(isSilent = true)
             }
 
             is Resource.Error -> {
@@ -100,27 +104,28 @@ class InventoryViewModel @Inject constructor(
     }
 
     fun deletePackage(
-        sheetRowIndex: Int,
+        packageName: String,
         onComplete: suspend () -> Unit = {},
         onError: suspend (String) -> Unit = {}
     ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
-                savePackage = _uiState.value.savePackage.loading()
+                deletePackage = _uiState.value.deletePackage.loading()
             )
 
-            when (val result = deletePackageUseCase(sheetRowIndex = sheetRowIndex)) {
+            when (val result = deletePackageUseCase(packageName = packageName)) {
                 is Resource.Success -> {
                     _uiState.value = _uiState.value.copy(
-                        savePackage = _uiState.value.savePackage.success(result.data)
+                        deletePackage = _uiState.value.deletePackage.success(result.data)
                     )
-                    refreshInventory()
                     onComplete()
+                    removePackageLocally(packageName)
+                    refreshInventory(isSilent = true)
                 }
 
                 is Resource.Error -> {
                     _uiState.value = _uiState.value.copy(
-                        savePackage = _uiState.value.savePackage.error(result.message)
+                        deletePackage = _uiState.value.deletePackage.error(result.message)
                     )
                     onError(result.message)
                 }
@@ -130,10 +135,12 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
-    private fun fetchPackages() {
-        _uiState.value = _uiState.value.copy(
-            packages = _uiState.value.packages.loading()
-        )
+    private fun fetchPackages(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.value = _uiState.value.copy(
+                packages = _uiState.value.packages.loading()
+            )
+        }
 
         viewModelScope.launch {
             when (val result = readPackageUseCase()) {
@@ -160,10 +167,12 @@ class InventoryViewModel @Inject constructor(
         }
     }
 
-    private fun fetchOtherPackages() {
-        _uiState.value = _uiState.value.copy(
-            otherPackages = _uiState.value.otherPackages.loading()
-        )
+    private fun fetchOtherPackages(isSilent: Boolean = false) {
+        if (!isSilent) {
+            _uiState.value = _uiState.value.copy(
+                otherPackages = _uiState.value.otherPackages.loading()
+            )
+        }
 
         viewModelScope.launch {
             when (val result = getOtherPackageUseCase()) {
@@ -179,8 +188,61 @@ class InventoryViewModel @Inject constructor(
                     )
                 }
 
+                is Resource.Empty -> {
+                    _uiState.value = _uiState.value.copy(
+                        otherPackages = _uiState.value.otherPackages.success(emptyList())
+                    )
+                }
+
                 else -> Unit
             }
         }
+    }
+
+    private fun addPackageLocally(packageData: PackageData) {
+        val current = _uiState.value.packages.data.orEmpty()
+        val item = packageData.toPackageItem()
+        _uiState.value = _uiState.value.copy(
+            packages = _uiState.value.packages.success((current + item).distinctBy { it.name.lowercase() })
+        )
+    }
+
+    private fun updatePackageLocally(packageData: PackageData) {
+        val current = _uiState.value.packages.data.orEmpty()
+        val item = packageData.toPackageItem()
+        _uiState.value = _uiState.value.copy(
+            packages = _uiState.value.packages.success(
+                current.map { existing ->
+                    if (existing.matchesPackage(packageData)) item else existing
+                }
+            )
+        )
+    }
+
+    private fun removePackageLocally(packageName: String) {
+        val current = _uiState.value.packages.data.orEmpty()
+        _uiState.value = _uiState.value.copy(
+            packages = _uiState.value.packages.success(
+                current.filterNot { it.name.equals(packageName, ignoreCase = true) }
+            )
+        )
+    }
+}
+
+private fun PackageData.toPackageItem(): PackageItem =
+    PackageItem(
+        name = name,
+        price = price,
+        work = duration,
+        unit = unit,
+        sheetRowIndex = sheetRowIndex,
+        id = id
+    )
+
+private fun PackageItem.matchesPackage(packageData: PackageData): Boolean {
+    return when {
+        id > 0 && packageData.id > 0 -> id == packageData.id
+        sheetRowIndex >= 2 && packageData.sheetRowIndex >= 2 -> sheetRowIndex == packageData.sheetRowIndex
+        else -> name.equals(packageData.name, ignoreCase = true)
     }
 }

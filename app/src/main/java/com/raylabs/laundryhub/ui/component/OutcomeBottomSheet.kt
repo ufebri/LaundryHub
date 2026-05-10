@@ -22,7 +22,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.outcome.state.isUpdateEnabled
@@ -101,27 +100,22 @@ fun OutcomeBottomSheet(
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = state.price.removeRupiahFormat(),
+            value = state.price.filter { it.isDigit() },
             onValueChange = { input ->
-                val rawDigits = input.filter { it.isDigit() }.take(7)
+                val rawDigits = input.filter { it.isDigit() }.take(10)
                 onPriceChanged(rawDigits)
             },
             keyboardOptions = KeyboardOptions.Default.copy(
                 imeAction = ImeAction.Next,
                 keyboardType = KeyboardType.Number
             ),
+            visualTransformation = com.raylabs.laundryhub.ui.common.util.CurrencyVisualTransformation(),
             label = { Text(stringResource(R.string.price)) },
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics {
                     contentDescription = OUTCOME_PRICE_FIELD_DESCRIPTION
                 },
-            leadingIcon = {
-                Text("Rp", modifier = Modifier.padding(start = 4.dp))
-            },
-            trailingIcon = {
-                Text(",-", modifier = Modifier.padding(end = 4.dp))
-            },
             singleLine = true
         )
 

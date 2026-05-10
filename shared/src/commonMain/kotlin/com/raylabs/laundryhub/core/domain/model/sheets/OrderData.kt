@@ -111,8 +111,8 @@ fun getDisplayPaymentMethod(paymentMethod: String): String {
 
 fun getDisplayPaidStatus(paidStatus: String): String {
     return when (paidStatus.trim().lowercase()) {
-        PAID_BY_CASH.lowercase(), PAID_BY_QRIS.lowercase(), PAID -> PAID
-        UNPAID.lowercase(), UNPAID_ID -> UNPAID_ID
+        PAID_BY_CASH.lowercase(), PAID_BY_QRIS.lowercase(), PAID -> "Paid"
+        UNPAID.lowercase(), UNPAID_ID -> "Unpaid"
         else -> ""
     }
 }

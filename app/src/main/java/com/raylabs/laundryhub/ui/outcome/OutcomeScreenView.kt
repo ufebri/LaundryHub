@@ -1,5 +1,7 @@
 package com.raylabs.laundryhub.ui.outcome
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -74,14 +76,16 @@ fun OutcomeScreenView(
         topBar = { DefaultTopAppBar(title = stringResource(R.string.outcome)) },
         snackbarHost = { SnackbarHost(hostState = scaffoldState.snackbarHostState) },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = {
-                    viewModel.prepareNewOutcome()
-                    showBottomSheet = true
-                },
-                backgroundColor = MaterialTheme.colors.primary
-            ) {
-                Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_outcome))
+            if (!showBottomSheet) {
+                FloatingActionButton(
+                    onClick = {
+                        viewModel.prepareNewOutcome()
+                        showBottomSheet = true
+                    },
+                    backgroundColor = MaterialTheme.colors.primary
+                ) {
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.add_outcome))
+                }
             }
         }
     ) { padding ->
@@ -93,45 +97,61 @@ fun OutcomeScreenView(
             OutcomeContent(
                 pagingItems = pagingItems,
                 bannerState = resolvedBannerState,
+                hiddenOutcomeIds = state.hiddenOutcomeIds,
                 modifier = Modifier.fillMaxSize(),
                 onRefresh = { pagingItems.refresh() },
                 onEntryClick = { selectedEntry = it }
             )
 
             if (showBottomSheet) {
-                // Using a simple Column for the bottom sheet for stability
-                OutcomeBottomSheet(
-                    state = state,
-                    onPurposeChanged = viewModel::onPurposeChanged,
-                    onPriceChanged = viewModel::onPriceChanged,
-                    onDateSelected = viewModel::onDateChanged,
-                    onPaymentMethodSelected = viewModel::onPaymentMethodSelected,
-                    onRemarkChanged = viewModel::onRemarkChanged,
-                    onSubmit = {
-                        val outcome = viewModel.buildOutcomeDataForSubmit()
-                        if (outcome != null) {
-                            coroutineScope.launch {
-                                viewModel.submitOutcome(outcome) {
-                                    dismissSheet()
-                                    pagingItems.refresh()
-                                    onOutcomeChanged()
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colors.onSurface.copy(alpha = 0.38f))
+                        .clickable(enabled = !state.isSubmitting) { dismissSheet() }
+                ) {
+                    OutcomeBottomSheet(
+                        state = state,
+                        onPurposeChanged = viewModel::onPurposeChanged,
+                        onPriceChanged = viewModel::onPriceChanged,
+                        onDateSelected = viewModel::onDateChanged,
+                        onPaymentMethodSelected = viewModel::onPaymentMethodSelected,
+                        onRemarkChanged = viewModel::onRemarkChanged,
+                        onSubmit = {
+                            val outcome = viewModel.buildOutcomeDataForSubmit()
+                            if (outcome != null) {
+                                coroutineScope.launch {
+                                    viewModel.submitOutcome(outcome) { createdOutcomeId ->
+                                        dismissSheet()
+                                        onOutcomeChanged()
+                                        scaffoldState.snackbarHostState.showSnackbar(
+                                            context.getString(R.string.outcome_submit_success, createdOutcomeId)
+                                        )
+                                        pagingItems.refresh()
+                                    }
                                 }
                             }
-                        }
-                    },
-                    onUpdate = {
-                        val outcome = viewModel.buildOutcomeDataForUpdate()
-                        if (outcome != null) {
-                            coroutineScope.launch {
-                                viewModel.updateOutcome(outcome) {
-                                    dismissSheet()
-                                    pagingItems.refresh()
-                                    onOutcomeChanged()
+                        },
+                        onUpdate = {
+                            val outcome = viewModel.buildOutcomeDataForUpdate()
+                            if (outcome != null) {
+                                coroutineScope.launch {
+                                    viewModel.updateOutcome(outcome) {
+                                        dismissSheet()
+                                        onOutcomeChanged()
+                                        scaffoldState.snackbarHostState.showSnackbar(
+                                            context.getString(R.string.outcome_update_success, outcome.id)
+                                        )
+                                        pagingItems.refresh()
+                                    }
                                 }
                             }
-                        }
-                    }
-                )
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .clickable {}
+                    )
+                }
             }
 
             TransactionEntryActionSheet(
@@ -165,11 +185,11 @@ fun OutcomeScreenView(
                                 outcomeId = entry.id,
                                 onComplete = {
                                     pendingDeleteEntry = null
-                                    pagingItems.refresh()
                                     onOutcomeChanged()
                                     scaffoldState.snackbarHostState.showSnackbar(
                                         context.getString(R.string.outcome_delete_success, entry.id)
                                     )
+                                    pagingItems.refresh()
                                 },
                                 onError = { message ->
                                     scaffoldState.snackbarHostState.showSnackbar(
@@ -198,6 +218,7 @@ fun OutcomeContent(
     pagingItems: LazyPagingItems<DateListItemUI>,
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier,
+    hiddenOutcomeIds: Set<String> = emptySet(),
     onRefresh: () -> Unit = {},
     onEntryClick: (EntryItem) -> Unit = {}
 ) {
@@ -235,10 +256,12 @@ fun OutcomeContent(
                     }
 
                     is DateListItemUI.Entry -> {
-                        EntryItemCard(
-                            item = item.item,
-                            onClick = { onEntryClick(item.item) }
-                        )
+                        if (item.item.id !in hiddenOutcomeIds) {
+                            EntryItemCard(
+                                item = item.item,
+                                onClick = { onEntryClick(item.item) }
+                            )
+                        }
                     }
 
                     null -> {

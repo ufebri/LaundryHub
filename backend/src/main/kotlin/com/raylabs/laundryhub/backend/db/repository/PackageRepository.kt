@@ -25,6 +25,7 @@ class PackageRepository {
 
     suspend fun update(packageName: String, pkg: PackageData): Boolean = dbQuery {
         val updatedCount = PackagesTable.update({ PackagesTable.name eq packageName }) {
+            it[name] = pkg.name
             it[price] = pkg.price
             it[duration] = pkg.duration
             it[unit] = pkg.unit

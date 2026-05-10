@@ -36,15 +36,21 @@ fun Application.configureRouting() {
     val grossRepository = GrossRepository()
     val summaryRepository = SummaryRepository()
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
+    val spreadsheetId = configuredSpreadsheetId()
 
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
-        val spreadsheetId = configuredSpreadsheetId()
         if (spreadsheetId == null) {
             println("Sheets sync jobs disabled: SPREADSHEET_ID is not configured.")
         } else {
             // Job 1: DB -> Sheets (Every 15 mins)
-            val syncJob = SheetsBatchSyncJob(orderRepository, syncService, spreadsheetId)
+            val syncJob = SheetsBatchSyncJob(
+                orderRepository = orderRepository,
+                outcomeRepository = outcomeRepository,
+                packageRepository = packageRepository,
+                syncService = syncService,
+                spreadsheetId = spreadsheetId
+            )
             syncJob.start()
 
             // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
@@ -55,8 +61,8 @@ fun Application.configureRouting() {
 
     routing {
         val migrationRoutesEnabled = isMigrationRoutesEnabled()
-        packageRoutes(packageRepository, sheetsApiClient, migrationRoutesEnabled)
-        outcomeRoutes(outcomeRepository, sheetsApiClient, migrationRoutesEnabled)
+        packageRoutes(packageRepository, sheetsApiClient, migrationRoutesEnabled, syncService, spreadsheetId)
+        outcomeRoutes(outcomeRepository, sheetsApiClient, migrationRoutesEnabled, syncService, spreadsheetId)
         grossRoutes(grossRepository, sheetsApiClient, migrationRoutesEnabled)
         summaryRoutes(summaryRepository, sheetsApiClient, migrationRoutesEnabled)
         
