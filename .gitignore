@@ -119,3 +119,4 @@ fabric.properties
 
 !/gradle/wrapper/gradle-wrapper.jar
 GEMINI.md
+DESIGN.md

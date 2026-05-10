@@ -119,16 +119,14 @@ fun OutcomeScreenView(
                         onRemarkChanged = viewModel::onRemarkChanged,
                         onSubmit = {
                             val outcome = viewModel.buildOutcomeDataForSubmit()
-                            if (outcome != null) {
-                                coroutineScope.launch {
-                                    viewModel.submitOutcome(outcome) { createdOutcomeId ->
-                                        dismissSheet()
-                                        onOutcomeChanged()
-                                        scaffoldState.snackbarHostState.showSnackbar(
-                                            context.getString(R.string.outcome_submit_success, createdOutcomeId)
-                                        )
-                                        pagingItems.refresh()
-                                    }
+                            coroutineScope.launch {
+                                viewModel.submitOutcome(outcome) { createdOutcomeId ->
+                                    dismissSheet()
+                                    onOutcomeChanged()
+                                    scaffoldState.snackbarHostState.showSnackbar(
+                                        context.getString(R.string.outcome_submit_success, createdOutcomeId)
+                                    )
+                                    pagingItems.refresh()
                                 }
                             }
                         },
