@@ -1,0 +1,90 @@
+package com.raylabs.laundryhub.ui.home
+
+import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
+import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
+import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
+import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.shared.util.Resource
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
+import org.junit.Before
+import org.junit.Test
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.mock
+import org.mockito.kotlin.whenever
+
+@OptIn(ExperimentalCoroutinesApi::class)
+class HomeViewModelTest {
+
+    private val dispatcher = StandardTestDispatcher()
+
+    private val summaryUseCase: ReadSpreadsheetDataUseCase = mock()
+    private val grossUseCase: ReadGrossDataUseCase = mock()
+    private val readIncomeUseCase: ReadIncomeTransactionUseCase = mock()
+    private val userUseCase: UserUseCase = mock()
+    private val observeReminderSettingsUseCase: ObserveReminderSettingsUseCase = mock()
+    private val observeReminderLocalStatesUseCase: ObserveReminderLocalStatesUseCase = mock()
+    private val evaluateReminderCandidatesUseCase: EvaluateReminderCandidatesUseCase = mock()
+
+    @Before
+    fun setUp() = runTest {
+        Dispatchers.setMain(dispatcher)
+        whenever(observeReminderSettingsUseCase.invoke()).thenReturn(flowOf(mock()))
+        whenever(observeReminderLocalStatesUseCase.invoke()).thenReturn(flowOf(emptyMap()))
+        whenever(summaryUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
+        whenever(grossUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
+        
+        // Also mock the parameterless calls if defaults are used
+        whenever(summaryUseCase.invoke()).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
+        whenever(grossUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
+
+        whenever(grossUseCase.getPagingData()).thenReturn(flowOf(mock()))
+        whenever(readIncomeUseCase.getPagingData(anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(flowOf(mock()))
+        whenever(readIncomeUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Resource.Success(emptyList()))
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun `init fetches summary and today income`() = runTest {
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertNotNull(viewModel.uiState.value.summary.data)
+        assertNotNull(viewModel.uiState.value.todayIncome.data)
+    }
+
+    @Test
+    fun `onSearchQueryChanged updates state`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.onSearchQueryChanged("test")
+        assertEquals("test", viewModel.uiState.value.searchQuery)
+    }
+
+    private fun createViewModel(): HomeViewModel {
+        return HomeViewModel(
+            summaryUseCase = summaryUseCase,
+            grossUseCase = grossUseCase,
+            readIncomeUseCase = readIncomeUseCase,
+            userUseCase = userUseCase,
+            observeReminderSettingsUseCase = observeReminderSettingsUseCase,
+            observeReminderLocalStatesUseCase = observeReminderLocalStatesUseCase,
+            evaluateReminderCandidatesUseCase = evaluateReminderCandidatesUseCase
+        )
+    }
+}

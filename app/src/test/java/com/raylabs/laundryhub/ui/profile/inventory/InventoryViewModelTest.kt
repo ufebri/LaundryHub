@@ -103,6 +103,51 @@ class InventoryViewModelTest {
         assertEquals(-1, editorState.toPackageData().sheetRowIndex)
     }
 
+    @Test
+    fun `submitPackage updates state and adds package locally`() = runTest {
+        val newPkg = PackageData(name = "New", price = "1000", duration = "1h", unit = "pcs")
+        whenever(readPackageUseCase.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Success(emptyList()))
+        whenever(getOtherPackageUseCase.invoke())
+            .thenReturn(Resource.Empty)
+        
+        whenever(submitPackageUseCase.invoke(onRetry = anyOrNull(), packageData = eq(newPkg)))
+            .thenReturn(Resource.Success(true))
+
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var completed = false
+        viewModel.submitPackage(packageData = newPkg, onComplete = { completed = true })
+        
+        assertTrue(completed)
+        assertTrue(viewModel.uiState.savePackage.data == true)
+        assertTrue(viewModel.uiState.packages.data.orEmpty().any { it.name == "New" })
+    }
+
+    @Test
+    fun `updatePackage updates state and updates package locally`() = runTest {
+        val existing = samplePackage()
+        val updated = existing.copy(price = "6000")
+        whenever(readPackageUseCase.invoke(onRetry = anyOrNull()))
+            .thenReturn(Resource.Success(listOf(existing)))
+        whenever(getOtherPackageUseCase.invoke())
+            .thenReturn(Resource.Empty)
+        
+        whenever(updatePackageUseCase.invoke(onRetry = anyOrNull(), packageData = eq(updated), originalPackageName = eq(existing.name)))
+            .thenReturn(Resource.Success(true))
+
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var completed = false
+        viewModel.updatePackage(originalPackageName = existing.name, packageData = updated, onComplete = { completed = true })
+
+        assertTrue(completed)
+        assertTrue(viewModel.uiState.savePackage.data == true)
+        assertEquals("6000", viewModel.uiState.packages.data.orEmpty().find { it.name == existing.name }?.price)
+    }
+
     private fun createViewModel(): InventoryViewModel {
         return InventoryViewModel(
             readPackageUseCase = readPackageUseCase,

@@ -25,9 +25,8 @@ class CurrencyVisualTransformation : VisualTransformation {
                 if (originalText.isEmpty()) return 0
                 val safeOffset = offset.coerceIn(0, originalText.length)
                 val substring = originalText.take(safeOffset)
+                if (substring.isEmpty()) return 3
                 val formattedSubstring = formatter.format(substring.toLongOrNull() ?: 0L)
-                // "Rp " is 3 characters. 
-                // We add the length of the formatted substring to get the cursor position
                 return 3 + formattedSubstring.length
             }
 

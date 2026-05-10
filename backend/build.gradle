@@ -1,6 +1,29 @@
 plugins {
     id 'application'
     id 'io.ktor.plugin' version "2.3.9"
+    id 'jacoco'
+}
+
+jacoco {
+    toolVersion = "0.8.11"
+}
+
+jacocoTestReport {
+    dependsOn test
+    reports {
+        xml.required = true
+        html.required = true
+    }
+
+    def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
+    def debugTree = fileTree(dir: "${buildDir}/classes/kotlin/main", excludes: fileFilter)
+    def mainSrc = "${project.projectDir}/src/main/kotlin"
+
+    sourceDirectories.setFrom(files([mainSrc]))
+    classDirectories.setFrom(files([debugTree]))
+    executionData.setFrom(fileTree(dir: "${buildDir}", includes: [
+            'jacoco/test.exec'
+    ]))
 }
 
 apply plugin: 'kotlin'
@@ -38,4 +61,5 @@ dependencies {
     implementation "ch.qos.logback:logback-classic:1.4.14"
     testImplementation "io.ktor:ktor-server-tests-jvm:2.3.9"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.9.23"
+    testImplementation "com.h2database:h2:2.2.224"
 }
