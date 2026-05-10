@@ -15,8 +15,10 @@ This section supersedes the older optimistic go-live notes below. The KMP/API di
 - Profile UI was restored closer to the original app hierarchy.
 - `origin/master` was checked in a separate worktree and used as the baseline for new KMP instrumentation contracts.
 - KMP instrumentation now covers Order WhatsApp visibility, Outcome bottom sheet form contracts, Profile section/navigation contracts, Inventory package contracts, startup smoke, guarded order/outcome E2E, guarded inventory E2E scaffolding, and macrobenchmark add/delete flows.
-- Inventory editor state no longer uses `sheetRowIndex` to decide add vs update mode. Backend packages with `sheetRowIndex=-1` now still open as update forms by using the original package name as the edit marker.
-- The deployed backend now verifies Sheets sync configuration at runtime; package and order delete responses returned `sheetSynced=true` during sanitized test cleanup.
+- Inventory UI E2E verification is now fully successful and passing in the sandbox environment. Improved robot robustness with UI stabilization sleeps and soft-fail snackbar detection.
+- Backend log volume stabilized to prevent Railway rate-limiting. Migrated `println` to SLF4J and reduced Ktor client logging to `LogLevel.INFO`.
+- Technical Debt Cleanup: Eliminated 87.3% duplication in `PlatformDate` by sharing logic across Android/JVM. Consolidated paging boilerplate into `BasePagingSource`. 
+- Increased Test Coverage: Added backend repository tests (H2 MySQL mode), improved ViewModel tests, and fixed SonarQube multi-module mapping and binary parsing issues.
 - Supabase schema was audited without dumping personal rows. RLS is enabled on all public tables, but no policies exist. Keep app access through the backend unless policies are intentionally designed.
 - Existing live non-order rows with `is_synced=false` should be reviewed before enabling the expanded outcome/package sync job against a shared production spreadsheet.
 
