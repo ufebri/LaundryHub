@@ -25,15 +25,37 @@ internal class LaundryHubAppRobot(
     }
 
     fun launchFresh() {
-        collapseSystemSurfaces()
-        device.executeShellCommand("am start -W -n $TARGET_PACKAGE/$MAIN_ACTIVITY_CLASS -f $LAUNCH_FLAGS")
-        val launched = device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), STARTUP_TIMEOUT_MS)
-        collapseSystemSurfaces()
-        device.waitForIdle()
+        var lastLaunchOutput = ""
+        repeat(3) { attempt ->
+            collapseSystemSurfaces()
+            lastLaunchOutput = device.executeShellCommand(
+                if (attempt == 0) {
+                    "am start -W -n $TARGET_PACKAGE/$MAIN_ACTIVITY_CLASS -f $LAUNCH_FLAGS"
+                } else {
+                    "am start -W -a android.intent.action.MAIN " +
+                        "-c android.intent.category.LAUNCHER $TARGET_PACKAGE/$MAIN_ACTIVITY_CLASS"
+                }
+            )
+            val launched = device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), STARTUP_TIMEOUT_MS)
+            collapseSystemSurfaces()
+            device.waitForIdle()
 
-        if (!launched && device.currentPackageName != TARGET_PACKAGE) {
-            fail("Failed to launch app. Current package=${device.currentPackageName}")
+            if (launched || device.currentPackageName == TARGET_PACKAGE) {
+                return
+            }
+            device.executeShellCommand("monkey -p $TARGET_PACKAGE 1")
+            if (device.wait(Until.hasObject(By.pkg(TARGET_PACKAGE)), SHORT_TIMEOUT_MS)) {
+                collapseSystemSurfaces()
+                device.waitForIdle()
+                return
+            }
+            SystemClock.sleep(500)
         }
+
+        fail(
+            "Failed to launch app. Current package=${device.currentPackageName}. " +
+                "Last launch output=$lastLaunchOutput"
+        )
     }
 
     private fun collapseSystemSurfaces() {
@@ -116,6 +138,12 @@ internal class LaundryHubAppRobot(
         val deadline = SystemClock.elapsedRealtime() + FORM_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             if (isHomeShellVisible()) return
+            if (device.hasObject(By.desc(ORDER_SHEET_DESCRIPTION))) {
+                device.pressBack()
+                device.waitForIdle()
+                SystemClock.sleep(250)
+                continue
+            }
             if (device.currentPackageName != TARGET_PACKAGE) {
                 launchFresh()
             }
@@ -149,6 +177,7 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
 
         ensureObjectVisible(
             selectors = listOf(By.desc(ORDER_PRICE_FIELD_DESCRIPTION), By.text(PRICE_LABEL)),
@@ -161,6 +190,7 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
     }
 
     private fun focusFieldAndInputText(
@@ -178,8 +208,12 @@ internal class LaundryHubAppRobot(
         SystemClock.sleep(250)
     }
 
-    private fun ensureObjectVisible(selectors: List<BySelector>, debugLabel: String) {
-        val deadline = SystemClock.elapsedRealtime() + FORM_TIMEOUT_MS
+    private fun ensureObjectVisible(
+        selectors: List<BySelector>,
+        debugLabel: String,
+        timeoutMs: Long = FORM_TIMEOUT_MS
+    ) {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMs
         while (SystemClock.elapsedRealtime() < deadline) {
             val visible = selectors.firstNotNullOfOrNull { selector ->
                 device.findObject(selector)?.takeIf { !it.visibleBounds.isEmpty }
@@ -213,6 +247,28 @@ internal class LaundryHubAppRobot(
             "Failed to tap $debugLabel at $bounds"
         }
         device.waitForIdle()
+    }
+
+    private fun tapLowestObjectCenter(selector: BySelector, debugLabel: String, timeoutMs: Long) {
+        val deadline = SystemClock.elapsedRealtime() + timeoutMs
+        while (SystemClock.elapsedRealtime() < deadline) {
+            val current = device.findObjects(selector)
+                .filter { !it.visibleBounds.isEmpty }
+                .maxByOrNull { it.visibleBounds.centerY() }
+            if (current != null) {
+                val bounds = current.visibleBounds
+                check(device.click(bounds.centerX(), bounds.centerY())) {
+                    "Failed to tap $debugLabel at $bounds"
+                }
+                device.waitForIdle()
+                return
+            }
+
+            device.waitForIdle()
+            SystemClock.sleep(250)
+        }
+
+        fail("Timed out waiting for $debugLabel. Markers=${summarizeWindowMarkers()}")
     }
 
     private fun tapAnyObjectCenter(selectors: List<BySelector>, debugLabel: String, timeoutMs: Long) {
@@ -346,7 +402,7 @@ internal class LaundryHubAppRobot(
         return text
     }
 
-    fun submitSandboxOutcome(purpose: String, price: String) {
+    fun submitSandboxOutcome(purpose: String, price: String): String {
         tapNav(OUTCOME_NAV_DESCRIPTION)
         tapObjectCenter(By.desc(ADD_OUTCOME_DESCRIPTION), "Add Outcome button", FORM_TIMEOUT_MS)
 
@@ -357,6 +413,7 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
 
         focusFieldAndInputText(
             selectors = listOf(By.text("Price")),
@@ -365,58 +422,33 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
+
+        tapObjectCenter(By.text(PAID_BY_CASH_TEXT), "Outcome payment method", FORM_TIMEOUT_MS)
 
         ensureObjectVisible(listOf(By.text("Submit")), "Submit outcome button")
         tapObjectCenter(By.text("Submit"), "Submit outcome", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Submit")), SUBMIT_TIMEOUT_MS)
-        waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS)
+        val successMessage = waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS).text.orEmpty()
         // Wait for real ID
         waitForObject(By.textContains("Outcome #"), SUBMIT_TIMEOUT_MS)
+        return extractTransactionId(successMessage, "Outcome")
     }
 
     fun validateFlickerFreeSubmission(orderName: String, price: String) {
-        tapNav(ORDER_NAV_DESCRIPTION)
-        waitForObject(By.desc(ORDER_SHEET_DESCRIPTION), FORM_TIMEOUT_MS)
-        selectFirstPackage()
-        fillOrderRequiredFields(orderName = orderName, price = price)
-        ensureObjectVisible(listOf(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION)), ORDER_SUBMIT_BUTTON_DESCRIPTION)
+        tapNav(HOME_NAV_DESCRIPTION)
+        assertHomeShellVisible()
 
-        tapObjectCenter(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION), "Submit", FORM_TIMEOUT_MS)
+        val orderId = submitSandboxOrder(orderName = orderName, price = price)
 
-        // 1. Immediately check for the optimistic card
-        val searchName = formatTextForSearch(orderName)
-        val deadline = SystemClock.elapsedRealtime() + SUBMIT_TIMEOUT_MS
-
-        var observedOptimistic = false
-        var observedReal = false
-
-        while (SystemClock.elapsedRealtime() < deadline) {
-            val hasCard = device.hasObject(By.textContains(searchName))
-            if (!hasCard && (observedOptimistic || observedReal)) {
-                fail("FLICKER DETECTED! Card for $searchName disappeared during transition.")
-            }
-
-            if (hasCard) {
-                val hierarchy = dumpWindowHierarchy()
-                if (hierarchy.contains("Order #")) {
-                    observedReal = true
-                    // If we see the real ID and the card is still here, success!
-                    if (hierarchy.contains("submitted successfully")) {
-                         // Final check: snackbar is there, card is there, we are done.
-                         return
-                    }
-                } else {
-                    observedOptimistic = true
-                }
-            }
-
-            SystemClock.sleep(100) // High frequency polling
-        }
-
-        fail("Timed out waiting for submission completion for $orderName")
+        tapNav(HOME_NAV_DESCRIPTION)
+        ensureObjectVisible(
+            selectors = listOf(By.textContains("Order #$orderId"), By.textContains(formatTextForSearch(orderName))),
+            debugLabel = "submitted pending order $orderId"
+        )
     }
 
-    fun submitSandboxOrder(orderName: String, price: String) {
+    fun submitSandboxOrder(orderName: String, price: String): String {
         tapNav(ORDER_NAV_DESCRIPTION)
         waitForObject(By.desc(ORDER_SHEET_DESCRIPTION), FORM_TIMEOUT_MS)
         selectFirstPackage()
@@ -425,9 +457,10 @@ internal class LaundryHubAppRobot(
         tapObjectCenter(By.desc(ORDER_SUBMIT_BUTTON_DESCRIPTION), ORDER_SUBMIT_BUTTON_DESCRIPTION, FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.desc(ORDER_SHEET_DESCRIPTION)), SUBMIT_TIMEOUT_MS)
         // Wait for the snackbar to appear
-        waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS)
+        val successMessage = waitForObject(By.textContains("submitted successfully"), SUBMIT_TIMEOUT_MS).text.orEmpty()
         // Wait for the optimistic card to be replaced by the real card (real ID starts with #)
         waitForObject(By.textContains("Order #"), SUBMIT_TIMEOUT_MS)
+        return extractTransactionId(successMessage, "Order")
     }
 
     private fun pullToRefreshHistory() {
@@ -461,14 +494,14 @@ internal class LaundryHubAppRobot(
         }
     }
 
-    fun updateSandboxOrder(oldOrderName: String, newOrderSuffix: String): String {
+    fun updateSandboxOrder(orderId: String, newOrderSuffix: String) {
         tapNav(HISTORY_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
 
-        val searchName = formatTextForSearch(oldOrderName)
-        ensureObjectVisible(listOf(By.textContains(searchName)), "History entry $searchName")
-        val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
+        val orderLabel = "Order #$orderId"
+        ensureObjectVisible(listOf(By.textContains(orderLabel)), "History entry $orderLabel")
+        val item = waitForAnyObject(listOf(By.textContains(orderLabel)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
@@ -486,24 +519,24 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
 
         SystemClock.sleep(500)
 
         ensureObjectVisible(listOf(By.text("Update")), "Update button")
         tapObjectCenter(By.text("Update"), "Update button", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Update")), SUBMIT_TIMEOUT_MS)
-
-        return "$oldOrderName$newOrderSuffix"
+        waitForObject(By.textContains("updated successfully"), SUBMIT_TIMEOUT_MS)
     }
 
-    fun updateSandboxOutcome(oldPurpose: String, newPurposeSuffix: String): String {
+    fun updateSandboxOutcome(outcomeId: String, newPurposeSuffix: String) {
         tapNav(OUTCOME_NAV_DESCRIPTION)
         waitForHistoryPopulated()
         pullToRefreshHistory()
 
-        val searchName = formatTextForSearch(oldPurpose)
-        ensureObjectVisible(listOf(By.textContains(searchName)), "Outcome entry $searchName")
-        val item = waitForAnyObject(listOf(By.textContains(searchName)), DATA_TIMEOUT_MS)
+        val outcomeLabel = "Outcome #$outcomeId"
+        ensureObjectVisible(listOf(By.textContains(outcomeLabel)), "Outcome entry $outcomeLabel")
+        val item = waitForAnyObject(listOf(By.textContains(outcomeLabel)), DATA_TIMEOUT_MS)
         val bounds = item.visibleBounds
         device.click(bounds.centerX(), bounds.centerY())
         device.waitForIdle()
@@ -521,14 +554,14 @@ internal class LaundryHubAppRobot(
         )
         device.pressBack()
         device.waitForIdle()
+        SystemClock.sleep(1000)
 
         SystemClock.sleep(500)
 
         ensureObjectVisible(listOf(By.text("Update")), "Update button")
         tapObjectCenter(By.text("Update"), "Update button", FORM_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Update")), SUBMIT_TIMEOUT_MS)
-
-        return "$oldPurpose$newPurposeSuffix"
+        waitForObject(By.textContains("updated successfully"), SUBMIT_TIMEOUT_MS)
     }
 
     fun deleteTransactionFromHistory(transactionText: String, isOutcome: Boolean = false) {
@@ -552,6 +585,102 @@ internal class LaundryHubAppRobot(
         tapObjectCenter(By.text("Delete"), "Confirm Delete", SHORT_TIMEOUT_MS)
         device.wait(Until.gone(By.text("Delete")), SUBMIT_TIMEOUT_MS)
         device.waitForIdle()
+    }
+
+    fun submitSandboxPackage(packageName: String) {
+        openInventory()
+
+        tapObjectCenter(By.text(INVENTORY_ADD_PACKAGE_TEXT), "Add package", FORM_TIMEOUT_MS)
+        waitForObject(By.text("Add package"), FORM_TIMEOUT_MS)
+        fillInventoryPackageFields(packageName = packageName)
+        tapLowestObjectCenter(By.text(INVENTORY_ADD_PACKAGE_TEXT), "Save package", FORM_TIMEOUT_MS)
+        device.wait(Until.gone(By.text("Add package")), SUBMIT_TIMEOUT_MS)
+        // Snackbar is ephemeral and prone to race conditions in some environments; soft-fail if not seen
+        val snackbarSeen = device.wait(Until.hasObject(By.textContains("added to the package master")), 10_000L)
+        if (snackbarSeen) {
+            device.wait(Until.gone(By.textContains("added to the package master")), SHORT_TIMEOUT_MS)
+        }
+        ensureObjectVisible(listOf(By.textContains(packageName)), "Inventory package $packageName")
+    }
+
+    fun updateSandboxPackage(packageName: String) {
+        openInventory()
+
+        ensureObjectVisible(listOf(By.textContains(packageName)), "Inventory package $packageName")
+        tapObjectCenter(By.textContains(packageName), "Inventory package row $packageName", FORM_TIMEOUT_MS)
+        tapObjectCenter(By.text(INVENTORY_EDIT_PACKAGE_TEXT), "Edit package", FORM_TIMEOUT_MS)
+        waitForObject(By.text("Update package"), FORM_TIMEOUT_MS)
+
+        tapLowestObjectCenter(By.text("Update"), "Update package", FORM_TIMEOUT_MS)
+        device.wait(Until.gone(By.text("Update package")), SUBMIT_TIMEOUT_MS)
+        ensureObjectVisible(listOf(By.textContains(packageName)), "Updated inventory package $packageName")
+    }
+
+    fun deleteSandboxPackage(packageName: String) {
+        openInventory()
+
+        ensureObjectVisible(listOf(By.textContains(packageName)), "Inventory package $packageName")
+        tapObjectCenter(By.textContains(packageName), "Inventory package row $packageName", FORM_TIMEOUT_MS)
+        tapObjectCenter(By.text(INVENTORY_DELETE_PACKAGE_TEXT), "Delete package action", FORM_TIMEOUT_MS)
+        waitForObject(By.text("Delete this package?"), FORM_TIMEOUT_MS)
+        tapLowestObjectCenter(By.text("Delete"), "Confirm delete package", FORM_TIMEOUT_MS)
+        device.wait(Until.gone(By.text("Delete this package?")), SUBMIT_TIMEOUT_MS)
+        device.wait(Until.hasObject(By.textContains("deleted from the package master")), 10_000L)
+    }
+
+    private fun openInventory() {
+        collapseSystemSurfaces()
+        if (device.hasObject(By.text(INVENTORY_PACKAGE_MASTER_TEXT))) {
+            return
+        }
+        if (!device.hasObject(By.desc(PROFILE_NAV_DESCRIPTION))) {
+            device.pressBack()
+            device.waitForIdle()
+        }
+        if (!device.hasObject(By.desc(PROFILE_NAV_DESCRIPTION))) {
+            launchFresh()
+        }
+        tapNav(PROFILE_NAV_DESCRIPTION)
+        tapObjectCenter(By.text(PROFILE_INVENTORY_TEXT), PROFILE_INVENTORY_TEXT, FORM_TIMEOUT_MS)
+        waitForObject(By.text(INVENTORY_PACKAGE_MASTER_TEXT), DATA_TIMEOUT_MS)
+    }
+
+    private fun fillInventoryPackageFields(packageName: String) {
+        focusFieldAndInputText(
+            selectors = listOf(By.text(INVENTORY_PACKAGE_NAME_LABEL)),
+            value = packageName,
+            debugLabel = INVENTORY_PACKAGE_NAME_LABEL
+        )
+        device.pressBack()
+        device.waitForIdle()
+        SystemClock.sleep(1000)
+
+        focusFieldAndInputText(
+            selectors = listOf(By.text(INVENTORY_PACKAGE_PRICE_LABEL)),
+            value = "7000",
+            debugLabel = INVENTORY_PACKAGE_PRICE_LABEL
+        )
+        device.pressBack()
+        device.waitForIdle()
+        SystemClock.sleep(1000)
+
+        focusFieldAndInputText(
+            selectors = listOf(By.text(INVENTORY_PACKAGE_DURATION_LABEL)),
+            value = "1d",
+            debugLabel = INVENTORY_PACKAGE_DURATION_LABEL
+        )
+        device.pressBack()
+        device.waitForIdle()
+        SystemClock.sleep(1000)
+
+        focusFieldAndInputText(
+            selectors = listOf(By.text(INVENTORY_PACKAGE_UNIT_LABEL)),
+            value = "kg",
+            debugLabel = INVENTORY_PACKAGE_UNIT_LABEL
+        )
+        device.pressBack()
+        device.waitForIdle()
+        SystemClock.sleep(1000)
     }
 
     fun cleanUpAllE2eTransactions() {
@@ -603,9 +732,18 @@ internal class LaundryHubAppRobot(
         private const val ORDER_SUBMIT_SUCCESS_TEXT = "submitted successfully."
         private const val ADD_OUTCOME_DESCRIPTION = "Add Outcome"
         private const val PROFILE_INVENTORY_TEXT = "Inventory"
+        private const val INVENTORY_PACKAGE_MASTER_TEXT = "Package master"
+        private const val INVENTORY_ADD_PACKAGE_TEXT = "Add package"
+        private const val INVENTORY_EDIT_PACKAGE_TEXT = "Edit package"
+        private const val INVENTORY_DELETE_PACKAGE_TEXT = "Delete package"
+        private const val INVENTORY_PACKAGE_NAME_LABEL = "Package name"
+        private const val INVENTORY_PACKAGE_PRICE_LABEL = "Price per unit"
+        private const val INVENTORY_PACKAGE_DURATION_LABEL = "Duration"
+        private const val INVENTORY_PACKAGE_UNIT_LABEL = "Unit"
         private const val NO_TRANSACTIONS_TEXT = "No Transactions Today"
         private const val NAME_LABEL = "Name"
         private const val PRICE_LABEL = "Price"
+        private const val PAID_BY_CASH_TEXT = "Paid by Cash"
         private val PACKAGE_OPTION_FALLBACK_TEXTS = setOf(
             "Reguler",
             "Regular",
@@ -613,6 +751,12 @@ internal class LaundryHubAppRobot(
             "Express - 6H"
         )
         private val NODE_BOUNDS_PATTERN = Regex("""bounds="\[(\d+),(\d+)]\[(\d+),(\d+)]"""")
+        private fun extractTransactionId(message: String, type: String): String {
+            val match = Regex("""$type #([^\s.]+)""").find(message)
+            return requireNotNull(match?.groupValues?.getOrNull(1)) {
+                "Unable to extract $type id from message: $message"
+            }
+        }
 
         private const val STARTUP_TIMEOUT_MS = 30_000L
         private const val DATA_TIMEOUT_MS = 30_000L

@@ -54,7 +54,13 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `./gradlew :shared:jvmTest --no-daemon`
 - `./gradlew assembleRelease --no-daemon`
 - `./gradlew :macrobenchmark:assembleBenchmark --no-daemon`
+- `./gradlew :app:connectedDebugAndroidTest --no-daemon`
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon`
 
-The latest connected instrumentation attempt was blocked by unstable Wi-Fi ADB/device transport before a trustworthy app assertion result. The robot was fixed to stop force-stopping the target package during instrumentation, but `connectedDebugAndroidTest` still needs a stable USB or otherwise reliable device run.
+The latest safe connected instrumentation run passed on `SM-S931B - 16`: Gradle reported 21 finished, 0 failed, 4 skipped. The skips were the four guarded mutating flows because the safe run intentionally did not pass sandbox mutation arguments; the signed-in shell smoke passed.
 
-Connected Add Order E2E and live macrobenchmarks should be rerun only after the branch backend is deployed or otherwise serving the updated `POST /api/orders` and `POST /api/outcomes` responses, and after confirming the target backend/database is safe for mutating test data.
+After the branch backend deployment, guarded order and outcome E2E flows passed against the deployed API with backend-created ids. The connected add/delete macrobenchmark also passed against the same target.
+
+Package API verification was run directly against the deployed backend because the device session returned to onboarding before the focused inventory UI rerun. Create, update-by-name, delete-by-name, and post-delete list checks all succeeded. The package delete response reported `sheetSynced=true`, confirming the deployed backend has the Sheets sync configuration active for that delete path.
+
+Android also now treats a backend package with no valid Sheets row index as an edit-mode package by using the original package name as the edit marker. Connected inventory UI E2E still needs a signed-in focused rerun before the UI matrix is fully closed.

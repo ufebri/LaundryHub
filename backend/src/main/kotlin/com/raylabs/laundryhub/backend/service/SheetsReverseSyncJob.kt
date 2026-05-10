@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -16,13 +17,14 @@ class SheetsReverseSyncJob(
     private val spreadsheetId: String,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
+    private val logger = LoggerFactory.getLogger(SheetsReverseSyncJob::class.java)
     fun start() {
         scope.launch {
-            println("Reverse Sync Job Initialized. Calculating time until 23:00...")
+            logger.info("Reverse Sync Job Initialized. Calculating time until 23:00...")
             while (isActive) {
                 try {
                     val delayMillis = calculateDelayUntil(23, 0)
-                    println("Reverse Sync will run in ${delayMillis / 1000 / 60} minutes.")
+                    logger.info("Reverse Sync will run in ${delayMillis / 1000 / 60} minutes.")
                     delay(delayMillis)
 
                     // Execute reverse sync
@@ -31,7 +33,7 @@ class SheetsReverseSyncJob(
                     // Wait a bit before calculating the next day's 23:00 to avoid double triggering
                     delay(60_000)
                 } catch (e: Exception) {
-                    println("Reverse Sync Error: ${e.message}")
+                    logger.error("Reverse Sync Error: ${e.message}")
                     delay(15L * 60 * 1000) // Retry after 15 mins on error
                 }
             }
@@ -39,11 +41,11 @@ class SheetsReverseSyncJob(
     }
 
     private suspend fun processReverseSync() {
-        println("Starting Reverse Sync (Sheets -> DB)...")
+        logger.info("Starting Reverse Sync (Sheets -> DB)...")
         val sheetOrders = syncService.fetchOrdersFromSheet(spreadsheetId)
         
         if (sheetOrders.isEmpty()) {
-            println("No data found in Google Sheets for reverse sync.")
+            logger.info("No data found in Google Sheets for reverse sync.")
             return
         }
 
@@ -55,7 +57,7 @@ class SheetsReverseSyncJob(
             }
         }
 
-        println("Reverse Sync Completed. Upserted $successCount/${sheetOrders.size} orders into PostgreSQL.")
+        logger.info("Reverse Sync Completed. Upserted $successCount/${sheetOrders.size} orders into PostgreSQL.")
     }
 
     private fun calculateDelayUntil(targetHour: Int, targetMinute: Int): Long {

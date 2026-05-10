@@ -3,7 +3,7 @@
 ## Current Recovery Status
 
 **Date:** 2026-05-10
-**Status:** Recovery audit in progress. Unit, backend, shared, release build, and benchmark assembly checks are passing. The latest connected instrumentation run still needs a stable device rerun because Wi-Fi ADB dropped before a trustworthy app assertion result.
+**Status:** Recovery audit mostly closed. Unit, backend, shared, release build, safe connected instrumentation, guarded order/outcome E2E, deployed package API smoke, and connected add/delete macrobenchmark checks are passing.
 
 This section supersedes the older optimistic go-live notes below. The KMP/API direction is still valid, but the previous document overstated final E2E confidence and included stale test-count claims. The current verified state is:
 
@@ -14,7 +14,9 @@ This section supersedes the older optimistic go-live notes below. The KMP/API di
 - Google Sheets order sync update/delete ranges were fixed, and the batch sync path now also covers unsynced outcomes and packages when spreadsheet config is enabled.
 - Profile UI was restored closer to the original app hierarchy.
 - `origin/master` was checked in a separate worktree and used as the baseline for new KMP instrumentation contracts.
-- KMP instrumentation now covers Order WhatsApp visibility, Outcome bottom sheet form contracts, Profile section/navigation contracts, Inventory package contracts, startup smoke, and guarded add-order E2E scaffolding.
+- KMP instrumentation now covers Order WhatsApp visibility, Outcome bottom sheet form contracts, Profile section/navigation contracts, Inventory package contracts, startup smoke, guarded order/outcome E2E, guarded inventory E2E scaffolding, and macrobenchmark add/delete flows.
+- Inventory editor state no longer uses `sheetRowIndex` to decide add vs update mode. Backend packages with `sheetRowIndex=-1` now still open as update forms by using the original package name as the edit marker.
+- The deployed backend now verifies Sheets sync configuration at runtime; package and order delete responses returned `sheetSynced=true` during sanitized test cleanup.
 - Supabase schema was audited without dumping personal rows. RLS is enabled on all public tables, but no policies exist. Keep app access through the backend unless policies are intentionally designed.
 - Existing live non-order rows with `is_synced=false` should be reviewed before enabling the expanded outcome/package sync job against a shared production spreadsheet.
 
@@ -27,11 +29,14 @@ This section supersedes the older optimistic go-live notes below. The KMP/API di
 - `./gradlew jacocoTestReport`
 - `./gradlew cleanTestDebugUnitTest testDebugUnitTest jacocoTestReport`
 - `./gradlew :macrobenchmark:assembleBenchmark`
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon`
 - Master baseline worktree: `./gradlew testDebugUnitTest`
 - Master baseline worktree: `./gradlew connectedDebugAndroidTest`
-- KMP branch: `./gradlew connectedDebugAndroidTest --no-daemon`
+- KMP branch: `./gradlew :app:connectedDebugAndroidTest --no-daemon`
 
-The latest KMP connected run is not a valid green result: after fixing the robot launch path so it no longer force-stops instrumentation, Wi-Fi ADB still dropped during device service/property queries. The full mutating macrobenchmark and guarded sandbox mutation run were not executed because they can create/delete live order data. Use a safe backend/database target or explicit approval before running them.
+The latest safe KMP connected run passed on `SM-S931B - 16`: Gradle reported 21 finished, 0 failed, 4 skipped. The skipped tests were the guarded mutating flows because the safe run intentionally did not pass sandbox mutation arguments. The signed-in shell smoke passed in the latest safe run.
+
+After the backend deployment, guarded order/outcome/flicker E2E passed against the sandbox target: 3 tests completed, 0 failed, 0 skipped. The connected add/delete macrobenchmark also passed: 2 tests completed, 0 failed. Package create/update/delete was verified directly against the deployed backend with delete sync confirmation. The only remaining UI verification gap is a signed-in focused rerun of the guarded inventory E2E flow; the focused run exposed and then regression-covered the edit-mode bug, but later focused attempts skipped because the debug app started at onboarding after reinstall.
 
 Dokumen ini adalah sumber kebenaran tunggal untuk proses migrasi. Setiap Sprint akan diakhiri dengan laporan teknis mendalam, bukan sekadar tanda centang.
 

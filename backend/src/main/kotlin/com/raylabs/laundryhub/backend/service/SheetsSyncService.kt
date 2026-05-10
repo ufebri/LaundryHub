@@ -10,9 +10,12 @@ import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 
 class SheetsSyncService {
+
+    private val logger = LoggerFactory.getLogger(SheetsSyncService::class.java)
 
     private val httpClient = HttpClientProvider.createClient(enableLogging = true)
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
@@ -69,17 +72,17 @@ class SheetsSyncService {
 
             if (rowIndex != -1) {
                 // DATA ADA -> Gunakan UPDATE_VALUES
-                println("Order ${order.orderId} found at row ${rowIndex + 1}. Updating...")
+                logger.info("Order ${order.orderId} found at row ${rowIndex + 1}. Updating...")
                 val updateRange = "$sheetName!A${rowIndex + 1}:L${rowIndex + 1}"
                 sheetsApiClient.updateValues(spreadsheetId, updateRange, valueRange, token)
             } else {
                 // DATA TIDAK ADA -> Gunakan APPEND_VALUES
-                println("Order ${order.orderId} not found. Appending...")
+                logger.info("Order ${order.orderId} not found. Appending...")
                 sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
             }
             true
         } catch (e: Exception) {
-            println("Error syncing order ${order.orderId}: ${e.message}")
+            logger.error("Error syncing order ${order.orderId}: ${e.message}")
             false
         }
     }
@@ -96,16 +99,16 @@ class SheetsSyncService {
             val rowIndex = rows.indexOfFirst { it.getOrNull(0) == orderId }
 
             if (rowIndex != -1) {
-                println("Order $orderId found at row ${rowIndex + 1}. Clearing...")
+                logger.info("Order $orderId found at row ${rowIndex + 1}. Clearing...")
                 val clearRange = "$sheetName!A${rowIndex + 1}:L${rowIndex + 1}"
                 sheetsApiClient.clearValues(spreadsheetId, clearRange, token)
                 true
             } else {
-                println("Order $orderId not found in sheet. Nothing to clear.")
+                logger.info("Order $orderId not found in sheet. Nothing to clear.")
                 true
             }
         } catch (e: Exception) {
-            println("Error clearing order $orderId: ${e.message}")
+            logger.error("Error clearing order $orderId: ${e.message}")
             false
         }
     }
@@ -122,15 +125,15 @@ class SheetsSyncService {
             )
 
             if (rowIndex != -1) {
-                println("Outcome ${outcome.id} found at row $rowIndex. Updating...")
+                logger.info("Outcome ${outcome.id} found at row $rowIndex. Updating...")
                 sheetsApiClient.updateValues(spreadsheetId, "$sheetName!A$rowIndex:F$rowIndex", valueRange, token)
             } else {
-                println("Outcome ${outcome.id} not found. Appending...")
+                logger.info("Outcome ${outcome.id} not found. Appending...")
                 sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
             }
             true
         } catch (e: Exception) {
-            println("Error syncing outcome ${outcome.id}: ${e.message}")
+            logger.error("Error syncing outcome ${outcome.id}: ${e.message}")
             false
         }
     }
@@ -147,15 +150,15 @@ class SheetsSyncService {
             )
 
             if (rowIndex != -1) {
-                println("Package ${pkg.name} found at row $rowIndex. Updating...")
+                logger.info("Package ${pkg.name} found at row $rowIndex. Updating...")
                 sheetsApiClient.updateValues(spreadsheetId, "$sheetName!A$rowIndex:D$rowIndex", valueRange, token)
             } else {
-                println("Package ${pkg.name} not found. Appending...")
+                logger.info("Package ${pkg.name} not found. Appending...")
                 sheetsApiClient.appendValues(spreadsheetId, sheetName, valueRange, token)
             }
             true
         } catch (e: Exception) {
-            println("Error syncing package ${pkg.name}: ${e.message}")
+            logger.error("Error syncing package ${pkg.name}: ${e.message}")
             false
         }
     }
@@ -167,14 +170,14 @@ class SheetsSyncService {
             val rowIndex = findRowIndex(spreadsheetId, outcomeId, "$sheetName!A:A", token)
 
             if (rowIndex != -1) {
-                println("Outcome $outcomeId found at row $rowIndex. Clearing...")
+                logger.info("Outcome $outcomeId found at row $rowIndex. Clearing...")
                 sheetsApiClient.clearValues(spreadsheetId, "$sheetName!A$rowIndex:F$rowIndex", token)
             } else {
-                println("Outcome $outcomeId not found in sheet. Nothing to clear.")
+                logger.info("Outcome $outcomeId not found in sheet. Nothing to clear.")
             }
             true
         } catch (e: Exception) {
-            println("Error clearing outcome $outcomeId: ${e.message}")
+            logger.error("Error clearing outcome $outcomeId: ${e.message}")
             false
         }
     }
@@ -186,14 +189,14 @@ class SheetsSyncService {
             val rowIndex = findRowIndex(spreadsheetId, packageName, "$sheetName!B:B", token)
 
             if (rowIndex != -1) {
-                println("Package $packageName found at row $rowIndex. Clearing...")
+                logger.info("Package $packageName found at row $rowIndex. Clearing...")
                 sheetsApiClient.clearValues(spreadsheetId, "$sheetName!A$rowIndex:D$rowIndex", token)
             } else {
-                println("Package $packageName not found in sheet. Nothing to clear.")
+                logger.info("Package $packageName not found in sheet. Nothing to clear.")
             }
             true
         } catch (e: Exception) {
-            println("Error clearing package $packageName: ${e.message}")
+            logger.error("Error clearing package $packageName: ${e.message}")
             false
         }
     }
@@ -223,12 +226,12 @@ class SheetsSyncService {
                         dueDate = row.getOrNull(11) ?: ""
                     ).takeIf { it.orderId.isNotBlank() }
                 } catch (e: Exception) {
-                    println("Skipping invalid row: $row")
+                    logger.warn("Skipping invalid row: $row")
                     null
                 }
             }
         } catch (e: Exception) {
-            println("Error fetching orders from sheets: ${e.message}")
+            logger.error("Error fetching orders from sheets: ${e.message}")
             emptyList()
         }
     }

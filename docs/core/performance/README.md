@@ -55,16 +55,41 @@ Next command, only on a safe mutating target:
 
 This pass was a correctness and recovery pass, not a new measured performance refactor. The main runtime-facing changes were immediate success feedback after backend writes, silent follow-up refreshes, local deletion overlays, and backend-owned IDs for outcomes. Those should make the app feel calmer, but they are not a benchmark claim until the same connected scenario is measured again.
 
+## 2026-05-10 Deployed Backend Macrobenchmark
+
+After the backend deployment was confirmed and the benchmark target was treated as safe for sandbox mutations, the connected macrobenchmark was rerun on the same physical `SM-S931B - 16` device.
+
+Command:
+
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon`
+
+Results:
+
+| Flow | Main Timings | Frame CPU | Frame Overrun |
+| --- | --- | --- | --- |
+| Add order -> pending card | `open_add_order_ms=1141`, `submit_to_success_ms=3149`, `success_to_pending_ms=1919`, `total_flow_ms=10871` | `P50=4.8ms`, `P90=7.9ms`, `P95=9.0ms`, `P99=21.9ms` | `P50=1.7ms`, `P90=5.9ms`, `P95=7.4ms`, `P99=21.3ms` |
+| Delete order -> history update | `open_history_ms=2336`, `delete_to_success_ms=2369`, `total_flow_ms=6272` | `P50=3.7ms`, `P90=5.4ms`, `P95=6.2ms`, `P99=13.0ms` | `P50=-1.8ms`, `P90=1.7ms`, `P95=4.3ms`, `P99=10.6ms` |
+
+Notes:
+
+- Full Add + Delete macrobenchmark passed on the connected device: 2 tests completed, 0 failed.
+- The add benchmark's generated order was deleted after the run.
+- The delete benchmark created and removed its own generated order.
+- A backend delete response during cleanup reported `sheetSynced=true`, which confirms the deployed backend has the Sheets sync configuration active for that delete path.
+- These are deployed-backend numbers for the KMP branch. They should not be described as a master-vs-branch performance delta until the same device/build/scenario is measured on the comparison branch.
+
 ## Verification
 
 - `./gradlew :app:testDebugUnitTest :backend:test --no-daemon` passed.
 - `./gradlew :shared:jvmTest --no-daemon` passed.
 - `./gradlew :macrobenchmark:assembleBenchmark` passed.
+- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon` passed on `SM-S931B - 16`: 2 tests finished, 0 failed.
 - `./gradlew assembleRelease` passed with R8/minification.
+- `./gradlew :app:connectedDebugAndroidTest --no-daemon` passed on `SM-S931B - 16`: Gradle reported 21 finished, 0 failed, 4 skipped.
 
 ## Notes
 
-- `./gradlew connectedDebugAndroidTest --no-daemon` was attempted, but the device transport dropped during service/property queries and Gradle reported no compatible device. A separate earlier attempt exposed that force-stopping the target app from the robot can kill the instrumentation process, so the robot launch path was corrected before the final attempt.
-- `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon` was intentionally skipped in this pass because the active benchmark flow mutates live backend data by creating orders. Use a confirmed sandbox or explicit cleanup plan before running it again.
+- An earlier connected run was blocked by Wi-Fi ADB/device transport. After reconnecting the device and fixing the robot launch path, the safe connected suite passed. The signed-in shell smoke passed in the latest safe connected run.
+- Guarded macrobenchmarks still mutate backend data. Keep using a confirmed sandbox or an explicit cleanup plan before running them again.
 - Before claiming a master-vs-branch E2E performance result, rerun the same benchmark scenario on a stable device/build pair and record the metric names and deltas here.
 - Keep the test device awake and prefer a stable USB connection before connected test runs.

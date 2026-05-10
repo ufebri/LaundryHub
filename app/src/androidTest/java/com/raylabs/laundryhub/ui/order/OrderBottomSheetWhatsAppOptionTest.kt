@@ -6,6 +6,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
+import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.order.state.OrderUiState
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
@@ -21,30 +23,34 @@ class OrderBottomSheetWhatsAppOptionTest {
     @Test
     fun showsWhatsAppField_whenEnabled_newOrder() {
         setContentWithState(showWhatsAppOption = true, isEditMode = false)
-        composeRule.onNodeWithText("Phone Number").assertIsDisplayed()
-        composeRule.onNodeWithText("Make sure the WhatsApp is Available").assertIsDisplayed()
+        composeRule.onNodeWithText(phoneNumberLabel()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(whatsAppHint()).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun hidesWhatsAppField_whenDisabled_newOrder() {
         setContentWithState(showWhatsAppOption = false, isEditMode = false)
-        composeRule.onAllNodesWithText("Phone Number").assertCountEquals(0)
-        composeRule.onAllNodesWithText("Make sure the WhatsApp is Available").assertCountEquals(0)
+        composeRule.onAllNodesWithText(phoneNumberLabel()).assertCountEquals(0)
+        composeRule.onAllNodesWithText(whatsAppHint()).assertCountEquals(0)
     }
 
     @Test
     fun showsWhatsAppField_whenEnabled_editOrder() {
         setContentWithState(showWhatsAppOption = true, isEditMode = true)
-        composeRule.onNodeWithText("Phone Number").assertIsDisplayed()
-        composeRule.onNodeWithText("Make sure the WhatsApp is Available").assertIsDisplayed()
+        composeRule.onNodeWithText(phoneNumberLabel()).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText(whatsAppHint()).performScrollTo().assertIsDisplayed()
     }
 
     @Test
     fun hidesWhatsAppField_whenDisabled_editOrder() {
         setContentWithState(showWhatsAppOption = false, isEditMode = true)
-        composeRule.onAllNodesWithText("Phone Number").assertCountEquals(0)
-        composeRule.onAllNodesWithText("Make sure the WhatsApp is Available").assertCountEquals(0)
+        composeRule.onAllNodesWithText(phoneNumberLabel()).assertCountEquals(0)
+        composeRule.onAllNodesWithText(whatsAppHint()).assertCountEquals(0)
     }
+
+    private fun phoneNumberLabel(): String = composeRule.activity.getString(R.string.phone_number)
+
+    private fun whatsAppHint(): String = composeRule.activity.getString(R.string.whatsapp_available_hint)
 
     private fun setContentWithState(showWhatsAppOption: Boolean, isEditMode: Boolean) {
         composeRule.setContent {

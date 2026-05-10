@@ -587,7 +587,7 @@ private fun packageDurationText(item: PackageItem): String {
     }
 }
 
-private data class InventoryPackageEditorState(
+internal data class InventoryPackageEditorState(
     val id: Int = 0,
     val sheetRowIndex: Int? = null,
     val originalName: String? = null,
@@ -597,7 +597,7 @@ private data class InventoryPackageEditorState(
     val unit: String = ""
 ) {
     val isEditMode: Boolean
-        get() = sheetRowIndex != null
+        get() = !originalName.isNullOrBlank()
 
     val isSaveEnabled: Boolean
         get() = name.trim().isNotBlank() &&
@@ -617,7 +617,7 @@ private data class InventoryPackageEditorState(
     }
 }
 
-private fun PackageItem.toEditorState(): InventoryPackageEditorState {
+internal fun PackageItem.toEditorState(): InventoryPackageEditorState {
     return InventoryPackageEditorState(
         id = id,
         sheetRowIndex = sheetRowIndex,

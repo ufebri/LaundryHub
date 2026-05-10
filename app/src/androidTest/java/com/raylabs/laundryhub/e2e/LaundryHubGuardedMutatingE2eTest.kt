@@ -53,13 +53,13 @@ class LaundryHubGuardedMutatingE2eTest {
         val baseName = "E2E_order_${SystemClock.elapsedRealtime() % 100000}"
         
         // Submit
-        robot.submitSandboxOrder(orderName = baseName, price = "8000")
+        val orderId = robot.submitSandboxOrder(orderName = baseName, price = "8000")
         
         // Update
-        val updatedName = robot.updateSandboxOrder(baseName, "_mod")
+        robot.updateSandboxOrder(orderId, "_mod")
         
         // Delete
-        robot.deleteTransactionFromHistory(updatedName, isOutcome = false)
+        robot.deleteTransactionFromHistory("Order #$orderId", isOutcome = false)
     }
 
     @Test
@@ -67,12 +67,21 @@ class LaundryHubGuardedMutatingE2eTest {
         val basePurpose = "E2E_out_${SystemClock.elapsedRealtime() % 100000}"
         
         // Submit
-        robot.submitSandboxOutcome(purpose = basePurpose, price = "5000")
+        val outcomeId = robot.submitSandboxOutcome(purpose = basePurpose, price = "5000")
         
         // Update
-        val updatedPurpose = robot.updateSandboxOutcome(basePurpose, "_mod")
+        robot.updateSandboxOutcome(outcomeId, "_mod")
         
         // Delete
-        robot.deleteTransactionFromHistory(updatedPurpose, isOutcome = true)
+        robot.deleteTransactionFromHistory("Outcome #$outcomeId", isOutcome = true)
+    }
+
+    @Test
+    fun inventoryFlow_addsUpdatesAndDeletesOnlyWhenSandboxMutationIsExplicitlyEnabled() {
+        val baseName = "E2E_pkg_${SystemClock.elapsedRealtime() % 100000}"
+
+        robot.submitSandboxPackage(packageName = baseName)
+        robot.updateSandboxPackage(packageName = baseName)
+        robot.deleteSandboxPackage(packageName = baseName)
     }
 }

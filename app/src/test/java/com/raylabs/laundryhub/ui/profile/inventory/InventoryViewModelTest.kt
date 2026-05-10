@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.SubmitPackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.UpdatePackageUseCase
 import com.raylabs.laundryhub.shared.util.Resource
+import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -82,6 +83,24 @@ class InventoryViewModelTest {
         assertFalse(viewModel.uiState.deletePackage.isLoading)
         assertFalse(viewModel.uiState.savePackage.isLoading)
         assertTrue(viewModel.uiState.packages.data.orEmpty().none { it.name == "Regular" })
+    }
+
+    @Test
+    fun `backend package without sheet row still opens as edit mode`() {
+        val packageItem = PackageItem(
+            id = 7,
+            name = "Regular",
+            price = "5000",
+            work = "3d",
+            unit = "kg",
+            sheetRowIndex = -1
+        )
+
+        val editorState = packageItem.toEditorState()
+
+        assertTrue(editorState.isEditMode)
+        assertEquals("Regular", editorState.originalName)
+        assertEquals(-1, editorState.toPackageData().sheetRowIndex)
     }
 
     private fun createViewModel(): InventoryViewModel {

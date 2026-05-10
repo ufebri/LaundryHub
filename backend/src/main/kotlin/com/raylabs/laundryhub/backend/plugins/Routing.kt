@@ -27,6 +27,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.routing
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("Routing")
 
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
@@ -41,7 +44,7 @@ fun Application.configureRouting() {
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
         if (spreadsheetId == null) {
-            println("Sheets sync jobs disabled: SPREADSHEET_ID is not configured.")
+            logger.info("Sheets sync jobs disabled: SPREADSHEET_ID is not configured.")
         } else {
             // Job 1: DB -> Sheets (Every 15 mins)
             val syncJob = SheetsBatchSyncJob(

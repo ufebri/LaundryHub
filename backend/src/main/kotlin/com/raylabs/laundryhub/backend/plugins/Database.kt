@@ -13,6 +13,9 @@ import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
+import org.slf4j.LoggerFactory
+
+private val logger = LoggerFactory.getLogger("Database")
 
 fun Application.configureDatabase() {
     if (System.getProperty("isTest") == "true") return
@@ -54,9 +57,9 @@ fun Application.configureDatabase() {
                 SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable)
             }
         }
-        println("Database connected successfully!")
+        logger.info("Database connected successfully!")
     } catch (e: Exception) {
-        println("FATAL: Could not connect to database: ${e.message}")
+        logger.error("FATAL: Could not connect to database: ${e.message}")
         // Railway akan restart container jika kita exit dengan status 1
         System.exit(1)
     }

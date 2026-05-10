@@ -8,6 +8,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 
 class SheetsBatchSyncJob(
     private val orderRepository: OrderRepository,
@@ -17,18 +18,19 @@ class SheetsBatchSyncJob(
     private val spreadsheetId: String,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
+    private val logger = LoggerFactory.getLogger(SheetsBatchSyncJob::class.java)
     private val SYNC_INTERVAL_MS = 15L * 60 * 1000
 
     fun start() {
         scope.launch {
-            println("Background Sync Job Started. Waking up every 15 minutes...")
+            logger.info("Background Sync Job Started. Waking up every 15 minutes...")
             while (isActive) {
                 try {
                     processUnsyncedOrders()
                     processUnsyncedOutcomes()
                     processUnsyncedPackages()
                 } catch (e: Exception) {
-                    println("Background Sync Error: ${e.message}")
+                    logger.error("Background Sync Error: ${e.message}")
                 }
                 delay(SYNC_INTERVAL_MS)
             }
@@ -39,11 +41,11 @@ class SheetsBatchSyncJob(
         val unsyncedOrders = orderRepository.getUnsyncedOrders()
 
         if (unsyncedOrders.isEmpty()) {
-            println("No unsynced orders found. Sync job skipped.")
+            logger.info("No unsynced orders found. Sync job skipped.")
             return 
         }
 
-        println("Found ${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
+        logger.info("Found ${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
 
         var successCount = 0
         for (order in unsyncedOrders) {
@@ -55,7 +57,7 @@ class SheetsBatchSyncJob(
         }
 
         if (successCount > 0) {
-            println("Successfully synced $successCount orders to Google Sheets.")
+            logger.info("Successfully synced $successCount orders to Google Sheets.")
         }
     }
 
@@ -63,11 +65,11 @@ class SheetsBatchSyncJob(
         val unsyncedOutcomes = outcomeRepository.getUnsyncedOutcomes()
 
         if (unsyncedOutcomes.isEmpty()) {
-            println("No unsynced outcomes found. Sync job skipped.")
+            logger.info("No unsynced outcomes found. Sync job skipped.")
             return
         }
 
-        println("Found ${unsyncedOutcomes.size} unsynced outcomes. Preparing smart sync...")
+        logger.info("Found ${unsyncedOutcomes.size} unsynced outcomes. Preparing smart sync...")
 
         var successCount = 0
         for (outcome in unsyncedOutcomes) {
@@ -79,7 +81,7 @@ class SheetsBatchSyncJob(
         }
 
         if (successCount > 0) {
-            println("Successfully synced $successCount outcomes to Google Sheets.")
+            logger.info("Successfully synced $successCount outcomes to Google Sheets.")
         }
     }
 
@@ -87,11 +89,11 @@ class SheetsBatchSyncJob(
         val unsyncedPackages = packageRepository.getUnsyncedPackages()
 
         if (unsyncedPackages.isEmpty()) {
-            println("No unsynced packages found. Sync job skipped.")
+            logger.info("No unsynced packages found. Sync job skipped.")
             return
         }
 
-        println("Found ${unsyncedPackages.size} unsynced packages. Preparing smart sync...")
+        logger.info("Found ${unsyncedPackages.size} unsynced packages. Preparing smart sync...")
 
         var successCount = 0
         for (pkg in unsyncedPackages) {
@@ -103,7 +105,7 @@ class SheetsBatchSyncJob(
         }
 
         if (successCount > 0) {
-            println("Successfully synced $successCount packages to Google Sheets.")
+            logger.info("Successfully synced $successCount packages to Google Sheets.")
         }
     }
 }
