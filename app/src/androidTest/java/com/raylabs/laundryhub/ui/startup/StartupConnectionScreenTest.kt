@@ -19,23 +19,6 @@ class StartupConnectionScreenTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun showsCheckingState() {
-        var clicked = false
-        composeRule.setContent {
-            LaundryHubTheme {
-                StartupConnectionScreen(
-                    uiState = StartupConnectionUiState.Checking,
-                    onCheckAgain = { clicked = true }
-                )
-            }
-        }
-
-        composeRule.onNodeWithText(composeRule.activity.getString(R.string.startup_connection_checking_title)).assertIsDisplayed()
-        composeRule.onNodeWithText(composeRule.activity.getString(R.string.startup_connection_checking_message)).assertIsDisplayed()
-        composeRule.onNodeWithText(composeRule.activity.getString(R.string.startup_connection_checking_caption)).assertIsDisplayed()
-    }
-
-    @Test
     fun showsMaintenanceState_withCustomMessage() {
         var clicked = false
         val customMessage = "Custom Maintenance Message"

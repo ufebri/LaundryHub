@@ -12,6 +12,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
@@ -181,6 +184,22 @@ class LaundryRepositoryImpl(
     override suspend fun deleteOutcome(outcomeId: String): Resource<Boolean> = safeApiCall {
         client.delete(endpoint("outcomes/$outcomeId")).requireSuccessfulResponse()
         true
+    }
+
+    override suspend fun getSyncStatus(): Resource<SyncStatusResponse> = safeApiCall {
+        client.get(endpoint("sync/status")).body()
+    }
+
+    override suspend fun updateSyncConfig(request: SyncConfigUpdateRequest): Resource<Boolean> = safeApiCall {
+        client.put(endpoint("sync/config")) {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.requireSuccessfulResponse()
+        true
+    }
+
+    override suspend fun triggerManualSync(): Resource<SyncTriggerResponse> = safeApiCall {
+        client.post(endpoint("sync/trigger")).body()
     }
 
     private suspend fun endpoint(path: String): String {

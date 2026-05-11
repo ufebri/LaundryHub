@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.service
 
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
+import com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -9,44 +10,48 @@ import kotlinx.coroutines.launch
 import org.slf4j.LoggerFactory
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 
 class SheetsReverseSyncJob(
     private val orderRepository: OrderRepository,
     private val syncService: SheetsSyncService,
     private val spreadsheetId: String,
+    private val syncStateManager: SyncStateManager,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val logger = LoggerFactory.getLogger(SheetsReverseSyncJob::class.java)
+    private var lastRunDayHour: String = ""
+
     fun start() {
         scope.launch {
-            logger.info("Reverse Sync Job Initialized. Calculating time until 23:00...")
+            logger.info("Reverse Sync Job Initialized.")
             while (isActive) {
                 try {
-                    val delayMillis = calculateDelayUntil(23, 0)
-                    logger.info("Reverse Sync will run in ${delayMillis / 1000 / 60} minutes.")
-                    delay(delayMillis)
-
-                    // Execute reverse sync
-                    processReverseSync()
-
-                    // Wait a bit before calculating the next day's 23:00 to avoid double triggering
-                    delay(60_000)
+                    val schedule = syncStateManager.config.value.reverseSyncSchedule
+                    if (schedule != ReverseSyncSchedule.MANUAL) {
+                        if (isTimeToRun(schedule.hours)) {
+                            logger.info("It is time to run reverse sync. Triggering...")
+                            val count = processReverseSync()
+                            if (count > 0) {
+                                syncStateManager.recordSync(count)
+                            }
+                        }
+                    }
+                    delay(60_000) // Check every minute
                 } catch (e: Exception) {
                     logger.error("Reverse Sync Error: ${e.message}")
-                    delay(15L * 60 * 1000) // Retry after 15 mins on error
+                    delay(60_000)
                 }
             }
         }
     }
 
-    private suspend fun processReverseSync() {
+    suspend fun processReverseSync(): Int {
         logger.info("Starting Reverse Sync (Sheets -> DB)...")
         val sheetOrders = syncService.fetchOrdersFromSheet(spreadsheetId)
         
         if (sheetOrders.isEmpty()) {
             logger.info("No data found in Google Sheets for reverse sync.")
-            return
+            return 0
         }
 
         var successCount = 0
@@ -58,18 +63,22 @@ class SheetsReverseSyncJob(
         }
 
         logger.info("Reverse Sync Completed. Upserted $successCount/${sheetOrders.size} orders into PostgreSQL.")
+        return successCount
     }
 
-    private fun calculateDelayUntil(targetHour: Int, targetMinute: Int): Long {
-        val zoneId = ZoneId.of("Asia/Jakarta") // Gunakan timezone lokal (WIB)
+    private fun isTimeToRun(hours: List<Int>): Boolean {
+        val zoneId = ZoneId.of("Asia/Jakarta")
         val now = LocalDateTime.now(zoneId)
-        var targetTime = now.withHour(targetHour).withMinute(targetMinute).withSecond(0).withNano(0)
-
-        // Jika waktu target sudah lewat hari ini, jadwalkan untuk besok
-        if (now.isAfter(targetTime) || now.isEqual(targetTime)) {
-            targetTime = targetTime.plusDays(1)
+        val currentHour = now.hour
+        val currentMinute = now.minute
+        val currentDayHour = "${now.dayOfYear}-$currentHour"
+        
+        // Ensure it runs at minute 0 of the configured hour
+        if (currentMinute == 0 && hours.contains(currentHour) && lastRunDayHour != currentDayHour) {
+            lastRunDayHour = currentDayHour
+            return true
         }
-
-        return ChronoUnit.MILLIS.between(now, targetTime)
+        return false
     }
 }
+

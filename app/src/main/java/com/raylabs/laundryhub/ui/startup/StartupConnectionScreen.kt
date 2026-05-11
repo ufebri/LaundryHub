@@ -52,20 +52,21 @@ fun StartupConnectionScreen(
 ) {
     if (uiState is StartupConnectionUiState.Ready) return
 
-    val isChecking = uiState is StartupConnectionUiState.Checking
+    // The Checking state is now covered by the native Android Splash Screen.
+    if (uiState is StartupConnectionUiState.Checking) {
+        Box(modifier = modifier.fillMaxSize().background(MaterialTheme.colors.appScreenBackground))
+        return
+    }
+
     val isRetrying = uiState is StartupConnectionUiState.Retrying
     val fallbackMessage = stringResource(R.string.startup_connection_unavailable_message)
-    val title = if (isChecking) {
-        stringResource(R.string.startup_connection_checking_title)
-    } else {
-        stringResource(R.string.startup_connection_unavailable_title)
-    }
+    val title = stringResource(R.string.startup_connection_unavailable_title)
+    
     val message = when (uiState) {
-        is StartupConnectionUiState.Checking -> stringResource(R.string.startup_connection_checking_message)
         is StartupConnectionUiState.Maintenance -> uiState.message?.takeIf { it.isNotBlank() } ?: fallbackMessage
         is StartupConnectionUiState.Retrying,
         is StartupConnectionUiState.Unavailable -> fallbackMessage
-        is StartupConnectionUiState.Ready -> ""
+        else -> ""
     }
 
     Box(
@@ -91,7 +92,6 @@ fun StartupConnectionScreen(
         ) {
             StartupBrand()
             StartupStatusPanel(
-                isChecking = isChecking,
                 isRetrying = isRetrying,
                 title = title,
                 message = message,
@@ -132,22 +132,15 @@ private fun StartupBrand() {
 
 @Composable
 private fun StartupStatusPanel(
-    isChecking: Boolean,
     isRetrying: Boolean,
     title: String,
     message: String,
     onCheckAgain: () -> Unit
 ) {
-    val panelColor = if (isChecking) {
-        MaterialTheme.colors.appAccentContainer
-    } else {
-        MaterialTheme.colors.appErrorContainer
-    }
-
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        color = panelColor,
+        color = MaterialTheme.colors.appErrorContainer,
         border = BorderStroke(1.dp, MaterialTheme.colors.appBorderSoft),
         elevation = 0.dp
     ) {
@@ -156,10 +149,7 @@ private fun StartupStatusPanel(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            StartupStatusIndicator(
-                isChecking = isChecking,
-                isRetrying = isRetrying
-            )
+            StartupStatusIndicator(isRetrying = isRetrying)
             Text(
                 text = title,
                 style = MaterialTheme.typography.h6,
@@ -174,43 +164,27 @@ private fun StartupStatusPanel(
                 textAlign = TextAlign.Center
             )
 
-            if (isChecking) {
-                Text(
-                    text = stringResource(R.string.startup_connection_checking_caption),
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.appMutedContent,
-                    textAlign = TextAlign.Center
-                )
-            } else {
-                StartupRetryButton(
-                    isRetrying = isRetrying,
-                    onCheckAgain = onCheckAgain
-                )
-                Text(
-                    text = stringResource(R.string.startup_connection_retry_hint),
-                    style = MaterialTheme.typography.caption,
-                    color = MaterialTheme.colors.appMutedContent,
-                    textAlign = TextAlign.Center
-                )
-            }
+            StartupRetryButton(
+                isRetrying = isRetrying,
+                onCheckAgain = onCheckAgain
+            )
+            Text(
+                text = stringResource(R.string.startup_connection_retry_hint),
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.appMutedContent,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
 
 @Composable
-private fun StartupStatusIndicator(
-    isChecking: Boolean,
-    isRetrying: Boolean
-) {
-    if (isChecking || isRetrying) {
+private fun StartupStatusIndicator(isRetrying: Boolean) {
+    if (isRetrying) {
         CircularProgressIndicator(
             modifier = Modifier.size(34.dp),
             strokeWidth = 3.dp,
-            color = if (isChecking) {
-                MaterialTheme.colors.primary
-            } else {
-                MaterialTheme.colors.appErrorContent
-            }
+            color = MaterialTheme.colors.appErrorContent
         )
         return
     }
@@ -268,17 +242,6 @@ private fun StartupRetryButton(
                 stringResource(R.string.startup_connection_check_again)
             },
             style = MaterialTheme.typography.button
-        )
-    }
-}
-
-@Preview(showBackground = true)
-@Composable
-private fun PreviewStartupConnectionChecking() {
-    LaundryHubTheme {
-        StartupConnectionScreen(
-            uiState = StartupConnectionUiState.Checking,
-            onCheckAgain = {}
         )
     }
 }

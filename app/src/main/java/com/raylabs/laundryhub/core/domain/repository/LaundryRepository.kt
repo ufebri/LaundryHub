@@ -7,6 +7,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.shared.util.Resource
 
@@ -30,4 +33,9 @@ interface LaundryRepository {
     suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean>
     suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData>
     suspend fun deleteOutcome(outcomeId: String): Resource<Boolean>
+
+    suspend fun getSyncStatus(): Resource<SyncStatusResponse>
+    suspend fun updateSyncConfig(request: SyncConfigUpdateRequest): Resource<Boolean>
+    suspend fun triggerManualSync(): Resource<SyncTriggerResponse>
 }
+
