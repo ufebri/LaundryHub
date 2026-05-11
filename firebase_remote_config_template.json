@@ -1,0 +1,32 @@
+{
+  "parameters": {
+    "api_base_url": {
+      "defaultValue": {
+        "value": "http://10.0.2.2:8080"
+      },
+      "description": "Base URL for the backend API. Use http://10.0.2.2:8080 for Android Emulator.",
+      "valueType": "STRING"
+    },
+    "api_maintenance_enabled": {
+      "defaultValue": {
+        "value": "false"
+      },
+      "description": "Toggle to show the maintenance screen on startup.",
+      "valueType": "BOOLEAN"
+    },
+    "api_maintenance_message": {
+      "defaultValue": {
+        "value": "Maaf, server LaundryHub sedang dalam perbaikan rutin. Silakan coba beberapa saat lagi."
+      },
+      "description": "Message displayed to users when maintenance is enabled.",
+      "valueType": "STRING"
+    },
+    "api_config_version": {
+      "defaultValue": {
+        "value": "1"
+      },
+      "description": "Version number of the current remote configuration.",
+      "valueType": "NUMBER"
+    }
+  }
+}

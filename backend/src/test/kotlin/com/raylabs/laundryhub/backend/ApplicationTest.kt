@@ -21,6 +21,19 @@ class ApplicationTest {
     }
 
     @Test
+    fun healthEndpointReturnsLightweightOkPayload() = testApplication {
+        System.setProperty("isTest", "true")
+
+        val response = client.get("/api/health")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val body = response.bodyAsText()
+        assertTrue(body.contains("\"status\""))
+        assertTrue(body.contains("\"OK\""))
+        assertTrue(body.contains("\"LaundryHub\""))
+    }
+
+    @Test
     fun testSharedDTOEndpoint() = testApplication {
         System.setProperty("isTest", "true")
         val response = client.get("/api/test-shared")

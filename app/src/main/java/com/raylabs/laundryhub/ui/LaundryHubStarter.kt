@@ -66,6 +66,9 @@ import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import com.raylabs.laundryhub.ui.profile.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.reminder.ReminderInboxScreen
 import com.raylabs.laundryhub.ui.reminder.ReminderIntroScreen
+import com.raylabs.laundryhub.ui.startup.StartupConnectionScreen
+import com.raylabs.laundryhub.ui.startup.StartupConnectionUiState
+import com.raylabs.laundryhub.ui.startup.StartupConnectionViewModel
 import com.raylabs.laundryhub.ui.theme.modalSheetTop
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
@@ -80,6 +83,7 @@ private const val REMINDER_INBOX_ROUTE = "reminder_inbox"
 
 @Composable
 fun AppRoot(
+    startupConnectionViewModel: StartupConnectionViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel(),
     googleCredentialAuthManager: GoogleCredentialAuthManager =
         EntryPointAccessors.fromApplication(
@@ -89,11 +93,20 @@ fun AppRoot(
     notificationDestination: String? = null,
     onNotificationDestinationHandled: () -> Unit = {}
 ) {
+    val startupConnectionState by startupConnectionViewModel.uiState.collectAsState()
     val user by loginViewModel.userState.collectAsState()
     val isLoading by loginViewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
+
+    if (startupConnectionState !is StartupConnectionUiState.Ready) {
+        StartupConnectionScreen(
+            uiState = startupConnectionState,
+            onCheckAgain = startupConnectionViewModel::checkAgain
+        )
+        return
+    }
 
     when {
         isLoading -> {

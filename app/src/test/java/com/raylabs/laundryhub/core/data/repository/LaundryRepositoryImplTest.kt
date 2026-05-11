@@ -1,6 +1,9 @@
 package com.raylabs.laundryhub.core.data.repository
 
-import com.raylabs.laundryhub.core.domain.model.sheets.*
+import com.raylabs.laundryhub.core.domain.config.BackendConfig
+import com.raylabs.laundryhub.core.domain.config.BackendConfigProvider
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.shared.util.Resource
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -106,6 +109,33 @@ class LaundryRepositoryImplTest {
         assertEquals("https://example.test/api/packages/Express%206H", requestedUrl)
     }
 
+    @Test
+    fun `requests use latest backend base url from config provider`() = runTest {
+        val requestedUrls = mutableListOf<String>()
+        val backendConfigProvider = MutableBackendConfigProvider("https://primary.example.test/api")
+        val repository = LaundryRepositoryImpl(
+            client = mockClient { url ->
+                requestedUrls += url
+                mockResponse(content = "[]")
+            },
+            backendConfigProvider = backendConfigProvider
+        )
+
+        val firstResult = repository.readPackageData()
+        backendConfigProvider.baseUrl = "https://backup.example.test/api"
+        val secondResult = repository.readPackageData()
+
+        assertTrue(firstResult is Resource.Success)
+        assertTrue(secondResult is Resource.Success)
+        assertEquals(
+            listOf(
+                "https://primary.example.test/api/packages",
+                "https://backup.example.test/api/packages"
+            ),
+            requestedUrls
+        )
+    }
+
     private fun mockClient(handler: (String) -> MockResponse): HttpClient {
         return HttpClient(MockEngine) {
             expectSuccess = false
@@ -158,4 +188,18 @@ class LaundryRepositoryImplTest {
         val content: String,
         val status: HttpStatusCode
     )
+
+    private class MutableBackendConfigProvider(
+        var baseUrl: String
+    ) : BackendConfigProvider {
+        override suspend fun refresh(force: Boolean): BackendConfig = currentConfig()
+
+        override fun currentConfig(): BackendConfig = BackendConfig(baseUrl = baseUrl)
+
+        override fun candidateBaseUrls(): List<String> = listOf(baseUrl)
+
+        override fun activateBaseUrl(baseUrl: String) {
+            this.baseUrl = baseUrl
+        }
+    }
 }

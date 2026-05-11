@@ -73,6 +73,17 @@ fun Application.configureRouting() {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))
         }
 
+        get("/api/health") {
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf(
+                    "status" to "OK",
+                    "service" to "LaundryHub",
+                    "message" to "Ready"
+                )
+            )
+        }
+
         // --- CRUD Endpoints for Orders ---
 
         get("/api/orders/last-id") {
