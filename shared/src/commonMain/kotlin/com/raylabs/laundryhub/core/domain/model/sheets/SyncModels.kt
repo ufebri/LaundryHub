@@ -10,17 +10,25 @@ enum class ReverseSyncSchedule(val hours: List<Int>) {
 }
 
 @Serializable
+enum class MasterSourceOfTruth {
+    SHEETS, SUPABASE, BOTH
+}
+
+@Serializable
 data class SyncStatusResponse(
     val lastSyncTime: String?,
     val changesCount: Int,
     val autoSyncIntervalMinutes: Int,
-    val reverseSyncSchedule: ReverseSyncSchedule
+    val reverseSyncSchedule: ReverseSyncSchedule,
+    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
+    val isSyncing: Boolean = false
 )
 
 @Serializable
 data class SyncConfigUpdateRequest(
     val autoSyncIntervalMinutes: Int? = null,
-    val reverseSyncSchedule: ReverseSyncSchedule? = null
+    val reverseSyncSchedule: ReverseSyncSchedule? = null,
+    val masterSourceOfTruth: MasterSourceOfTruth? = null
 )
 
 @Serializable

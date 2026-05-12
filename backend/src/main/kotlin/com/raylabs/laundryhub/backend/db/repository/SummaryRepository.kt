@@ -29,6 +29,24 @@ class SummaryRepository {
         updatedCount > 0
     }
 
+    suspend fun upsert(summary: SpreadsheetData): Boolean = dbQuery {
+        val existing = SummaryTable.select { SummaryTable.key eq summary.key }.singleOrNull()
+        if (existing != null) {
+            val updatedCount = SummaryTable.update({ SummaryTable.key eq summary.key }) {
+                it[value] = summary.value
+                it[isSynced] = true
+            }
+            updatedCount > 0
+        } else {
+            val statement = SummaryTable.insertIgnore {
+                it[key] = summary.key
+                it[value] = summary.value
+                it[isSynced] = true
+            }
+            statement.insertedCount > 0
+        }
+    }
+
     suspend fun delete(summaryKey: String): Boolean = dbQuery {
         val deletedCount = SummaryTable.deleteWhere { key eq summaryKey }
         deletedCount > 0

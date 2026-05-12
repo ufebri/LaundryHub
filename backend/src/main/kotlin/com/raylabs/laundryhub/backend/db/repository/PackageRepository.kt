@@ -34,6 +34,28 @@ class PackageRepository {
         updatedCount > 0
     }
 
+    suspend fun upsert(pkg: PackageData): Boolean = dbQuery {
+        val existing = PackagesTable.select { PackagesTable.name eq pkg.name }.singleOrNull()
+        if (existing != null) {
+            val updatedCount = PackagesTable.update({ PackagesTable.name eq pkg.name }) {
+                it[price] = pkg.price
+                it[duration] = pkg.duration
+                it[unit] = pkg.unit
+                it[isSynced] = true
+            }
+            updatedCount > 0
+        } else {
+            val statement = PackagesTable.insertIgnore {
+                it[name] = pkg.name
+                it[price] = pkg.price
+                it[duration] = pkg.duration
+                it[unit] = pkg.unit
+                it[isSynced] = true
+            }
+            statement.insertedCount > 0
+        }
+    }
+
     suspend fun delete(packageName: String): Boolean = dbQuery {
         val deletedCount = PackagesTable.deleteWhere { name eq packageName }
         deletedCount > 0

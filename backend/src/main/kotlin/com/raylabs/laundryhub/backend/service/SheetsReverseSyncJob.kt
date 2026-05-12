@@ -1,6 +1,10 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.backend.db.repository.GrossRepository
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
+import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
+import com.raylabs.laundryhub.backend.db.repository.PackageRepository
+import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
 import com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -13,6 +17,10 @@ import java.time.ZoneId
 
 class SheetsReverseSyncJob(
     private val orderRepository: OrderRepository,
+    private val outcomeRepository: OutcomeRepository,
+    private val packageRepository: PackageRepository,
+    private val grossRepository: GrossRepository,
+    private val summaryRepository: SummaryRepository,
     private val syncService: SheetsSyncService,
     private val spreadsheetId: String,
     private val syncStateManager: SyncStateManager,
@@ -30,15 +38,21 @@ class SheetsReverseSyncJob(
                     if (schedule != ReverseSyncSchedule.MANUAL) {
                         if (isTimeToRun(schedule.hours)) {
                             logger.info("It is time to run reverse sync. Triggering...")
-                            val count = processReverseSync()
-                            if (count > 0) {
-                                syncStateManager.recordSync(count)
+                            syncStateManager.setSyncing(true)
+                            try {
+                                val count = processReverseSync()
+                                if (count > 0) {
+                                    syncStateManager.recordSync(count)
+                                }
+                            } finally {
+                                syncStateManager.setSyncing(false)
                             }
                         }
                     }
                     delay(60_000) // Check every minute
                 } catch (e: Exception) {
                     logger.error("Reverse Sync Error: ${e.message}")
+                    syncStateManager.setSyncing(false)
                     delay(60_000)
                 }
             }
@@ -47,22 +61,44 @@ class SheetsReverseSyncJob(
 
     suspend fun processReverseSync(): Int {
         logger.info("Starting Reverse Sync (Sheets -> DB)...")
-        val sheetOrders = syncService.fetchOrdersFromSheet(spreadsheetId)
-        
-        if (sheetOrders.isEmpty()) {
-            logger.info("No data found in Google Sheets for reverse sync.")
-            return 0
-        }
-
         var successCount = 0
-        for (order in sheetOrders) {
-            val isUpserted = orderRepository.upsert(order)
-            if (isUpserted) {
-                successCount++
+
+        val sheetOrders = syncService.fetchOrdersFromSheet(spreadsheetId)
+        if (sheetOrders.isNotEmpty()) {
+            for (order in sheetOrders) {
+                if (orderRepository.upsert(order)) successCount++
             }
         }
 
-        logger.info("Reverse Sync Completed. Upserted $successCount/${sheetOrders.size} orders into PostgreSQL.")
+        val sheetOutcomes = syncService.fetchOutcomesFromSheet(spreadsheetId)
+        if (sheetOutcomes.isNotEmpty()) {
+            for (outcome in sheetOutcomes) {
+                if (outcomeRepository.upsert(outcome)) successCount++
+            }
+        }
+
+        val sheetPackages = syncService.fetchPackagesFromSheet(spreadsheetId)
+        if (sheetPackages.isNotEmpty()) {
+            for (pkg in sheetPackages) {
+                if (packageRepository.upsert(pkg)) successCount++
+            }
+        }
+
+        val sheetGross = syncService.fetchGrossFromSheet(spreadsheetId)
+        if (sheetGross.isNotEmpty()) {
+            for (gross in sheetGross) {
+                if (grossRepository.upsert(gross)) successCount++
+            }
+        }
+
+        val sheetSummary = syncService.fetchSummaryFromSheet(spreadsheetId)
+        if (sheetSummary.isNotEmpty()) {
+            for (summary in sheetSummary) {
+                if (summaryRepository.upsert(summary)) successCount++
+            }
+        }
+
+        logger.info("Reverse Sync Completed. Upserted $successCount total items into PostgreSQL.")
         return successCount
     }
 
@@ -81,4 +117,5 @@ class SheetsReverseSyncJob(
         return false
     }
 }
+
 

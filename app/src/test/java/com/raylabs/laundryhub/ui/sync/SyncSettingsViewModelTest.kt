@@ -77,7 +77,7 @@ class SyncSettingsViewModelTest {
 
         val state = viewModel.uiState.value
         assertEquals(false, state.isSyncing)
-        assertEquals("Sync successful", state.successMessage)
+        assertEquals("Sync completed successfully.", state.successMessage)
         assertEquals("new_time", state.lastSyncTime)
         assertEquals(3, state.changesCount)
     }

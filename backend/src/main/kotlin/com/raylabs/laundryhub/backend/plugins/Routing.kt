@@ -66,6 +66,10 @@ fun Application.configureRouting() {
             // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
             reverseSyncJob = SheetsReverseSyncJob(
                 orderRepository = orderRepository,
+                outcomeRepository = outcomeRepository,
+                packageRepository = packageRepository,
+                grossRepository = grossRepository,
+                summaryRepository = summaryRepository,
                 syncService = syncService,
                 spreadsheetId = spreadsheetId,
                 syncStateManager = syncStateManager

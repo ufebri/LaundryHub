@@ -60,6 +60,32 @@ class OutcomeRepository {
         updatedCount > 0
     }
 
+    suspend fun upsert(outcome: OutcomeData): Boolean = dbQuery {
+        val existing = OutcomesTable.select { OutcomesTable.id eq outcome.id }.singleOrNull()
+        if (existing != null) {
+            val updatedCount = OutcomesTable.update({ OutcomesTable.id eq outcome.id }) {
+                it[date] = outcome.date
+                it[purpose] = outcome.purpose
+                it[price] = outcome.price
+                it[remark] = outcome.remark
+                it[payment] = outcome.payment
+                it[isSynced] = true
+            }
+            updatedCount > 0
+        } else {
+            val statement = OutcomesTable.insertIgnore {
+                it[id] = outcome.id
+                it[date] = outcome.date
+                it[purpose] = outcome.purpose
+                it[price] = outcome.price
+                it[remark] = outcome.remark
+                it[payment] = outcome.payment
+                it[isSynced] = true
+            }
+            statement.insertedCount > 0
+        }
+    }
+
     suspend fun delete(outcomeId: String): Boolean = dbQuery {
         val deletedCount = OutcomesTable.deleteWhere { id eq outcomeId }
         deletedCount > 0

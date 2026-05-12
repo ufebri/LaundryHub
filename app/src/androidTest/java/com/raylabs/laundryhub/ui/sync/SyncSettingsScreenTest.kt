@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performScrollTo
 import com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
 import org.junit.Rule
@@ -30,6 +31,7 @@ class SyncSettingsScreenTest {
                     onNavigateBack = {},
                     onIntervalSelected = {},
                     onScheduleSelected = {},
+                    onMasterSourceSelected = {},
                     onSyncNowClick = {},
                     onClearMessages = {}
                 )
@@ -37,19 +39,23 @@ class SyncSettingsScreenTest {
         }
 
         // Verify status card elements
-        composeRule.onNodeWithText("Status Sinkronisasi").assertIsDisplayed()
-        composeRule.onNodeWithText("10 item").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync Status").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("10 items").performScrollTo().assertIsDisplayed()
 
         // Verify sections exist
-        composeRule.onNodeWithText("Interval Sinkronisasi Otomatis").assertIsDisplayed()
-        composeRule.onNodeWithText("Jadwal Tarik Data (Sheets -> App)").assertIsDisplayed()
+        composeRule.onNodeWithText("Master Data Source").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Auto-Sync Interval (Push)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Pull Schedule (Sheets -> App)").performScrollTo().assertIsDisplayed()
         
         // Verify options
-        composeRule.onNodeWithText("30 Menit").assertIsDisplayed()
-        composeRule.onNodeWithText("12:00 & 23:00 WIB").assertIsDisplayed()
+        composeRule.onNodeWithText("Google Sheets").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Supabase (App)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("3 Mins").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("30 Mins").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("12:00 & 23:00 WIB").performScrollTo().assertIsDisplayed()
 
         // Verify primary button
-        composeRule.onNodeWithText("Sinkronisasi Sekarang").assertIsDisplayed()
+        composeRule.onNodeWithText("Sync Now").assertIsDisplayed()
     }
 }
 

@@ -15,6 +15,9 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 fun Route.syncRoutes(
     syncStateManager: SyncStateManager,
@@ -30,7 +33,8 @@ fun Route.syncRoutes(
                     lastSyncTime = syncStateManager.lastSyncTime,
                     changesCount = syncStateManager.lastChangesCount,
                     autoSyncIntervalMinutes = config.intervalMinutes,
-                    reverseSyncSchedule = config.reverseSyncSchedule
+                    reverseSyncSchedule = config.reverseSyncSchedule,
+                    isSyncing = syncStateManager.isSyncing
                 )
             )
         }
@@ -39,6 +43,7 @@ fun Route.syncRoutes(
             val request = call.receive<SyncConfigUpdateRequest>()
             request.autoSyncIntervalMinutes?.let { syncStateManager.updateInterval(it) }
             request.reverseSyncSchedule?.let { syncStateManager.updateReverseSchedule(it) }
+            request.masterSourceOfTruth?.let { syncStateManager.updateMasterSourceOfTruth(it) }
 
             call.respond(HttpStatusCode.OK, mapOf("message" to "Configuration updated successfully"))
         }
@@ -49,38 +54,47 @@ fun Route.syncRoutes(
                 return@post
             }
 
-            try {
-                // Run job 1 (Push to sheets)
-                val pushedCount = batchSyncJob.processUnsyncedAll()
-                
-                // Run job 2 (Pull from sheets)
-                val pulledCount = reverseSyncJob.processReverseSync()
-
-                val totalChanges = pushedCount + pulledCount
-                if (totalChanges > 0) {
-                    syncStateManager.recordSync(totalChanges)
-                }
-
-                call.respond(
-                    HttpStatusCode.OK,
-                    SyncTriggerResponse(
-                        success = true,
-                        message = "Manual sync completed.",
-                        itemsPushed = pushedCount,
-                        itemsPulled = pulledCount
-                    )
-                )
-            } catch (e: Exception) {
-                call.respond(
-                    HttpStatusCode.InternalServerError,
-                    SyncTriggerResponse(
-                        success = false,
-                        message = e.message ?: "Unknown error occurred during manual sync.",
-                        itemsPushed = 0,
-                        itemsPulled = 0
-                    )
-                )
+            if (syncStateManager.isSyncing) {
+                call.respond(HttpStatusCode.Conflict, mapOf("message" to "Sync is already running."))
+                return@post
             }
+
+            syncStateManager.setSyncing(true)
+            
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val sourceOfTruth = syncStateManager.config.value.masterSourceOfTruth.name
+                    var totalChanges = 0
+
+                    if (sourceOfTruth.equals("SUPABASE", ignoreCase = true) || sourceOfTruth.equals("BOTH", ignoreCase = true)) {
+                        // Push to sheets
+                        totalChanges += batchSyncJob.processUnsyncedAll()
+                    }
+
+                    if (sourceOfTruth.equals("SHEETS", ignoreCase = true) || sourceOfTruth.equals("BOTH", ignoreCase = true)) {
+                        // Pull from sheets and overwrite local Database
+                        totalChanges += reverseSyncJob.processReverseSync()
+                    }
+
+                    if (totalChanges > 0) {
+                        syncStateManager.recordSync(totalChanges)
+                    }
+                } catch (e: Exception) {
+                    // Log error if needed, state is reset in finally
+                } finally {
+                    syncStateManager.setSyncing(false)
+                }
+            }
+
+            call.respond(
+                HttpStatusCode.Accepted,
+                SyncTriggerResponse(
+                    success = true,
+                    message = "Background sync started.",
+                    itemsPushed = 0,
+                    itemsPulled = 0
+                )
+            )
         }
     }
 }
