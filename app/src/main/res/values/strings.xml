@@ -34,6 +34,15 @@
     <string name="cache_size_loading">Calculating...</string>
     <string name="cache_size_unavailable">Unavailable</string>
 
+    <string name="startup_connection_checking_title">Checking connection</string>
+    <string name="startup_connection_checking_message">LaundryHub is preparing your workspace. This usually takes a moment.</string>
+    <string name="startup_connection_checking_caption">Connection check in progress</string>
+    <string name="startup_connection_unavailable_title">Service temporarily unavailable</string>
+    <string name="startup_connection_unavailable_message">Your data is safe. Please check again in a moment.</string>
+    <string name="startup_connection_retry_hint">If this continues, reopen the app later or check again from here.</string>
+    <string name="startup_connection_check_again">Check again</string>
+    <string name="startup_connection_checking_button">Checking...</string>
+
     <!--  BottomNavItem  -->
     <string name="home">Home</string>
     <string name="history">History</string>

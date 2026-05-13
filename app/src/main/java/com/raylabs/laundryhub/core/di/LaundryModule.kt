@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.core.di
 
 import com.raylabs.laundryhub.core.data.repository.LaundryRepositoryImpl
+import com.raylabs.laundryhub.core.domain.config.BackendConfigProvider
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.core.domain.usecase.sheets.DeletePackageUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.GetOtherPackageUseCase
@@ -32,8 +33,10 @@ object LaundryModule {
 
     @Provides
     @Singleton
-    fun provideLaundryRepository(): LaundryRepository {
-        return LaundryRepositoryImpl()
+    fun provideLaundryRepository(
+        backendConfigProvider: BackendConfigProvider
+    ): LaundryRepository {
+        return LaundryRepositoryImpl(backendConfigProvider)
     }
 
     @Provides

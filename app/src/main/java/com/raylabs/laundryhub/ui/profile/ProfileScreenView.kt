@@ -31,6 +31,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -76,7 +77,8 @@ fun ProfileScreenView(
     loginViewModel: LoginViewModel,
     bannerState: InlineAdaptiveBannerAdState? = null,
     onInventoryClick: () -> Unit = {},
-    onReminderSettingsClick: () -> Unit = {}
+    onReminderSettingsClick: () -> Unit = {},
+    onSyncSettingsClick: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val resolvedBannerState = bannerState ?: rememberInlineAdaptiveBannerAdState("profile_inline")
@@ -95,6 +97,7 @@ fun ProfileScreenView(
             },
             onInventoryClick = onInventoryClick,
             onReminderSettingsClick = onReminderSettingsClick,
+            onSyncSettingsClick = onSyncSettingsClick,
             onWhatsAppOptionChanged = viewModel::setShowWhatsAppOption,
             onClearCacheClick = viewModel::openClearCacheDialog,
             onConfirmClearCache = viewModel::clearCache,
@@ -111,6 +114,7 @@ fun ProfileScreenContent(
     onLoggedOut: () -> Unit = {},
     onInventoryClick: () -> Unit = {},
     onReminderSettingsClick: () -> Unit = {},
+    onSyncSettingsClick: () -> Unit = {},
     onWhatsAppOptionChanged: (Boolean) -> Unit = {},
     onClearCacheClick: () -> Unit = {},
     onConfirmClearCache: () -> Unit = {},
@@ -160,6 +164,7 @@ fun ProfileScreenContent(
                     state = state,
                     cacheSizeText = cacheSizeText,
                     onReminderSettingsClick = onReminderSettingsClick,
+                    onSyncSettingsClick = onSyncSettingsClick,
                     onWhatsAppOptionChanged = onWhatsAppOptionChanged,
                     onClearCacheClick = onClearCacheClick
                 )
@@ -282,6 +287,7 @@ private fun SettingsCard(
     state: ProfileUiState,
     cacheSizeText: String,
     onReminderSettingsClick: () -> Unit,
+    onSyncSettingsClick: () -> Unit,
     onWhatsAppOptionChanged: (Boolean) -> Unit,
     onClearCacheClick: () -> Unit
 ) {
@@ -311,6 +317,33 @@ private fun SettingsCard(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = rememberReminderSettingsSummary(state.reminderSettings),
+                        color = ProfileMutedText,
+                        style = MaterialTheme.typography.caption
+                    )
+                }
+            }
+
+            Divider(color = ProfileCardLine)
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onSyncSettingsClick)
+                    .padding(horizontal = 18.dp, vertical = 18.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                ProfileVectorBadge(imageVector = Icons.Default.Refresh)
+                Spacer(modifier = Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Sync Master Data",
+                        color = Color.White,
+                        style = MaterialTheme.typography.body1,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Atur interval dan sinkronisasi manual Google Sheets",
                         color = ProfileMutedText,
                         style = MaterialTheme.typography.caption
                     )
@@ -561,7 +594,9 @@ fun PreviewProfileScreen() {
             state = dummyProfileUiState,
             bannerState = bannerState,
             modifier = Modifier.padding(padding),
-            onReminderSettingsClick = {}
+            onReminderSettingsClick = {},
+            onSyncSettingsClick = {}
         )
     }
 }
+

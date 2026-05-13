@@ -7,6 +7,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 ## Current Contract
 
 - `GET /api/orders` supports paging plus `filter`, `startDate`, `endDate`, `searchQuery`, and `sort`.
+- `GET /api/health` returns a lightweight success payload for app startup backend availability checks.
 - `GET /api/orders/{id}` returns one order for edit flows.
 - `GET /api/orders/last-id` remains available as a legacy/debug route, but Android Add Order no longer depends on it.
 - `POST /api/orders` assigns the next order id on the backend and returns `status`, `message`, and `orderId`.
@@ -30,9 +31,15 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - The batch Sheets job now processes unsynced orders, outcomes, and packages through the normal repository/service path. It should still be enabled only when the target spreadsheet configuration is intentionally set.
 - Outcome and package deletes clear matching Sheets rows only when backend Sheets config is available. The database mutation remains the app-facing success boundary.
 - Package name is the current stable external identifier for package update/delete. Android sends the original package name in the route and the edited package data in the body so rename flows can update the same database row.
+- `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
 
 ## Android Decisions
 
+- Android resolves the active backend API root from Firebase Remote Config at startup, falling back to the build-time `BASE_URL` when Remote Config is blank or invalid.
+- Remote Config keys are `api_base_url`, `api_maintenance_enabled`, `api_maintenance_message`, and `api_config_version`.
+- Remote `api_base_url` values must be HTTPS. A host-only URL is normalized to `/api`; explicit API paths are preserved.
+- Android checks `/health` under each candidate API root. If Remote Config URL fails, the build-time fallback URL is checked before the failure UI is shown.
+- The startup unavailable screen appears only when Remote Config explicitly enables maintenance or when all health candidates fail.
 - Android submits new orders without prefetching an id. The created id comes from the backend `POST /api/orders` response.
 - Android submits new outcomes without prefetching an id. The created id comes from the backend `POST /api/outcomes` response.
 - Query parameters are sent through Ktor request parameters instead of manual URL string assembly.

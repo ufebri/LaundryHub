@@ -1,9 +1,11 @@
 package com.raylabs.laundryhub.backend.service
 
 import com.google.auth.oauth2.GoogleCredentials
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
+import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
@@ -232,6 +234,113 @@ class SheetsSyncService {
             }
         } catch (e: Exception) {
             logger.error("Error fetching orders from sheets: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun fetchOutcomesFromSheet(spreadsheetId: String): List<OutcomeData> = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "outcome"
+            val response = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A2:F", token)
+            val values = response.values ?: return@withContext emptyList()
+
+            values.mapNotNull { row ->
+                try {
+                    OutcomeData(
+                        id = row.getOrNull(0) ?: "",
+                        date = row.getOrNull(1) ?: "",
+                        purpose = row.getOrNull(2) ?: "",
+                        price = row.getOrNull(3) ?: "",
+                        remark = row.getOrNull(4) ?: "",
+                        payment = row.getOrNull(5) ?: ""
+                    ).takeIf { it.id.isNotBlank() }
+                } catch (e: Exception) {
+                    logger.warn("Skipping invalid row: $row")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error fetching outcomes from sheets: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun fetchPackagesFromSheet(spreadsheetId: String): List<PackageData> = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "notes"
+            // Usually starts at B for packages
+            val response = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A2:D", token)
+            val values = response.values ?: return@withContext emptyList()
+
+            values.mapNotNull { row ->
+                try {
+                    PackageData(
+                        price = row.getOrNull(0) ?: "",
+                        name = row.getOrNull(1) ?: "",
+                        duration = row.getOrNull(2) ?: "",
+                        unit = row.getOrNull(3) ?: "Kg" // Defaulting to Kg if missing
+                    ).takeIf { it.name.isNotBlank() }
+                } catch (e: Exception) {
+                    logger.warn("Skipping invalid row: $row")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error fetching packages from sheets: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun fetchGrossFromSheet(spreadsheetId: String): List<GrossData> = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "gross"
+            val response = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A2:D", token)
+            val values = response.values ?: return@withContext emptyList()
+
+            values.mapNotNull { row ->
+                if (row.isEmpty()) return@mapNotNull null
+                try {
+                    GrossData(
+                        month = row.getOrNull(0) ?: "",
+                        totalNominal = row.getOrNull(1) ?: "",
+                        orderCount = row.getOrNull(2) ?: "",
+                        tax = row.getOrNull(3) ?: ""
+                    ).takeIf { it.month.isNotBlank() }
+                } catch (e: Exception) {
+                    logger.warn("Skipping invalid row: $row")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error fetching gross from sheets: ${e.message}")
+            emptyList()
+        }
+    }
+
+    suspend fun fetchSummaryFromSheet(spreadsheetId: String): List<SpreadsheetData> = withContext(Dispatchers.IO) {
+        try {
+            val token = getServiceAccountToken()
+            val sheetName = "summary"
+            val response = sheetsApiClient.getValues(spreadsheetId, "$sheetName!A2:B", token)
+            val values = response.values ?: return@withContext emptyList()
+
+            values.mapNotNull { row ->
+                if (row.isEmpty()) return@mapNotNull null
+                try {
+                    SpreadsheetData(
+                        key = row.getOrNull(0) ?: "",
+                        value = row.getOrNull(1) ?: ""
+                    ).takeIf { it.key.isNotBlank() }
+                } catch (e: Exception) {
+                    logger.warn("Skipping invalid row: $row")
+                    null
+                }
+            }
+        } catch (e: Exception) {
+            logger.error("Error fetching summary from sheets: ${e.message}")
             emptyList()
         }
     }

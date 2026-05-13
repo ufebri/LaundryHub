@@ -66,6 +66,10 @@ import com.raylabs.laundryhub.ui.profile.ProfileScreenView
 import com.raylabs.laundryhub.ui.profile.inventory.InventoryScreenView
 import com.raylabs.laundryhub.ui.reminder.ReminderInboxScreen
 import com.raylabs.laundryhub.ui.reminder.ReminderIntroScreen
+import com.raylabs.laundryhub.ui.startup.StartupConnectionScreen
+import com.raylabs.laundryhub.ui.startup.StartupConnectionUiState
+import com.raylabs.laundryhub.ui.startup.StartupConnectionViewModel
+import com.raylabs.laundryhub.ui.sync.SyncSettingsScreen
 import com.raylabs.laundryhub.ui.theme.modalSheetTop
 import dagger.hilt.android.EntryPointAccessors
 import kotlinx.coroutines.CancellationException
@@ -77,9 +81,11 @@ private const val INVENTORY_ROUTE = "inventory"
 private const val GROSS_ROUTE = "gross"
 private const val REMINDER_INTRO_ROUTE = "reminder_intro"
 private const val REMINDER_INBOX_ROUTE = "reminder_inbox"
+private const val SYNC_SETTINGS_ROUTE = "sync_settings"
 
 @Composable
 fun AppRoot(
+    startupConnectionViewModel: StartupConnectionViewModel = hiltViewModel(),
     loginViewModel: LoginViewModel = hiltViewModel(),
     googleCredentialAuthManager: GoogleCredentialAuthManager =
         EntryPointAccessors.fromApplication(
@@ -89,11 +95,20 @@ fun AppRoot(
     notificationDestination: String? = null,
     onNotificationDestinationHandled: () -> Unit = {}
 ) {
+    val startupConnectionState by startupConnectionViewModel.uiState.collectAsState()
     val user by loginViewModel.userState.collectAsState()
     val isLoading by loginViewModel.isLoading.collectAsState()
     val context = LocalContext.current
     val activity = context as? Activity
     val scope = rememberCoroutineScope()
+
+    if (startupConnectionState !is StartupConnectionUiState.Ready) {
+        StartupConnectionScreen(
+            uiState = startupConnectionState,
+            onCheckAgain = startupConnectionViewModel::checkAgain
+        )
+        return
+    }
 
     when {
         isLoading -> {
@@ -340,6 +355,11 @@ fun LaundryHubStarter(
                             navController.navigate(REMINDER_INTRO_ROUTE) {
                                 launchSingleTop = true
                             }
+                        },
+                        onSyncSettingsClick = {
+                            navController.navigate(SYNC_SETTINGS_ROUTE) {
+                                launchSingleTop = true
+                            }
                         }
                     )
                 }
@@ -369,6 +389,11 @@ fun LaundryHubStarter(
                     ReminderInboxScreen(
                         onBack = { navController.popBackStack() },
                         onOpenOrder = ::openReminderOrder
+                    )
+                }
+                composable(SYNC_SETTINGS_ROUTE) {
+                    SyncSettingsScreen(
+                        onNavigateBack = { navController.popBackStack() }
                     )
                 }
             }

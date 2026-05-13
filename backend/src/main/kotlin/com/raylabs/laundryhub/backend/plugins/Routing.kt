@@ -9,9 +9,11 @@ import com.raylabs.laundryhub.backend.routes.grossRoutes
 import com.raylabs.laundryhub.backend.routes.outcomeRoutes
 import com.raylabs.laundryhub.backend.routes.packageRoutes
 import com.raylabs.laundryhub.backend.routes.summaryRoutes
+import com.raylabs.laundryhub.backend.routes.syncRoutes
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
@@ -33,6 +35,7 @@ private val logger = LoggerFactory.getLogger("Routing")
 
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
+    val syncStateManager = SyncStateManager()
     val orderRepository = OrderRepository()
     val packageRepository = PackageRepository()
     val outcomeRepository = OutcomeRepository()
@@ -41,23 +44,36 @@ fun Application.configureRouting() {
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
     val spreadsheetId = configuredSpreadsheetId()
 
+    var batchSyncJob: SheetsBatchSyncJob? = null
+    var reverseSyncJob: SheetsReverseSyncJob? = null
+
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
         if (spreadsheetId == null) {
             logger.info("Sheets sync jobs disabled: SPREADSHEET_ID is not configured.")
         } else {
             // Job 1: DB -> Sheets (Every 15 mins)
-            val syncJob = SheetsBatchSyncJob(
+            batchSyncJob = SheetsBatchSyncJob(
                 orderRepository = orderRepository,
                 outcomeRepository = outcomeRepository,
                 packageRepository = packageRepository,
                 syncService = syncService,
-                spreadsheetId = spreadsheetId
+                spreadsheetId = spreadsheetId,
+                syncStateManager = syncStateManager
             )
-            syncJob.start()
+            batchSyncJob.start()
 
             // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
-            val reverseSyncJob = SheetsReverseSyncJob(orderRepository, syncService, spreadsheetId)
+            reverseSyncJob = SheetsReverseSyncJob(
+                orderRepository = orderRepository,
+                outcomeRepository = outcomeRepository,
+                packageRepository = packageRepository,
+                grossRepository = grossRepository,
+                summaryRepository = summaryRepository,
+                syncService = syncService,
+                spreadsheetId = spreadsheetId,
+                syncStateManager = syncStateManager
+            )
             reverseSyncJob.start()
         }
     }
@@ -69,8 +85,21 @@ fun Application.configureRouting() {
         grossRoutes(grossRepository, sheetsApiClient, migrationRoutesEnabled)
         summaryRoutes(summaryRepository, sheetsApiClient, migrationRoutesEnabled)
         
+        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob)
+        
         get("/") {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))
+        }
+
+        get("/api/health") {
+            call.respond(
+                HttpStatusCode.OK,
+                mapOf(
+                    "status" to "OK",
+                    "service" to "LaundryHub",
+                    "message" to "Ready"
+                )
+            )
         }
 
         // --- CRUD Endpoints for Orders ---

@@ -33,6 +33,28 @@ class GrossRepository {
         updatedCount > 0
     }
 
+    suspend fun upsert(gross: GrossData): Boolean = dbQuery {
+        val existing = GrossTable.select { GrossTable.month eq gross.month }.singleOrNull()
+        if (existing != null) {
+            val updatedCount = GrossTable.update({ GrossTable.month eq gross.month }) {
+                it[totalNominal] = gross.totalNominal
+                it[orderCount] = gross.orderCount
+                it[tax] = gross.tax
+                it[isSynced] = true
+            }
+            updatedCount > 0
+        } else {
+            val statement = GrossTable.insertIgnore {
+                it[month] = gross.month
+                it[totalNominal] = gross.totalNominal
+                it[orderCount] = gross.orderCount
+                it[tax] = gross.tax
+                it[isSynced] = true
+            }
+            statement.insertedCount > 0
+        }
+    }
+
     suspend fun delete(monthId: String): Boolean = dbQuery {
         val deletedCount = GrossTable.deleteWhere { month eq monthId }
         deletedCount > 0

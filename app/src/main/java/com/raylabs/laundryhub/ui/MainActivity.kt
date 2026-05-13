@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +18,8 @@ import com.raylabs.laundryhub.core.domain.usecase.reminder.EnsureReminderSchedul
 import com.raylabs.laundryhub.core.domain.usecase.update.CheckAppUpdateUseCase
 import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
+import com.raylabs.laundryhub.ui.startup.StartupConnectionUiState
+import com.raylabs.laundryhub.ui.startup.StartupConnectionViewModel
 import com.raylabs.laundryhub.ui.theme.LaundryHubTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -31,18 +34,26 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var ensureReminderScheduleUseCase: EnsureReminderScheduleUseCase
 
+    private val startupConnectionViewModel: StartupConnectionViewModel by viewModels()
+
     private var hasCheckedUpdate = false
     private var pendingNotificationDestination by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        installSplashScreen()
+        val splashScreen = installSplashScreen()
+        
+        splashScreen.setKeepOnScreenCondition {
+            startupConnectionViewModel.uiState.value is StartupConnectionUiState.Checking
+        }
+
         pendingNotificationDestination = extractReminderDestination(intent)
 
         enableEdgeToEdge()
         setContent {
             LaundryHubTheme {
                 AppRoot(
+                    startupConnectionViewModel = startupConnectionViewModel,
                     notificationDestination = pendingNotificationDestination,
                     onNotificationDestinationHandled = {
                         pendingNotificationDestination = null

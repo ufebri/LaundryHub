@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.core.data.repository
 
 import com.raylabs.laundryhub.BuildConfig
+import com.raylabs.laundryhub.core.data.config.StaticBackendConfigProvider
+import com.raylabs.laundryhub.core.domain.config.BackendConfigProvider
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOutcomeResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
@@ -10,6 +12,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
@@ -34,24 +39,37 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import javax.inject.Inject
 
-class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
+class LaundryRepositoryImpl(
+    private val backendConfigProvider: BackendConfigProvider =
+        StaticBackendConfigProvider(BuildConfig.BASE_URL)
+) : LaundryRepository {
 
     private var client: HttpClient = HttpClientProvider.createClient()
-    private var baseUrl = BuildConfig.BASE_URL
 
-    internal constructor(client: HttpClient, baseUrl: String) : this() {
+    internal constructor(client: HttpClient, baseUrl: String) : this(
+        StaticBackendConfigProvider(baseUrl)
+    ) {
         this.client = client
-        this.baseUrl = baseUrl
+    }
+
+    internal constructor(
+        client: HttpClient,
+        backendConfigProvider: BackendConfigProvider
+    ) : this(backendConfigProvider) {
+        this.client = client
     }
 
     override suspend fun readSummaryTransaction(): Resource<List<SpreadsheetData>> = safeApiCall {
-        client.get("$baseUrl/summary").body()
+        client.get(endpoint("summary")).body()
     }
 
     override suspend fun readGrossData(page: Int?, size: Int?): Resource<List<GrossData>> = safeApiCall {
-        val url = if (page != null && size != null) "$baseUrl/gross?page=$page&size=$size" else "$baseUrl/gross"
+        val url = if (page != null && size != null) {
+            endpoint("gross?page=$page&size=$size")
+        } else {
+            endpoint("gross")
+        }
         client.get(url).body()
     }
 
@@ -65,7 +83,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
             else -> null
         }
         
-        client.get("$baseUrl/orders") {
+        client.get(endpoint("orders")) {
             page?.let { parameter("page", it) }
             size?.let { parameter("size", it) }
             filterParam?.let { parameter("filter", it) }
@@ -77,11 +95,11 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun readPackageData(): Resource<List<PackageData>> = safeApiCall {
-        client.get("$baseUrl/packages").body()
+        client.get(endpoint("packages")).body()
     }
 
     override suspend fun addPackage(packageData: PackageData): Resource<Boolean> = safeApiCall {
-        client.post("$baseUrl/packages") {
+        client.post(endpoint("packages")) {
             contentType(ContentType.Application.Json)
             setBody(packageData)
         }.requireSuccessfulResponse()
@@ -89,7 +107,7 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun updatePackage(packageName: String, packageData: PackageData): Resource<Boolean> = safeApiCall {
-        client.put("$baseUrl/packages/${packageName.encodeURLPathPart()}") {
+        client.put(endpoint("packages/${packageName.encodeURLPathPart()}")) {
             contentType(ContentType.Application.Json)
             setBody(packageData)
         }.requireSuccessfulResponse()
@@ -97,14 +115,14 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun deletePackage(packageName: String): Resource<Boolean> = safeApiCall {
-        client.delete("$baseUrl/packages/${packageName.encodeURLPathPart()}").requireSuccessfulResponse()
+        client.delete(endpoint("packages/${packageName.encodeURLPathPart()}")).requireSuccessfulResponse()
         true
     }
 
     override suspend fun readOtherPackage(): Resource<List<String>> = Resource.Success(emptyList())
 
     override suspend fun addOrder(order: OrderData): Resource<String> = safeApiCall {
-        val response = client.post("$baseUrl/orders") {
+        val response = client.post(endpoint("orders")) {
             contentType(ContentType.Application.Json)
             setBody(order)
         }
@@ -113,11 +131,11 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun getOrderById(orderId: String): Resource<TransactionData> = safeApiCall {
-        client.get("$baseUrl/orders/$orderId").body()
+        client.get(endpoint("orders/$orderId")).body()
     }
 
     override suspend fun updateOrder(order: OrderData): Resource<Boolean> = safeApiCall {
-        client.put("$baseUrl/orders/${order.orderId}") {
+        client.put(endpoint("orders/${order.orderId}")) {
             contentType(ContentType.Application.Json)
             setBody(order)
         }.requireSuccessfulResponse()
@@ -125,17 +143,21 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun deleteOrder(orderId: String): Resource<Boolean> = safeApiCall {
-        client.delete("$baseUrl/orders/$orderId").requireSuccessfulResponse()
+        client.delete(endpoint("orders/$orderId")).requireSuccessfulResponse()
         true
     }
 
     override suspend fun readOutcomeTransaction(page: Int?, size: Int?): Resource<List<OutcomeData>> = safeApiCall {
-        val url = if (page != null && size != null) "$baseUrl/outcomes?page=$page&size=$size" else "$baseUrl/outcomes"
+        val url = if (page != null && size != null) {
+            endpoint("outcomes?page=$page&size=$size")
+        } else {
+            endpoint("outcomes")
+        }
         client.get(url).body()
     }
 
     override suspend fun addOutcome(outcome: OutcomeData): Resource<String> = safeApiCall {
-        val response = client.post("$baseUrl/outcomes") {
+        val response = client.post(endpoint("outcomes")) {
             contentType(ContentType.Application.Json)
             setBody(outcome)
         }
@@ -144,11 +166,11 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun getLastOutcomeId(): Resource<String> = safeApiCall {
-        parseLastId(client.get("$baseUrl/outcomes/last-id").bodyAsText())
+        parseLastId(client.get(endpoint("outcomes/last-id")).bodyAsText())
     }
 
     override suspend fun updateOutcome(outcome: OutcomeData): Resource<Boolean> = safeApiCall {
-        client.put("$baseUrl/outcomes/${outcome.id}") {
+        client.put(endpoint("outcomes/${outcome.id}")) {
             contentType(ContentType.Application.Json)
             setBody(outcome)
         }.requireSuccessfulResponse()
@@ -156,12 +178,32 @@ class LaundryRepositoryImpl @Inject constructor() : LaundryRepository {
     }
 
     override suspend fun getOutcomeById(outcomeId: String): Resource<OutcomeData> = safeApiCall {
-        client.get("$baseUrl/outcomes/$outcomeId").body()
+        client.get(endpoint("outcomes/$outcomeId")).body()
     }
 
     override suspend fun deleteOutcome(outcomeId: String): Resource<Boolean> = safeApiCall {
-        client.delete("$baseUrl/outcomes/$outcomeId").requireSuccessfulResponse()
+        client.delete(endpoint("outcomes/$outcomeId")).requireSuccessfulResponse()
         true
+    }
+
+    override suspend fun getSyncStatus(): Resource<SyncStatusResponse> = safeApiCall {
+        client.get(endpoint("sync/status")).body()
+    }
+
+    override suspend fun updateSyncConfig(request: SyncConfigUpdateRequest): Resource<Boolean> = safeApiCall {
+        client.put(endpoint("sync/config")) {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.requireSuccessfulResponse()
+        true
+    }
+
+    override suspend fun triggerManualSync(): Resource<SyncTriggerResponse> = safeApiCall {
+        client.post(endpoint("sync/trigger")).body()
+    }
+
+    private suspend fun endpoint(path: String): String {
+        return "${backendConfigProvider.currentBaseUrl().trimEnd('/')}/${path.trimStart('/')}"
     }
 
     private suspend fun <T> safeApiCall(block: suspend () -> T): Resource<T> = withContext(Dispatchers.IO) {

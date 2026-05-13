@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.shared.network
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
@@ -13,6 +14,11 @@ object HttpClientProvider {
 
     fun createClient(enableLogging: Boolean = true): HttpClient {
         return HttpClient {
+            install(HttpTimeout) {
+                requestTimeoutMillis = 60000L // 60 seconds
+                connectTimeoutMillis = 60000L
+                socketTimeoutMillis = 60000L
+            }
             install(ContentNegotiation) {
                 json(Json {
                     prettyPrint = true

@@ -16,6 +16,7 @@ This project provides a technical reconstruction of the LaundryHub Android UI in
 | Transaction History | `fbe394496bd346da8dc62271e004736c` | Grouped date headers, Status badges, Rounded search bar. |
 | Profile Screen | `c700a9dfebbf4ab0971ff2d11439fa29` | Dark themed cards (#31284B / #43365F) against light background. |
 | New Order Bottom Sheet | `888a65f2b1b94e3b819c086c532f75e9` | 24px top-rounded sheet, Scrim overlay, Chip selectors. |
+| Startup Connection / Maintenance | `ba0cb3352b9c49dd8720389c5a68e695` | Startup-only backend check with calm unavailable state and manual check action. |
 
 ## Key Implementation Notes (Mirroring)
 1. **Layout Logic:** The "Stacked Card" philosophy is maintained, ensuring vertical gaps and elevation match the Compose implementation.
