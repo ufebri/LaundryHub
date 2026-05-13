@@ -1,0 +1,12 @@
+ktor:
+    deployment:
+        port: 8080
+    application:
+        modules:
+            - com.raylabs.laundryhub.backend.ApplicationKt.module
+
+storage:
+    jdbcUrl: "jdbc:postgresql://localhost:5432/laundryhub"
+    driverClassName: "org.postgresql.Driver"
+    username: "postgres"
+    password: "password"

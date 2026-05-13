@@ -1,46 +1,31 @@
-# Outcome UI
-
-Status: active living brief
-Last updated: 2026-04-19
-Primary area: `ui/outcome`
+# Outcome Flow Brief
 
 ## Goal
 
-Keep Outcome entry management simple by letting one tap open shared actions while preserving the existing outcome bottom sheet for edit and create.
+Outcome should behave like Order: the backend owns ids, Android gives success feedback as soon as the write succeeds, and slow follow-up refresh work should not make a confirmed create/update/delete feel failed.
 
 ## Current Behavior
 
-Outcome rows still use the current `OutcomeBottomSheet` for editing, but the entry tap flow is now broader.
-
-The current Outcome flow now:
-
-- opens an in-screen action sheet when an outcome entry is tapped
-- offers `Update outcome` and `Delete outcome` from the same reusable action surface used by History
-- routes `Update outcome` back into the existing `OutcomeBottomSheet`
-- shows a shared delete confirmation sheet before removing the outcome row from the spreadsheet
-- uses a visible delete icon fallback inside the confirmation sheet when no delete-specific Lottie asset is provided
-- refreshes the outcome list and last generated outcome id after submit, update, and delete
-- asks Home to refresh summary and gross data after outcome-side mutations
-- uses `strings.xml` for new success, error, and confirmation messages
+- Add Outcome opens from the Outcome tab as an in-screen bottom sheet with the current screen still visible behind the scrim.
+- New outcomes are submitted with a blank id. `POST /api/outcomes` assigns the next id and returns it as `outcomeId`.
+- Submit, update, and delete success callbacks run after the backend write succeeds. The list refresh runs afterward as silent follow-up work.
+- Delete hides the removed outcome id locally so the row disappears immediately after backend success while Paging catches up.
+- The FAB is hidden while the outcome sheet is visible so the sheet covers the same visual area as the Add Order flow.
 
 ## Important Decisions
 
-- the reusable part is the action UX, not the repository delete pipeline
-- Outcome keeps its own edit form owner and delete use case so the income and outcome data paths stay independent
-- the action surfaces stay app-owned inside the current screen instead of opening dialog-like window layers
-
-## Related Files
-
-- [OutcomeScreenView.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/outcome/OutcomeScreenView.kt)
-- [OutcomeViewModel.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/outcome/OutcomeViewModel.kt)
-- [TransactionEntryActionSheet.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/component/TransactionEntryActionSheet.kt)
-- [GoogleSheetRepositoryImpl.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/core/data/repository/GoogleSheetRepositoryImpl.kt)
+- Android does not call `GET /api/outcomes/last-id` to create a new outcome. That route remains for legacy/debug use only.
+- Write success and refresh failure are separate outcomes. The user should see the write result promptly, and any later refresh issue should be handled as a refresh problem.
+- The sheet stays inside the Compose hierarchy instead of using a custom window-backed dialog, matching the modal surface direction used by Order.
+- Backend Sheets sync for outcomes goes through the batch sync service when spreadsheet config is enabled.
 
 ## Verification
 
-These commands passed after the change:
+- `./gradlew :app:testDebugUnitTest :backend:test --no-daemon`
+- `./gradlew :shared:jvmTest --no-daemon`
+- `./gradlew assembleRelease --no-daemon`
 
-```bash
-./gradlew testDebugUnitTest --no-daemon
-./gradlew assembleDebug --no-daemon
-```
+## Follow-ups
+
+- Add or rerun guarded mutating Outcome E2E against a confirmed sandbox backend/database.
+- Capture outcome create/update/delete macrobenchmark numbers only after the same device/build/backend target is stable.

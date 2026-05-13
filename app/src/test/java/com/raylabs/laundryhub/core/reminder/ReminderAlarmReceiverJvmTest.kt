@@ -9,7 +9,7 @@ import com.raylabs.laundryhub.core.domain.model.reminder.ReminderCandidate
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
-import com.raylabs.laundryhub.ui.common.util.Resource
+import com.raylabs.laundryhub.shared.util.Resource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -1,53 +1,27 @@
-# Order UI
-
-Status: active living brief
-Last updated: 2026-04-19
-Primary area: `ui/order`
-
-## Goal
-
-Keep the order entry and update sheet usable in dark mode without relying on platform popup surfaces that can render visible corner artifacts.
+# Order Flow Brief
 
 ## Current Behavior
 
-The order bottom sheet now uses lighter in-form selectors:
-
-- `Package` uses horizontal selectable cards
-- `Payment Method` uses horizontal single-select chips
-
-The current order flow now:
-
-- keeps `Order Date` on the existing date picker field
-- shows `Package` as horizontally scrollable cards with friendlier supporting text so the user can compare starting price and turnaround at a glance
-- uses a clearer package card hierarchy:
-  - line 1: package name
-  - line 2 left: base rate such as `Rp10.000/kg`
-  - line 2 right: turnaround badge such as `6 jam` or `3 hari`
-- keeps the package cards horizontal, but gives them a little more height so longer package names still feel tidy
-- uses a small `Base rate ...` helper directly under the package row so the selected package context stays visible in the form
-- keeps the currently selected package visible in the form after selection
-- shows `Payment Method` as horizontally scrollable choice chips inside the form
-- makes selected payment chips use higher-contrast text so the active state is easier to read
-- keeps the whole interaction in one form surface without opening a second popup or pseudo-page
-- reflects package master updates coming from Inventory package CRUD, because order selection still reads from the shared spreadsheet-backed package list
+- Add Order opens from the main app shell as an in-screen bottom sheet.
+- The form collects package data, price, payment status, order date, due date, and optional WhatsApp follow-up without pre-allocating an order id on Android.
+- On submit, Android sends the order payload to `POST /api/orders` with an empty order id. The backend assigns the next order id and returns it in the response.
+- After submit succeeds, the app shows success feedback, dismisses the sheet, and starts the Home refresh in the background.
 
 ## Important Decisions
 
-- platform popup dropdowns are no longer the preferred pattern for order form selection because the dark-mode result was inconsistent across devices
-- `Package` uses cards instead of chips because the package choice needs more context than a short label
-- package cards now preserve the package `unit` from sheet data so the rate can be shown as `price/unit` inside the selection UI
-- Inventory package CRUD intentionally affects future order selection only; past order history still keeps the package text that was already saved at the time
-- `Payment Method` uses chips because the option count is small and the labels are short enough to scan quickly
-- shared selection building blocks now live in `ui/component/SelectionControls.kt`
-
-## Related Files
-
-- [OrderBottomSheetScreen.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/order/OrderBottomSheetScreen.kt)
-- [SelectionControls.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/component/SelectionControls.kt)
-- [OutcomeBottomSheet.kt](/Users/ray/StudioProjects/LaundryHub/app/src/main/java/com/raylabs/laundryhub/ui/component/OutcomeBottomSheet.kt)
+- Submit success should not wait for Home summary or unpaid-order refresh work.
+- Write success and refresh failure stay separate. A submitted order should not feel failed just because a later Home refresh is slow.
+- Android continues to go through the KMP backend. It should not read Supabase tables directly.
+- Order id ownership belongs to the backend create path, not the Android form. This avoids stale local ids when multiple devices create orders around the same time.
+- The backend keeps the current string id schema for Sheets compatibility, but serializes id allocation inside the database transaction with a Postgres advisory lock.
 
 ## Verification
 
-```bash
-./gradlew assembleDebug --no-daemon
-```
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.order.OrderViewModelTest --no-daemon`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.core.data.repository.LaundryRepositoryImplTest --no-daemon`
+- `./gradlew :backend:test --no-daemon`
+
+## Follow-ups
+
+- Rerun the Add Order macrobenchmark once the connected device is charged enough for AndroidX Benchmark.
+- Longer term, consider a dedicated database sequence or numeric internal id if the legacy string order id no longer needs to stay Sheets-compatible.

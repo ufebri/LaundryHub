@@ -15,16 +15,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.raylabs.laundryhub.R
-import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormat
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.isSubmitEnabled
 import com.raylabs.laundryhub.ui.outcome.state.isUpdateEnabled
 import com.raylabs.laundryhub.ui.theme.modalSheetTop
+
+const val OUTCOME_SHEET_DESCRIPTION = "Outcome sheet"
+const val OUTCOME_DATE_FIELD_DESCRIPTION = "Outcome date field"
+const val OUTCOME_PURPOSE_FIELD_DESCRIPTION = "Outcome purpose field"
+const val OUTCOME_PRICE_FIELD_DESCRIPTION = "Outcome price field"
+const val OUTCOME_REMARK_FIELD_DESCRIPTION = "Outcome remark field"
+const val OUTCOME_SUBMIT_BUTTON_DESCRIPTION = "Submit outcome"
+const val OUTCOME_UPDATE_BUTTON_DESCRIPTION = "Update outcome"
 
 @Composable
 fun OutcomeBottomSheet(
@@ -35,12 +44,16 @@ fun OutcomeBottomSheet(
     onRemarkChanged: (String) -> Unit = {},
     onDateSelected: (String) -> Unit = {},
     onUpdate: () -> Unit = {},
-    onSubmit: () -> Unit = {}
+    onSubmit: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .wrapContentHeight(unbounded = true)
+            .semantics {
+                contentDescription = OUTCOME_SHEET_DESCRIPTION
+            }
             .background(
                 color = MaterialTheme.colors.surface,
                 shape = MaterialTheme.shapes.modalSheetTop
@@ -60,7 +73,11 @@ fun OutcomeBottomSheet(
             label = stringResource(R.string.Date),
             value = state.date,
             onDateSelected = onDateSelected,
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = OUTCOME_DATE_FIELD_DESCRIPTION
+                }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -73,29 +90,32 @@ fun OutcomeBottomSheet(
                 imeAction = ImeAction.Next
             ),
             label = { Text(stringResource(R.string.purpose)) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = OUTCOME_PURPOSE_FIELD_DESCRIPTION
+                }
         )
 
         Spacer(modifier = Modifier.height(8.dp))
 
         OutlinedTextField(
-            value = state.price.removeRupiahFormat(),
+            value = state.price.filter { it.isDigit() },
             onValueChange = { input ->
-                val rawDigits = input.filter { it.isDigit() }.take(7)
+                val rawDigits = input.filter { it.isDigit() }.take(10)
                 onPriceChanged(rawDigits)
             },
             keyboardOptions = KeyboardOptions.Default.copy(
                 imeAction = ImeAction.Next,
                 keyboardType = KeyboardType.Number
             ),
+            visualTransformation = com.raylabs.laundryhub.ui.common.util.CurrencyVisualTransformation(),
             label = { Text(stringResource(R.string.price)) },
-            modifier = Modifier.fillMaxWidth(),
-            leadingIcon = {
-                Text("Rp", modifier = Modifier.padding(start = 4.dp))
-            },
-            trailingIcon = {
-                Text(",-", modifier = Modifier.padding(end = 4.dp))
-            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = OUTCOME_PRICE_FIELD_DESCRIPTION
+                },
             singleLine = true
         )
 
@@ -115,7 +135,11 @@ fun OutcomeBottomSheet(
             value = state.remark,
             onValueChange = { if (it.length <= 30) onRemarkChanged(it) },
             label = { Text(stringResource(R.string.remark)) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .semantics {
+                    contentDescription = OUTCOME_REMARK_FIELD_DESCRIPTION
+                },
             singleLine = true
         )
 
@@ -129,7 +153,14 @@ fun OutcomeBottomSheet(
                 state.isSubmitEnabled && !state.isSubmitting,
             isSubmitting = state.isSubmitting,
             onSubmit = onSubmit,
-            onUpdate = onUpdate
+            onUpdate = onUpdate,
+            modifier = Modifier.semantics {
+                contentDescription = if (state.isEditMode) {
+                    OUTCOME_UPDATE_BUTTON_DESCRIPTION
+                } else {
+                    OUTCOME_SUBMIT_BUTTON_DESCRIPTION
+                }
+            }
         )
     }
 }

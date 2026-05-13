@@ -75,6 +75,7 @@ android {
             ]
             buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdRelease))
             buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdRelease))
+            buildConfigField("String", "BASE_URL", escapeBuildConfigValue(readConfigValue("BASE_URL_RELEASE")))
         }
         debug {
             minifyEnabled false
@@ -84,6 +85,7 @@ android {
             ]
             buildConfigField("String", "ADMOB_APP_ID", escapeBuildConfigValue(admobAppIdDebug))
             buildConfigField("String", "ADMOB_BANNER_AD_UNIT_ID", escapeBuildConfigValue(admobBannerAdUnitIdDebug))
+            buildConfigField("String", "BASE_URL", escapeBuildConfigValue(readConfigValue("BASE_URL_DEBUG")))
         }
         benchmark {
             initWith release
@@ -142,7 +144,7 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.register("jacocoTestReport", JacocoReport) {
-    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac"
+    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac", ":shared:jacocoTestReport"
 
     reports {
         xml.required = true
@@ -150,102 +152,57 @@ tasks.register("jacocoTestReport", JacocoReport) {
         csv.required = false
     }
 
-    // === Pola include/exclude: fokus ke app code ===
-    def includes = [
-            'com/raylabs/laundryhub/**'
-    ]
+    def includes = ['com/raylabs/laundryhub/**']
     def excludes = [
-            // generated/boilerplate
-            '**/R.class', '**/R$*.class',
-            '**/BuildConfig.*',
-            '**/Manifest*.*',
-            '**/*$ViewInjector*.*',
-            '**/*$ViewBinder*.*',
-            '**/androidx/**/*.*',
-
-            // UI yang mau kamu singkirkan dari coverage
-            '**/*Activity.*', '**/*Activity$*.*',
-            '**/*Fragment.*', '**/*Fragment$*.*',
-            '**/*Adapter.*',  '**/*Adapter$*.*',
-            // UI composables/screens (keep ViewModel/state coverage)
+            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*',
+            '**/*Activity*.*', '**/*Fragment*.*', '**/*Adapter*.*', '**/*Receiver*.*',
+            '**/LaundryHubApp*.*',
             '**/com/raylabs/laundryhub/ui/**/MainActivity*.*',
             '**/com/raylabs/laundryhub/ui/**/LaundryHubStarter*.*',
             '**/com/raylabs/laundryhub/ui/**/*Screen*.*',
-            '**/com/raylabs/laundryhub/ui/**/*ScreenView*.*',
-            '**/com/raylabs/laundryhub/ui/**/*BottomSheet*.*',
             '**/com/raylabs/laundryhub/databinding/**',
-            '**/com/raylabs/laundryhub/data/source/local/room/**',
-            '**/com/raylabs/laundryhub/LaundryHubApp*',
-
-            // Tambahkan pola exclude lainnya sesuai kebutuhan
-            '**/com/raylabs/laundryhub/ui/component/**',
-            '**/com/raylabs/laundryhub/ui/theme/**',
             '**/com/raylabs/laundryhub/core/di/**',
-
-            // 🔽 library eksternal
-            'androidx/**',
-            'kotlin/**',
-            'kotlinx/**',
-            'com/google/**',
-            'com/squareup/**',
-            'coil/**',
-            'com/airbnb/**',
+            '**/Dagger*.*', '**/Hilt*.*', '**/*Hilt*.*', '**/*_Factory.*',
+            '**/*\$\$serializer.class', '**/\$Serializer.class'
     ]
 
-    // === Cari file .class di seluruh buildDir (lebih toleran untuk variasi AGP/Gradle di CI) ===
     def b = layout.buildDirectory.get().asFile
+    def sharedB = project(':shared').layout.buildDirectory.get().asFile
 
-    // 1) Semua direktori kelas yang umum untuk Kotlin/Java debug
-    def classDirTrees = [
+    classDirectories.from(files([
             fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/javac/debug/classes'), include: includes, exclude: excludes),
-            fileTree(dir: new File(b, 'intermediates/classes/debug'), include: includes, exclude: excludes)
-    ]
+            fileTree(dir: new File(sharedB, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes)
+    ]))
 
-    def allTrees = []
-    allTrees.addAll(classDirTrees)
-    // Do not add unit test output to avoid duplicate classes (e.g., Application)
+    sourceDirectories.from(files([
+            "${project.projectDir}/src/main/java",
+            "${project(':shared').projectDir}/src/commonMain/kotlin"
+    ]))
 
-    // Gunakan from(...) langsung agar Gradle tidak mengosongkan koleksi FileTree
-    classDirectories.from(allTrees)
-
-    // === Collect execution data for debug unit tests ===
-    def execFiles = files(
+    executionData.from(files([
             fileTree(dir: new File(b, 'jacoco'), include: ['testDebugUnitTest.exec']),
-            fileTree(dir: new File(b, 'outputs/unit_test_code_coverage/debugUnitTest'), include: ['**/*.ec'])
-    )
-    executionData.from(execFiles)
-
-    // Debug log
-    doFirst {
-        println "[jacoco] buildDir = ${b.absolutePath}"
-
-        println "[jacoco] class dir trees:"
-        classDirTrees.each { println " - DIR tree: ${it.dir} (exists=${it.dir.exists()}) files=${it.files.size()}" }
-
-        println "[jacoco] allTrees size = ${allTrees.size()} (dirTrees=${classDirTrees.size()})"
-        def total = 0
-        allTrees.each { ft -> total += ft.files.size() }
-        println "[jacoco] class files included = ${total}"
-
-        println "[jacoco] executionData files:"
-        execFiles.each { println " - EXEC: ${it.absolutePath} (exists=${it.exists()})" }
-    }
+            fileTree(dir: new File(sharedB, 'jacoco'), include: ['*.exec'])
+    ]))
 }
-
 
 jacoco {
     toolVersion = "0.8.11"
 }
 
 dependencies {
+    implementation project(':shared')
+    implementation "io.ktor:ktor-client-core:$ktor_version"
+    implementation "io.ktor:ktor-client-okhttp:$ktor_version"
+    implementation "io.ktor:ktor-client-content-negotiation:$ktor_version"
+    implementation "io.ktor:ktor-serialization-kotlinx-json:$ktor_version"
+
     implementation fileTree(dir: 'libs', include: ['*.jar'])
     //Need To Upgrade Gradle Plugin if we need to update the library
     implementation 'androidx.core:core-ktx:1.17.0'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.3.0'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.7.0'
+    androidTestImplementation 'androidx.test.uiautomator:uiautomator:2.3.0'
     androidTestImplementation "androidx.compose.ui:ui-test-junit4:$compose_version"
     implementation 'com.google.android.material:material:1.13.0'
 
@@ -277,23 +234,17 @@ dependencies {
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:31.0.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-config")
     implementation("com.google.firebase:firebase-crashlytics:20.0.4")
     implementation("com.google.firebase:firebase-appdistribution-api:16.0.0-beta17")
     implementation "androidx.credentials:credentials:1.3.0"
     implementation "androidx.credentials:credentials-play-services-auth:1.3.0"
     implementation "com.google.android.libraries.identity.googleid:googleid:1.1.1"
+    implementation 'com.google.android.gms:play-services-auth:21.1.1'
+    implementation 'com.google.code.gson:gson:2.11.0'
     // Google Mobile Ads SDK 24.1.0+ requires Kotlin 2.1.0, and 24.0.0 still pulls Kotlin 2.1 metadata.
     // Keep a Kotlin 1.9-compatible line until the project toolchain is upgraded.
     implementation "com.google.android.gms:play-services-ads:23.6.0"
-
-
-    // Google API Client & Sheets
-    implementation 'com.google.api-client:google-api-client-android:1.35.0'
-    implementation 'com.google.api-client:google-api-client-gson:1.35.0'
-    implementation 'com.google.http-client:google-http-client-android:1.41.5'
-    implementation "com.google.apis:google-api-services-sheets:v4-rev20250415-2.0.0"
-    implementation 'com.google.android.gms:play-services-auth:21.3.0'
-    implementation 'com.google.code.gson:gson:2.11.0'
 
     // Hilt
     implementation 'com.google.dagger:hilt-android:2.50'
@@ -310,10 +261,15 @@ dependencies {
     /* v1.5.0 not support booleanPreferencesKey (?) */
     implementation "androidx.datastore:datastore-preferences:1.1.2"
 
+    // Paging 3
+    implementation "androidx.paging:paging-runtime-ktx:3.3.0"
+    implementation "androidx.paging:paging-compose:3.3.0"
+
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
     testImplementation 'org.mockito:mockito-inline:5.2.0'
     testImplementation 'androidx.test:core-ktx:1.6.1'
     testImplementation 'org.robolectric:robolectric:4.14.1'
+    testImplementation "io.ktor:ktor-client-mock:$ktor_version"
     implementation "androidx.compose.material3:material3:1.4.0"
 }

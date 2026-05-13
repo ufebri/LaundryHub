@@ -38,8 +38,8 @@ class DeleteOrderFlowBenchmark {
             packageName = TARGET_PACKAGE,
             metrics = listOf(FrameTimingMetric()),
             compilationMode = CompilationMode.Partial(
-                baselineProfileMode = BaselineProfileMode.Disable,
-                warmupIterations = 1
+                baselineProfileMode = BaselineProfileMode.UseIfAvailable,
+                warmupIterations = 0
             ),
             iterations = 1,
             setupBlock = {
@@ -90,13 +90,13 @@ class DeleteOrderFlowBenchmark {
 
             // 2. Find and Tap the order we just created
             val orderSelector = By.textStartsWith("Order #$orderIdForDeletion")
-            
+
             // Just wait for it to appear, since it's the newest order it should be at the top
             waitForObject(orderSelector, HISTORY_LOAD_TIMEOUT_MS)
-            
+
             // Retry click if sheet doesn't appear
             var actionSheetVisible = false
-            repeat(3) { attempt ->
+            repeat(3) {
                 val currentCard = device.findObject(orderSelector)
                 if (currentCard != null) {
                     val bounds = currentCard.visibleBounds
@@ -105,7 +105,7 @@ class DeleteOrderFlowBenchmark {
                         device.waitForIdle()
                     }
                 }
-                
+
                 if (device.hasObject(By.textContains(DELETE_ORDER_ACTION_TEXT))) {
                     actionSheetVisible = true
                     return@repeat
@@ -319,10 +319,12 @@ class DeleteOrderFlowBenchmark {
     }
 
     private fun MacrobenchmarkScope.selectFirstPackage() {
-        tapObjectCenter(
-            selector = firstPackageSelector(),
+        tapAnyObjectCenterOrPackageFallback(
+            selectors = listOf(firstPackageSelector()) + PACKAGE_OPTION_FALLBACK_TEXTS.map(By::text),
             debugLabel = "first package option",
-            timeoutMs = FORM_READY_TIMEOUT_MS
+            timeoutMs = FORM_READY_TIMEOUT_MS,
+            packageOptionDescriptionPrefix = ORDER_PACKAGE_OPTION_DESCRIPTION_PREFIX,
+            dumpWindowHierarchy = { dumpWindowHierarchy() },
         )
         device.waitForIdle()
     }
@@ -370,7 +372,7 @@ class DeleteOrderFlowBenchmark {
         val deadline = SystemClock.elapsedRealtime() + FORM_READY_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             val field = waitForOptionalAnyObject(selectors, SHORT_WAIT_TIMEOUT_MS)
-            if (field != null && !field.visibleBounds.isEmpty) {
+            if (field != null && field.hasVisibleBounds()) {
                 return
             }
 
@@ -418,7 +420,7 @@ class DeleteOrderFlowBenchmark {
             ),
             timeoutMs = SHORT_WAIT_TIMEOUT_MS
         )
-        if (searchField == null || searchField.visibleBounds.isEmpty) {
+        if (searchField == null || !searchField.hasVisibleBounds()) {
             Log.i(LOG_TAG, "Pending search field did not appear; falling back to order id scan")
             device.pressBack()
             device.waitForIdle()
@@ -490,7 +492,7 @@ class DeleteOrderFlowBenchmark {
         val deadline = SystemClock.elapsedRealtime() + PENDING_UPDATE_TIMEOUT_MS
         while (SystemClock.elapsedRealtime() < deadline) {
             val visibleOrderLabels = device.findObjects(By.textStartsWith(ORDER_LABEL_PREFIX))
-                .count { !it.visibleBounds.isEmpty }
+                .count { it.hasVisibleBounds() }
             val hasDisplayName = device.hasObject(By.text(displayName))
 
             if (hasDisplayName && visibleOrderLabels == 1) {

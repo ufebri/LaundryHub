@@ -4,6 +4,7 @@ buildscript {
 
     ext {
         kotlin_version = '1.9.23'
+        ktor_version = '2.3.9'
         nav_version = "2.7.1"
         compose_version = "1.6.5"
         activitycompose_version = "1.8.2"
@@ -15,6 +16,7 @@ buildscript {
     dependencies {
         classpath 'com.android.tools.build:gradle:8.13.0'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
+        classpath "org.jetbrains.kotlin:kotlin-serialization:$kotlin_version"
         classpath "com.google.gms:google-services:4.4.3"
         classpath "com.google.firebase:firebase-crashlytics-gradle:2.9.5"
 
@@ -69,20 +71,45 @@ sonar {
         property "sonar.projectKey", sonarProps.getProperty("SONAR_PROJECT_KEY")
         property "sonar.organization", sonarProps.getProperty("SONAR_ORGANIZATION")
         property "sonar.host.url", "https://sonarcloud.io"
-        property "sonar.coverage.jacoco.xmlReportPaths",
-                "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+        property "sonar.sourceEncoding", "UTF-8"
+
+        // Gabungkan semua laporan Jacoco dari berbagai modul
+        def jacocoReports = [
+                "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
+                "${project(':shared').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
+                "${project(':backend').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+        ]
+        property "sonar.coverage.jacoco.xmlReportPaths", jacocoReports.join(",")
+        property "sonar.androidLint.reportPaths", "${project(':app').layout.buildDirectory.get().asFile}/reports/lint-results-debug.xml"
+
+        property "sonar.exclusions", [
+                "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.svg",
+                "**/*.json", "**/*.xml", "**/*.jks", "**/*.bin", "**/*.apk", "**/*.jar",
+                "build/**", "app/build/**", "backend/build/**", "shared/build/**", "macrobenchmark/build/**"
+        ].join(",")
+
         property "sonar.coverage.exclusions", sonarCoverageExclusions.join(",")
 
-
         if (localSonarLogin) {
-            property "sonar.token", localSonarLogin  // ← ini String
+            property "sonar.token", localSonarLogin
+        }
+    }
+}
+
+subprojects {
+    sonarqube {
+        properties {
+            property "sonar.sources", "src/main"
+            property "sonar.tests", "src/test"
+            // Penting untuk Java/Kotlin analysis
+            property "sonar.java.binaries", "${layout.buildDirectory.get().asFile}/classes"
         }
     }
 }
 
 // Pastikan laporan Jacoco tersedia saat sonar jalan
 tasks.named("sonar").configure {
-    dependsOn(":app:jacocoTestReport")
+    dependsOn(":app:jacocoTestReport", ":backend:jacocoTestReport", ":shared:jacocoTestReport")
 }
 
 tasks.register('clean', Delete) {

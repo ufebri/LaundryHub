@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.history.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import com.raylabs.laundryhub.ui.outcome.state.TypeCard
@@ -11,7 +12,7 @@ fun TransactionData.toUiItem(): EntryItem {
         id = orderID,
         name = name,
         date = date, // bisa diformat nanti
-        price = totalPrice,
+        price = totalPrice.toRupiahFormat(),
         remark = packageType,
         paymentStatus = paidDescription(),
         typeCard = TypeCard.INCOME

@@ -1,33 +1,24 @@
 package com.raylabs.laundryhub.ui.home.state
 
-import androidx.compose.ui.graphics.Color
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
-import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Test
 
 class GrossItemTest {
 
     @Test
-    fun `toUi maps GrossData correctly`() {
-        val data = GrossData("juni", "Rp1.672.800", "68", "Rp8.364")
-        val ui = data.toUi()
+    fun `stableGrossDetailKey stays unique when backend ids are duplicated`() {
+        val first = duplicateGross.stableGrossDetailKey(index = 0)
+        val second = duplicateGross.stableGrossDetailKey(index = 1)
 
-        assertEquals("juni", ui.month)
-        assertEquals("Rp1.672.800", ui.totalNominal)
-        assertEquals("68", ui.orderCount)
-        assertEquals("Rp8.364", ui.tax)
+        assertNotEquals(first, second)
     }
 
-    @Test
-    fun `toSummaryItem maps gross item correctly`() {
-        val item = GrossItem("juli", "Rp1.928.000", "81", "Rp9.640")
-        val summary = item.toSummaryItem()
-
-        assertEquals("Gross Income", summary.title)
-        assertEquals("Rp1.928.000", summary.body)
-        assertEquals("81 order", summary.footer)
-        assertEquals(Color(0xFFE6F4EA), summary.backgroundColor)
-        assertEquals(Color.Black, summary.textColor)
-        assertEquals(true, summary.isInteractive)
-    }
+    private val duplicateGross = GrossData(
+        id = 0,
+        month = "may",
+        totalNominal = "100000",
+        orderCount = "4",
+        tax = "1000"
+    )
 }

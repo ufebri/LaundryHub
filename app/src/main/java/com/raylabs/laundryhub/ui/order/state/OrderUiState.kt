@@ -2,17 +2,17 @@ package com.raylabs.laundryhub.ui.order.state
 
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
+import com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus
+import com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaymentMethod
 import com.raylabs.laundryhub.core.domain.model.sheets.paymentMethodList
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.profile.inventory.state.PackageItem
 
 data class OrderUiState(
-    val lastOrderId: String? = null,
-    val lastOrderIdError: String? = null,
     val showWhatsAppOption: Boolean = true,
     val isEditMode: Boolean = false,
-    val submitNewOrder: SectionState<Boolean> = SectionState(),
+    val submitNewOrder: SectionState<String> = SectionState(),
     val submitHistoryOrder: SectionState<Boolean> = SectionState(),
     val packageNameList: SectionState<List<PackageItem>> = SectionState(),
     val paymentOption: List<String> = paymentMethodList,
@@ -54,10 +54,10 @@ fun OrderUiState.toOrderData(orderId: String): OrderData {
         phoneNumber = phone,
         packageName = selectedPackage?.name ?: "",
         priceKg = selectedPackage?.price ?: "",
-        paymentMethod = paymentMethod,
+        paymentMethod = getDisplayPaymentMethod(paymentMethod),
         remark = note,
         totalPrice = price,
-        paidStatus = paymentMethod,
+        paidStatus = getDisplayPaidStatus(paymentMethod),
         weight = weight,
         orderDate = normalizedOrderDate,
         dueDate = computedDueDate

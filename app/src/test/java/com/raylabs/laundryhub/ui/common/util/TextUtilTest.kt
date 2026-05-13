@@ -54,16 +54,16 @@ class TextUtilTest {
     @Test
     fun `should format plain number to Indonesian rupiah format`() {
         val input = "5000"
-        val expected = "5.000"
+        val expected = "Rp 5.000"
         val result = input.toRupiahFormat()
         assertEquals(expected, result)
     }
 
     @Test
-    fun `should return empty string for non-numeric input`() {
+    fun `should return original string for non-numeric input`() {
         val input = "abc"
         val result = input.toRupiahFormat()
-        assertEquals("", result)
+        assertEquals("abc", result)
     }
 
     @Test
@@ -76,7 +76,7 @@ class TextUtilTest {
     @Test
     fun `should format large number with proper grouping`() {
         val input = "1500000"
-        val expected = "1.500.000"
+        val expected = "Rp 1.500.000"
         val result = input.toRupiahFormat()
         assertEquals(expected, result)
     }
@@ -84,7 +84,7 @@ class TextUtilTest {
     @Test
     fun `removeRupiahFormat removes Rp prefix only`() {
         assertEquals("1000", "Rp1000".removeRupiahFormat())
-        assertEquals(" 2.000", "Rp 2.000".removeRupiahFormat())
+        assertEquals("2.000", "Rp 2.000".removeRupiahFormat())
         assertEquals("10,000", "Rp10,000".removeRupiahFormat())
         assertEquals("2500", "2500".removeRupiahFormat()) // No Rp, should be unchanged
     }
