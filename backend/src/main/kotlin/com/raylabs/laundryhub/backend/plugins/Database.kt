@@ -55,7 +55,7 @@ fun Application.configureDatabase() {
 
         runBlocking {
             dbQuery {
-                SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable, DeviceTokensTable)
+                SchemaUtils.createMissingTablesAndColumns(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable, DeviceTokensTable)
             }
         }
         logger.info("Database connected successfully!")
