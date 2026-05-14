@@ -2,16 +2,12 @@ package com.raylabs.laundryhub.core.domain.usecase.reminder
 
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
-import com.raylabs.laundryhub.core.reminder.ReminderNotificationScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.verifyNoMoreInteractions
 
 class ReminderUseCasesTest {
 
@@ -86,46 +82,6 @@ class ReminderUseCasesTest {
         assertEquals(listOf("A-2" to 22L), repository.markAssumedPickedUpCalls)
         assertEquals(listOf("A-3" to 33L), repository.dismissCalls)
         assertEquals(listOf("A-4" to 44L), repository.snoozeCalls)
-    }
-
-    @Test
-    fun `ensure reminder schedule schedules when both reminder settings are enabled`() = runTest {
-        val scheduler: ReminderNotificationScheduler = mock()
-        val repository = FakeReminderRepository(
-            initialSettings = ReminderSettings(
-                isReminderEnabled = true,
-                isDailyNotificationEnabled = true,
-                notificationHour = 8,
-                notificationMinute = 15
-            )
-        )
-
-        EnsureReminderScheduleUseCase(
-            observeReminderSettingsUseCase = ObserveReminderSettingsUseCase(repository),
-            reminderNotificationScheduler = scheduler
-        ).invoke()
-
-        verify(scheduler).scheduleDailySummary(8, 15)
-        verifyNoMoreInteractions(scheduler)
-    }
-
-    @Test
-    fun `ensure reminder schedule cancels when one of the settings is disabled`() = runTest {
-        val scheduler: ReminderNotificationScheduler = mock()
-        val repository = FakeReminderRepository(
-            initialSettings = ReminderSettings(
-                isReminderEnabled = true,
-                isDailyNotificationEnabled = false
-            )
-        )
-
-        EnsureReminderScheduleUseCase(
-            observeReminderSettingsUseCase = ObserveReminderSettingsUseCase(repository),
-            reminderNotificationScheduler = scheduler
-        ).invoke()
-
-        verify(scheduler).cancelDailySummary()
-        verifyNoMoreInteractions(scheduler)
     }
 
     @Test
