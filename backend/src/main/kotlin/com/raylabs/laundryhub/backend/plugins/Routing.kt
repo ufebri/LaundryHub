@@ -94,7 +94,7 @@ fun Application.configureRouting() {
         grossRoutes(grossRepository, sheetsApiClient, migrationRoutesEnabled)
         summaryRoutes(summaryRepository, sheetsApiClient, migrationRoutesEnabled)
         
-        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob, deviceTokenRepository, fcmNotificationService)
+        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob)
         fcmRoutes(deviceTokenRepository)
         
         get("/") {

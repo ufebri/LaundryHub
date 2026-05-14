@@ -11,6 +11,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.google.firebase.messaging.FirebaseMessagingService
 import com.google.firebase.messaging.RemoteMessage
+import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.ui.MainActivity
 
@@ -19,7 +20,7 @@ class LaundryHubFirebaseMessagingService : FirebaseMessagingService() {
     override fun onNewToken(token: String) {
         super.onNewToken(token)
         Log.d("FCM", "New token: $token")
-        // TODO: Send this token to the backend
+        DeviceTokenManager(BuildConfig.BASE_URL).sendTokenToBackend(token)
     }
 
     override fun onMessageReceived(remoteMessage: RemoteMessage) {

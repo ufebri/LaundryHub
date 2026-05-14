@@ -29,7 +29,7 @@ class DeviceTokenManager(private val baseUrl: String) {
         }
     }
 
-    private fun sendTokenToBackend(token: String) {
+    fun sendTokenToBackend(token: String) {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 client.post("$baseUrl/api/notifications/token") {
