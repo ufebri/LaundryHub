@@ -145,7 +145,8 @@ fun SyncSettingsScreenContent(
         ) {
             SyncStatusCard(
                 lastSyncTime = state.lastSyncTime,
-                changesCount = state.changesCount
+                changesCount = state.changesCount,
+                syncStatus = state.lastSyncStatus
             )
 
             MasterSourceOfTruthSection(
@@ -206,7 +207,7 @@ private fun MasterSourceOfTruthSection(selectedSource: MasterSourceOfTruth, onSo
 }
 
 @Composable
-private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int) {
+private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int, syncStatus: String) {
     Card(
         backgroundColor = ProfileCardColor,
         shape = RoundedCornerShape(12.dp),
@@ -233,6 +234,16 @@ private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int) {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Changes Synced", color = ProfileMutedText, style = MaterialTheme.typography.body2)
                 Text("$changesCount items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Last Outcome", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                val statusColor = when (syncStatus) {
+                    "SUCCESS" -> Color(0xFF4CAF50)
+                    "FAILED" -> Color(0xFFF44336)
+                    else -> ProfileMutedText
+                }
+                Text(syncStatus, color = statusColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
             }
         }
     }

@@ -14,8 +14,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
-import com.raylabs.laundryhub.core.domain.usecase.reminder.EnsureReminderScheduleUseCase
+import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.domain.usecase.update.CheckAppUpdateUseCase
+import com.raylabs.laundryhub.core.fcm.DeviceTokenManager
 import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
 import com.raylabs.laundryhub.ui.onboarding.LoginViewModel
 import com.raylabs.laundryhub.ui.startup.StartupConnectionUiState
@@ -30,9 +31,6 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var checkAppUpdate: CheckAppUpdateUseCase
-
-    @Inject
-    lateinit var ensureReminderScheduleUseCase: EnsureReminderScheduleUseCase
 
     private val startupConnectionViewModel: StartupConnectionViewModel by viewModels()
 
@@ -62,9 +60,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        lifecycleScope.launch {
-            ensureReminderScheduleUseCase()
-        }
+        DeviceTokenManager(BuildConfig.BASE_URL).fetchAndRegisterToken()
     }
 
     override fun onNewIntent(intent: Intent) {

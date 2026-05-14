@@ -24,6 +24,7 @@ data class SyncSettingsUiState(
     val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
     val isLoading: Boolean = false,
     val isSyncing: Boolean = false,
+    val lastSyncStatus: String = "UNKNOWN",
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
@@ -58,7 +59,8 @@ class SyncSettingsViewModel @Inject constructor(
                             autoSyncIntervalMinutes = data.autoSyncIntervalMinutes,
                             reverseSyncSchedule = data.reverseSyncSchedule,
                             masterSourceOfTruth = data.masterSourceOfTruth,
-                            isSyncing = data.isSyncing
+                            isSyncing = data.isSyncing,
+                            lastSyncStatus = data.lastSyncStatus
                         )
                     }
                     

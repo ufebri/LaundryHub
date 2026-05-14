@@ -21,7 +21,8 @@ data class SyncStatusResponse(
     val autoSyncIntervalMinutes: Int,
     val reverseSyncSchedule: ReverseSyncSchedule,
     val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
-    val isSyncing: Boolean = false
+    val isSyncing: Boolean = false,
+    val lastSyncStatus: String = "UNKNOWN"
 )
 
 @Serializable

@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.backend.plugins
 
+import com.raylabs.laundryhub.backend.db.schema.DeviceTokensTable
 import com.raylabs.laundryhub.backend.db.schema.GrossTable
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
@@ -54,7 +55,7 @@ fun Application.configureDatabase() {
 
         runBlocking {
             dbQuery {
-                SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable)
+                SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable, DeviceTokensTable)
             }
         }
         logger.info("Database connected successfully!")

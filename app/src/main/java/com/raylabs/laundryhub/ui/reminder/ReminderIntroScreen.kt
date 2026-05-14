@@ -54,7 +54,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
-import com.raylabs.laundryhub.core.reminder.ReminderNotificationPublisher
 import com.raylabs.laundryhub.core.reminder.hasReminderNotificationPermission
 import com.raylabs.laundryhub.ui.common.ApplyStatusBarStyle
 import com.raylabs.laundryhub.ui.reminder.state.ReminderIntroUiState
@@ -62,8 +61,7 @@ import java.util.Calendar
 
 private enum class ReminderPermissionRequest {
     NONE,
-    ENABLE_DAILY,
-    SEND_TEST
+    ENABLE_DAILY
 }
 
 @Composable
@@ -83,10 +81,6 @@ fun ReminderIntroScreen(
         when {
             granted && pendingPermissionRequest == ReminderPermissionRequest.ENABLE_DAILY -> {
                 viewModel.setDailyNotificationsEnabled(true)
-            }
-
-            granted && pendingPermissionRequest == ReminderPermissionRequest.SEND_TEST -> {
-                ReminderNotificationPublisher.showTestNotification(context)
             }
         }
         pendingPermissionRequest = ReminderPermissionRequest.NONE
@@ -110,18 +104,7 @@ fun ReminderIntroScreen(
             }
         },
         onNotificationTimeChanged = viewModel::setDailyNotificationTime,
-        onOpenInbox = onOpenInbox,
-        onSendTestNotification = {
-            if (
-                Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ||
-                context.hasReminderNotificationPermission()
-            ) {
-                ReminderNotificationPublisher.showTestNotification(context)
-            } else {
-                pendingPermissionRequest = ReminderPermissionRequest.SEND_TEST
-                notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-            }
-        }
+        onOpenInbox = onOpenInbox
     )
 }
 
@@ -132,8 +115,7 @@ fun ReminderIntroContent(
     onReminderEnabledChanged: (Boolean) -> Unit,
     onDailyNotificationsChanged: (Boolean) -> Unit,
     onNotificationTimeChanged: (Int, Int) -> Unit,
-    onOpenInbox: () -> Unit,
-    onSendTestNotification: () -> Unit
+    onOpenInbox: () -> Unit
 ) {
     val context = LocalContext.current
     val surfaceColor = MaterialTheme.colors.surface
@@ -241,15 +223,6 @@ fun ReminderIntroContent(
                             },
                             trailingText = timeLabel,
                             onClick = { showTimePicker = true }
-                        )
-                        Divider()
-                        ReminderActionRow(
-                            icon = Icons.Default.Notifications,
-                            title = stringResource(R.string.reminder_send_test_notification_title),
-                            description = stringResource(
-                                R.string.reminder_send_test_notification_description
-                            ),
-                            onClick = onSendTestNotification
                         )
                         Divider()
                         ReminderActionRow(
@@ -433,8 +406,7 @@ private fun PreviewReminderIntroContent() {
         onReminderEnabledChanged = {},
         onDailyNotificationsChanged = {},
         onNotificationTimeChanged = { _, _ -> },
-        onOpenInbox = {},
-        onSendTestNotification = {}
+        onOpenInbox = {}
     )
 }
 
@@ -454,7 +426,6 @@ private fun PreviewReminderIntroEnabledContent() {
         onReminderEnabledChanged = {},
         onDailyNotificationsChanged = {},
         onNotificationTimeChanged = { _, _ -> },
-        onOpenInbox = {},
-        onSendTestNotification = {}
+        onOpenInbox = {}
     )
 }

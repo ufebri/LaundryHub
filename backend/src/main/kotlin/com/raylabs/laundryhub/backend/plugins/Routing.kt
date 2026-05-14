@@ -1,15 +1,18 @@
 package com.raylabs.laundryhub.backend.plugins
 
+import com.raylabs.laundryhub.backend.db.repository.DeviceTokenRepository
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
 import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
+import com.raylabs.laundryhub.backend.routes.fcmRoutes
 import com.raylabs.laundryhub.backend.routes.grossRoutes
 import com.raylabs.laundryhub.backend.routes.outcomeRoutes
 import com.raylabs.laundryhub.backend.routes.packageRoutes
 import com.raylabs.laundryhub.backend.routes.summaryRoutes
 import com.raylabs.laundryhub.backend.routes.syncRoutes
+import com.raylabs.laundryhub.backend.service.FcmNotificationService
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
@@ -36,6 +39,8 @@ private val logger = LoggerFactory.getLogger("Routing")
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
     val syncStateManager = SyncStateManager()
+    val fcmNotificationService = FcmNotificationService()
+    val deviceTokenRepository = DeviceTokenRepository()
     val orderRepository = OrderRepository()
     val packageRepository = PackageRepository()
     val outcomeRepository = OutcomeRepository()
@@ -59,7 +64,9 @@ fun Application.configureRouting() {
                 packageRepository = packageRepository,
                 syncService = syncService,
                 spreadsheetId = spreadsheetId,
-                syncStateManager = syncStateManager
+                syncStateManager = syncStateManager,
+                deviceTokenRepository = deviceTokenRepository,
+                fcmNotificationService = fcmNotificationService
             )
             batchSyncJob.start()
 
@@ -72,7 +79,9 @@ fun Application.configureRouting() {
                 summaryRepository = summaryRepository,
                 syncService = syncService,
                 spreadsheetId = spreadsheetId,
-                syncStateManager = syncStateManager
+                syncStateManager = syncStateManager,
+                deviceTokenRepository = deviceTokenRepository,
+                fcmNotificationService = fcmNotificationService
             )
             reverseSyncJob.start()
         }
@@ -85,7 +94,8 @@ fun Application.configureRouting() {
         grossRoutes(grossRepository, sheetsApiClient, migrationRoutesEnabled)
         summaryRoutes(summaryRepository, sheetsApiClient, migrationRoutesEnabled)
         
-        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob)
+        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob, deviceTokenRepository, fcmNotificationService)
+        fcmRoutes(deviceTokenRepository)
         
         get("/") {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))

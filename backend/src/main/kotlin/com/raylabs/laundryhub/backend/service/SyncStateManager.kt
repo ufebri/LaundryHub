@@ -23,10 +23,12 @@ class SyncStateManager {
     private var _lastSyncTime: String? = null
     private val _lastChangesCount = AtomicInteger(0)
     private val _isSyncing = AtomicBoolean(false)
+    private var _lastSyncStatus: String = "UNKNOWN"
 
     val lastSyncTime: String? get() = _lastSyncTime
     val lastChangesCount: Int get() = _lastChangesCount.get()
     val isSyncing: Boolean get() = _isSyncing.get()
+    val lastSyncStatus: String get() = _lastSyncStatus
 
     fun updateInterval(minutes: Int) {
         _config.value = _config.value.copy(intervalMinutes = minutes)
@@ -40,10 +42,16 @@ class SyncStateManager {
         _config.value = _config.value.copy(masterSourceOfTruth = source)
     }
 
-    fun recordSync(changesCount: Int) {
+    fun recordSync(changesCount: Int, status: String = "SUCCESS") {
         if (changesCount > 0) {
             _lastChangesCount.addAndGet(changesCount)
         }
+        _lastSyncStatus = status
+        _lastSyncTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    }
+
+    fun recordSyncFailure() {
+        _lastSyncStatus = "FAILED"
         _lastSyncTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     }
 

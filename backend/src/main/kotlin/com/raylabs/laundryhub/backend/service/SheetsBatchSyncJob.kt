@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.backend.db.repository.DeviceTokenRepository
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
@@ -17,6 +18,8 @@ class SheetsBatchSyncJob(
     private val syncService: SheetsSyncService,
     private val spreadsheetId: String,
     private val syncStateManager: SyncStateManager,
+    private val deviceTokenRepository: DeviceTokenRepository,
+    private val fcmNotificationService: FcmNotificationService,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val logger = LoggerFactory.getLogger(SheetsBatchSyncJob::class.java)
@@ -29,11 +32,10 @@ class SheetsBatchSyncJob(
                 logger.info("Sync Job waiting for $intervalMinutes minutes...")
                 try {
                     val count = processUnsyncedAll()
-                    if (count > 0) {
-                        syncStateManager.recordSync(count)
-                    }
+                    syncStateManager.recordSync(count, "SUCCESS")
                 } catch (e: Exception) {
                     logger.error("Background Sync Error: ${e.message}")
+                    syncStateManager.recordSyncFailure()
                 }
                 delay(intervalMinutes * 60 * 1000L)
             }

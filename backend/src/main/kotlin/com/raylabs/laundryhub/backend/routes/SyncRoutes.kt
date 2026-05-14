@@ -34,7 +34,9 @@ fun Route.syncRoutes(
                     changesCount = syncStateManager.lastChangesCount,
                     autoSyncIntervalMinutes = config.intervalMinutes,
                     reverseSyncSchedule = config.reverseSyncSchedule,
-                    isSyncing = syncStateManager.isSyncing
+                    masterSourceOfTruth = config.masterSourceOfTruth,
+                    isSyncing = syncStateManager.isSyncing,
+                    lastSyncStatus = syncStateManager.lastSyncStatus
                 )
             )
         }
@@ -76,11 +78,9 @@ fun Route.syncRoutes(
                         totalChanges += reverseSyncJob.processReverseSync()
                     }
 
-                    if (totalChanges > 0) {
-                        syncStateManager.recordSync(totalChanges)
-                    }
+                    syncStateManager.recordSync(totalChanges, "SUCCESS")
                 } catch (e: Exception) {
-                    // Log error if needed, state is reset in finally
+                    syncStateManager.recordSyncFailure()
                 } finally {
                     syncStateManager.setSyncing(false)
                 }
