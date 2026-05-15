@@ -246,10 +246,10 @@ class OrderRepository {
     }
 
     private fun OrderData.matchesFilter(filter: String?): Boolean {
-        return when (filter) {
+        return when (filter?.uppercase()) {
             null, "", "ALL" -> true
             "TODAY" -> isSameDay(orderDate, Date())
-            "UNPAID" -> paidStatus.equals("belum", ignoreCase = true) || paidStatus.isBlank()
+            "UNPAID" -> !paidStatus.equals("lunas", ignoreCase = true)
             "PAID" -> paidStatus.equals("lunas", ignoreCase = true)
             "QRIS" -> paymentMethod.equals("qris", ignoreCase = true)
             "CASH" -> paymentMethod.equals("cash", ignoreCase = true)
