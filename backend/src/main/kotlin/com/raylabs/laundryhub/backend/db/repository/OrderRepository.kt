@@ -3,6 +3,8 @@ package com.raylabs.laundryhub.backend.db.repository
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.plugins.dbQuery
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.isPaidStatusValue
+import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidStatusValue
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
@@ -249,8 +251,8 @@ class OrderRepository {
         return when (filter?.uppercase()) {
             null, "", "ALL" -> true
             "TODAY" -> isSameDay(orderDate, Date())
-            "UNPAID" -> !paidStatus.equals("lunas", ignoreCase = true)
-            "PAID" -> paidStatus.equals("lunas", ignoreCase = true)
+            "UNPAID" -> isUnpaidStatusValue(paidStatus, treatBlankAsUnpaid = true)
+            "PAID" -> isPaidStatusValue(paidStatus)
             "QRIS" -> paymentMethod.equals("qris", ignoreCase = true)
             "CASH" -> paymentMethod.equals("cash", ignoreCase = true)
             else -> true
@@ -321,15 +323,22 @@ class OrderRepository {
             "yyyy-MM-dd",
             "dd/MM/yyyy HH:mm",
             "dd-MM-yyyy HH:mm",
-            "yyyy-MM-dd HH:mm"
+            "yyyy-MM-dd HH:mm",
+            "dd MMM yyyy",
+            "dd MMMM yyyy",
+            "dd MMM yyyy HH:mm",
+            "dd MMMM yyyy HH:mm"
         )
+        val locales = listOf(Locale.getDefault(), Locale.ENGLISH, Locale.forLanguageTag("id-ID")).distinct()
 
         return formats.firstNotNullOfOrNull { pattern ->
-            runCatching {
-                SimpleDateFormat(pattern, Locale.getDefault()).apply {
-                    isLenient = false
-                }.parse(sanitized)
-            }.getOrNull()
+            locales.firstNotNullOfOrNull { locale ->
+                runCatching {
+                    SimpleDateFormat(pattern, locale).apply {
+                        isLenient = false
+                    }.parse(sanitized)
+                }.getOrNull()
+            }
         }
     }
 }

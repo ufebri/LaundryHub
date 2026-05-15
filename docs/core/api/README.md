@@ -32,6 +32,8 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Outcome and package deletes clear matching Sheets rows only when backend Sheets config is available. The database mutation remains the app-facing success boundary.
 - Package name is the current stable external identifier for package update/delete. Android sends the original package name in the route and the edited package data in the body so rename flows can update the same database row.
 - `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
+- Order filtering uses the shared payment-status normalization helpers. `UNPAID` includes `Unpaid`, `belum`, and blank legacy rows; `PAID` includes `Paid`, `lunas`, and paid-by-method display labels. This keeps Home Pending Orders aligned with History data instead of letting paid rows pollute the pending page.
+- Order date sorting and range checks accept both storage formats such as `15/05/2026` and display/import formats such as `15 May 2026` or `15 Mei 2026`, so pending-order sorting does not hide older imported rows behind unparseable dates.
 
 ## Android Decisions
 
@@ -46,6 +48,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Mutation calls now validate HTTP status codes explicitly. A non-2xx response is surfaced as a `Resource.Error`, using the API `message` field when available, so duplicate-order `409` responses cannot show a false submit success.
 - Payment status helpers accept both canonical storage values and user-facing display values to keep edit and history flows stable.
 - Home pending orders pass server-side search and sort options into paging.
+- Home pending orders now rely on the same normalized paid/unpaid status semantics used by shared transaction mapping, so display values from the app and canonical values from Sheets are treated consistently.
 - Inventory update/delete no longer depends on `sheetRowIndex`. The ViewModel uses the package name contract and treats package writes as successful as soon as the backend write succeeds, then refreshes silently.
 - Outcome, History, and Inventory keep write success feedback separate from follow-up refresh work. A slow refresh should not make a confirmed write feel failed.
 
@@ -63,6 +66,13 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `./gradlew :macrobenchmark:assembleBenchmark --no-daemon`
 - `./gradlew :app:connectedDebugAndroidTest --no-daemon`
 - `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon`
+
+Latest pending-order parity check:
+
+- `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.db.repository.OrderRepositoryTest`
+- `./gradlew :backend:test`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.core.domain.model.sheets.OrderDataTest --tests com.raylabs.laundryhub.core.domain.model.sheets.TransactionDataTest`
+- `./gradlew testDebugUnitTest`
 
 The latest safe connected instrumentation run passed on `SM-S931B - 16`: Gradle reported 21 finished, 0 failed, 4 skipped. The skips were the four guarded mutating flows because the safe run intentionally did not pass sandbox mutation arguments; the signed-in shell smoke passed.
 

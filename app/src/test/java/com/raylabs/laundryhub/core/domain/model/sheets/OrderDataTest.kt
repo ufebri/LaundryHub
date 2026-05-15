@@ -126,8 +126,25 @@ class OrderDataTest {
     fun `getDisplayPaidStatus returns correct label`() {
         assertEquals("Paid", getDisplayPaidStatus(PAID_BY_CASH))
         assertEquals("Paid", getDisplayPaidStatus(PAID_BY_QRIS))
+        assertEquals("Paid", getDisplayPaidStatus("Paid"))
+        assertEquals("Paid", getDisplayPaidStatus(PAID))
         assertEquals("Unpaid", getDisplayPaidStatus(UNPAID))
+        assertEquals("Unpaid", getDisplayPaidStatus(UNPAID_ID))
         assertEquals("", getDisplayPaidStatus("OTHER"))
+    }
+
+    @Test
+    fun `paid status helpers normalize display and canonical values`() {
+        assertEquals(true, isPaidStatusValue("Paid"))
+        assertEquals(true, isPaidStatusValue(PAID))
+        assertEquals(true, isPaidStatusValue(PAID_BY_CASH))
+        assertEquals(false, isPaidStatusValue(UNPAID))
+
+        assertEquals(true, isUnpaidStatusValue("Unpaid"))
+        assertEquals(true, isUnpaidStatusValue(UNPAID_ID))
+        assertEquals(true, isUnpaidStatusValue("", treatBlankAsUnpaid = true))
+        assertEquals(false, isUnpaidStatusValue(""))
+        assertEquals(false, isUnpaidStatusValue("Paid"))
     }
 
     private fun sampleOrderData(): OrderData {

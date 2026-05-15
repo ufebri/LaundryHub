@@ -111,9 +111,24 @@ fun getDisplayPaymentMethod(paymentMethod: String): String {
 
 fun getDisplayPaidStatus(paidStatus: String): String {
     return when (paidStatus.trim().lowercase()) {
-        PAID_BY_CASH.lowercase(), PAID_BY_QRIS.lowercase(), PAID -> "Paid"
+        PAID_BY_CASH.lowercase(), PAID_BY_QRIS.lowercase(), PAID, "paid" -> "Paid"
         UNPAID.lowercase(), UNPAID_ID -> "Unpaid"
         else -> ""
+    }
+}
+
+fun isPaidStatusValue(paidStatus: String): Boolean =
+    getDisplayPaidStatus(paidStatus) == "Paid"
+
+fun isUnpaidStatusValue(
+    paidStatus: String,
+    treatBlankAsUnpaid: Boolean = false
+): Boolean {
+    val trimmed = paidStatus.trim()
+    return if (trimmed.isEmpty()) {
+        treatBlankAsUnpaid
+    } else {
+        getDisplayPaidStatus(trimmed) == UNPAID
     }
 }
 

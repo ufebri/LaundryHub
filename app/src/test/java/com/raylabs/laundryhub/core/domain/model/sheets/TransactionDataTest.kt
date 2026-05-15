@@ -115,8 +115,10 @@ class TransactionDataTest {
     @Test
     fun `isUnpaidData detects unpaid correctly`() {
         val unpaid = TransactionData("", "", "", "", "", "", "belum", "", "", "", "", "")
+        val displayUnpaid = unpaid.copy(paymentStatus = "Unpaid")
         val empty = unpaid.copy(paymentStatus = "")
         assertTrue(unpaid.isUnpaidData())
+        assertTrue(displayUnpaid.isUnpaidData())
         assertTrue(empty.isUnpaidData())
     }
 
@@ -130,6 +132,7 @@ class TransactionDataTest {
     fun `isPaidData detects paid correctly`() {
         val paid = TransactionData("", "", "", "", "", "", PAID, "", "", "", "", "")
         assertTrue(paid.isPaidData())
+        assertTrue(paid.copy(paymentStatus = "Paid").isPaidData())
 
         val notPaid = paid.copy(paymentStatus = "Unpaid")
         assertFalse(notPaid.isPaidData())
