@@ -1,7 +1,9 @@
 package com.raylabs.laundryhub.ui.common.util
 
 import com.raylabs.laundryhub.shared.util.PlatformDate
+import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.Locale
 
 object DateUtil {
 
@@ -24,7 +26,7 @@ object DateUtil {
         val sanitized = dateString?.trim().orEmpty()
         if (sanitized.isEmpty()) return null
 
-        val supportedFormats = listOf(
+        val platformFormats = listOf(
             STANDARD_DATE_FORMATED,
             "dd-MM-yyyy",
             "yyyy-MM-dd",
@@ -32,16 +34,33 @@ object DateUtil {
             "dd-MM-yyyy HH:mm",
             "yyyy-MM-dd HH:mm"
         )
+        val localizedFormats = listOf(
+            "dd MMM yyyy",
+            "dd MMMM yyyy",
+            "dd MMM yyyy HH:mm",
+            "dd MMMM yyyy HH:mm"
+        )
 
-        supportedFormats.forEach { pattern ->
+        platformFormats.forEach { pattern ->
             PlatformDate.parseDate(sanitized, pattern)?.let { return Date(it) }
+        }
+
+        val locales = listOf(Locale.getDefault(), Locale.ENGLISH, Locale.forLanguageTag("id-ID")).distinct()
+        localizedFormats.forEach { pattern ->
+            locales.forEach { locale ->
+                runCatching {
+                    SimpleDateFormat(pattern, locale).apply {
+                        isLenient = false
+                    }.parse(sanitized)
+                }.getOrNull()?.let { return it }
+            }
         }
 
         return null
     }
 
     fun formatDate(date: Date, outputFormat: String = STANDARD_DATE_FORMATED): String {
-        return java.text.SimpleDateFormat(outputFormat, java.util.Locale.getDefault()).format(date)
+        return SimpleDateFormat(outputFormat, Locale.getDefault()).format(date)
     }
 
     fun formatToLongDate(

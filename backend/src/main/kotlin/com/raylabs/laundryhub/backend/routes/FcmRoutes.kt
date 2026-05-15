@@ -15,7 +15,13 @@ fun Route.fcmRoutes(deviceTokenRepository: DeviceTokenRepository) {
         post("/token") {
             try {
                 val request = call.receive<DeviceTokenRequest>()
-                val success = deviceTokenRepository.registerToken(request.token)
+                val token = request.token.trim()
+                if (token.isBlank()) {
+                    call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to "Device token is required"))
+                    return@post
+                }
+
+                val success = deviceTokenRepository.registerToken(token)
                 if (success) {
                     call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
                 } else {

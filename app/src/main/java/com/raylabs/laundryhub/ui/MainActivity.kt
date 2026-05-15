@@ -14,7 +14,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.lifecycleScope
-import com.raylabs.laundryhub.BuildConfig
 import com.raylabs.laundryhub.core.domain.usecase.update.CheckAppUpdateUseCase
 import com.raylabs.laundryhub.core.fcm.DeviceTokenManager
 import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
@@ -32,9 +31,13 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var checkAppUpdate: CheckAppUpdateUseCase
 
+    @Inject
+    lateinit var deviceTokenManager: DeviceTokenManager
+
     private val startupConnectionViewModel: StartupConnectionViewModel by viewModels()
 
     private var hasCheckedUpdate = false
+    private var hasRegisteredDeviceToken = false
     private var pendingNotificationDestination by mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,7 +63,7 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        DeviceTokenManager(BuildConfig.BASE_URL).fetchAndRegisterToken()
+        observeReadyBackendForDeviceTokenRegistration()
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -86,5 +89,16 @@ class MainActivity : ComponentActivity() {
 
     private fun extractReminderDestination(intent: Intent?): String? {
         return intent?.getStringExtra(ReminderNotificationConfig.EXTRA_DESTINATION)
+    }
+
+    private fun observeReadyBackendForDeviceTokenRegistration() {
+        lifecycleScope.launch {
+            startupConnectionViewModel.uiState.collect { state ->
+                if (state is StartupConnectionUiState.Ready && !hasRegisteredDeviceToken) {
+                    hasRegisteredDeviceToken = true
+                    deviceTokenManager.fetchAndRegisterToken()
+                }
+            }
+        }
     }
 }

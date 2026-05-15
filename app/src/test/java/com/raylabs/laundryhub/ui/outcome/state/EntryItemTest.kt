@@ -46,4 +46,20 @@ class EntryItemTest {
         assertTrue(result[3] is DateListItemUI.Header && (result[3] as DateListItemUI.Header).date == "01/02/2025")
         assertTrue(result[4] is DateListItemUI.Entry && (result[4] as DateListItemUI.Entry).item.id == "2")
     }
+
+    @Test
+    fun `toDateListUiItems keeps latest display month dates first`() {
+        val list = listOf(
+            OutcomeData("10", "08 May 2026", "Old high id", "100", "", "cash"),
+            OutcomeData("2", "15 Mei 2026", "Latest", "200", "", "cash"),
+            OutcomeData("3", "14/05/2026", "Middle", "300", "", "cash")
+        )
+
+        val result = list.toDateListUiItems()
+
+        assertTrue(result[0] is DateListItemUI.Header && (result[0] as DateListItemUI.Header).date == "15 Mei 2026")
+        assertTrue(result[1] is DateListItemUI.Entry && (result[1] as DateListItemUI.Entry).item.id == "2")
+        assertTrue(result[2] is DateListItemUI.Header && (result[2] as DateListItemUI.Header).date == "14/05/2026")
+        assertTrue(result[4] is DateListItemUI.Header && (result[4] as DateListItemUI.Header).date == "08 May 2026")
+    }
 }

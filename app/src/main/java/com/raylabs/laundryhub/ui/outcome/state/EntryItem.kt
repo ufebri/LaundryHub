@@ -36,6 +36,10 @@ fun OutcomeData.toEntryItemUI(): EntryItem = EntryItem(
 
 fun List<OutcomeData>.toDateListUiItems(): List<DateListItemUI> {
     return this
+        .sortedWith(
+            compareByDescending<OutcomeData> { DateUtil.parseSupportedAppDate(it.date)?.time ?: Long.MIN_VALUE }
+                .thenByDescending { it.id.toIntOrNull() ?: Int.MIN_VALUE }
+        )
         .groupBy { it.date }
         .flatMap { (date, items) ->
             listOf(DateListItemUI.Header(date)) +

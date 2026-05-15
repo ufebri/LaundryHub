@@ -11,15 +11,18 @@ import java.time.LocalDateTime
 class DeviceTokenRepository {
 
     suspend fun registerToken(tokenString: String): Boolean = dbQuery {
-        val existing = DeviceTokensTable.select { DeviceTokensTable.token eq tokenString }.singleOrNull()
+        val token = tokenString.trim()
+        if (token.isBlank()) return@dbQuery false
+
+        val existing = DeviceTokensTable.select { DeviceTokensTable.token eq token }.singleOrNull()
         if (existing != null) {
-            val updatedCount = DeviceTokensTable.update({ DeviceTokensTable.token eq tokenString }) {
+            val updatedCount = DeviceTokensTable.update({ DeviceTokensTable.token eq token }) {
                 it[updatedAt] = LocalDateTime.now().toString()
             }
             updatedCount > 0
         } else {
             val statement = DeviceTokensTable.insertIgnore {
-                it[token] = tokenString
+                it[DeviceTokensTable.token] = token
                 it[updatedAt] = LocalDateTime.now().toString()
             }
             statement.insertedCount > 0

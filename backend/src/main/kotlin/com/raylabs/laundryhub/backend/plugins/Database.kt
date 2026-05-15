@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.slf4j.LoggerFactory
 
@@ -65,6 +66,7 @@ fun Application.configureDatabase() {
                     DeviceTokensTable,
                     SyncDeleteEventsTable
                 )
+                ensureDeviceTokenColumnCapacity(jdbcUrl)
             }
         }
         logger.info("Database connected successfully!")
@@ -73,6 +75,14 @@ fun Application.configureDatabase() {
         // Railway akan restart container jika kita exit dengan status 1
         System.exit(1)
     }
+}
+
+private fun ensureDeviceTokenColumnCapacity(jdbcUrl: String) {
+    if (!jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) return
+
+    TransactionManager.current().exec(
+        "ALTER TABLE device_tokens ALTER COLUMN token TYPE VARCHAR(512)"
+    )
 }
 
 private fun buildJdbcUrlFromEnv(): String? {
