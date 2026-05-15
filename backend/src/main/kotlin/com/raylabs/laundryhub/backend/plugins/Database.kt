@@ -6,6 +6,7 @@ import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
 import com.raylabs.laundryhub.backend.db.schema.PackagesTable
 import com.raylabs.laundryhub.backend.db.schema.SummaryTable
+import com.raylabs.laundryhub.backend.db.schema.SyncDeleteEventsTable
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.Application
@@ -55,7 +56,15 @@ fun Application.configureDatabase() {
 
         runBlocking {
             dbQuery {
-                SchemaUtils.createMissingTablesAndColumns(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable, DeviceTokensTable)
+                SchemaUtils.createMissingTablesAndColumns(
+                    OrdersTable,
+                    PackagesTable,
+                    OutcomesTable,
+                    GrossTable,
+                    SummaryTable,
+                    DeviceTokensTable,
+                    SyncDeleteEventsTable
+                )
             }
         }
         logger.info("Database connected successfully!")

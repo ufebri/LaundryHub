@@ -8,3 +8,7 @@ data class SpreadsheetData(
     val key: String,
     val value: String
 )
+
+fun SpreadsheetData.toSheetValues(): List<List<String>> {
+    return listOf(listOf(key, value))
+}

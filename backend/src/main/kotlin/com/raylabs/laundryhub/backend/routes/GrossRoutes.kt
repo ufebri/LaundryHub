@@ -1,6 +1,9 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -17,7 +20,9 @@ import io.ktor.server.routing.route
 fun Route.grossRoutes(
     repository: GrossRepository,
     sheetsApiClient: GoogleSheetsApiClient,
-    migrationRoutesEnabled: Boolean = false
+    migrationRoutesEnabled: Boolean = false,
+    syncDeleteEventRepository: SyncDeleteEventRepository? = null,
+    sheetsPushScheduler: SheetsPushScheduler? = null
 ) {
     route("/api/gross") {
         get {
@@ -29,7 +34,10 @@ fun Route.grossRoutes(
             try {
                 val gross = call.receive<GrossData>()
                 val inserted = repository.insert(gross)
-                if (inserted) call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+                if (inserted) {
+                    sheetsPushScheduler?.requestPush("gross created")
+                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+                }
                 else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
@@ -40,7 +48,10 @@ fun Route.grossRoutes(
             try {
                 val gross = call.receive<GrossData>()
                 val updated = repository.update(month, gross)
-                if (updated) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                if (updated) {
+                    sheetsPushScheduler?.requestPush("gross updated")
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                }
                 else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
@@ -48,8 +59,13 @@ fun Route.grossRoutes(
         }
         delete("/{month}") {
             val month = call.parameters["month"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            if (repository.delete(month)) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
-            else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            if (repository.delete(month)) {
+                syncDeleteEventRepository?.record(SyncEntityType.GROSS, month)
+                sheetsPushScheduler?.requestPush("gross deleted")
+                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "queued"))
+            } else {
+                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+            }
         }
         
         if (migrationRoutesEnabled) {

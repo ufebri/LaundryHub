@@ -1,19 +1,23 @@
 package com.raylabs.laundryhub.shared.network.api
 
 import com.raylabs.laundryhub.shared.network.model.sheets.AppendValuesResponse
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesRequest
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateSpreadsheetRequest
 import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateSpreadsheetResponse
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesRequest
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.ClearValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.UpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.statement.bodyAsText
 import io.ktor.client.request.bearerAuth
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
 
@@ -73,6 +77,30 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(mapOf<String, String>())
+        }.body()
+    }
+
+    suspend fun batchUpdateValues(
+        spreadsheetId: String,
+        request: BatchUpdateValuesRequest,
+        accessToken: String
+    ): BatchUpdateValuesResponse {
+        return httpClient.post("$baseUrl/$spreadsheetId/values:batchUpdate") {
+            bearerAuth(accessToken)
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    }
+
+    suspend fun batchClearValues(
+        spreadsheetId: String,
+        request: BatchClearValuesRequest,
+        accessToken: String
+    ): BatchClearValuesResponse {
+        return httpClient.post("$baseUrl/$spreadsheetId/values:batchClear") {
+            bearerAuth(accessToken)
+            contentType(ContentType.Application.Json)
+            setBody(request)
         }.body()
     }
 

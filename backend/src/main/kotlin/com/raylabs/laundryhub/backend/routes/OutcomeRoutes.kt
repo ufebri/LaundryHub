@@ -1,7 +1,9 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
-import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOutcomeResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
@@ -20,8 +22,8 @@ fun Route.outcomeRoutes(
     repository: OutcomeRepository,
     sheetsApiClient: GoogleSheetsApiClient,
     migrationRoutesEnabled: Boolean = false,
-    syncService: SheetsSyncService? = null,
-    spreadsheetId: String? = null
+    syncDeleteEventRepository: SyncDeleteEventRepository? = null,
+    sheetsPushScheduler: SheetsPushScheduler? = null
 ) {
     route("/api/outcomes") {
         get("/last-id") {
@@ -48,6 +50,7 @@ fun Route.outcomeRoutes(
                 val outcome = call.receive<OutcomeData>()
                 val createdOutcome = repository.insertWithNextId(outcome)
                 if (createdOutcome != null) {
+                    sheetsPushScheduler?.requestPush("outcome created")
                     call.respond(
                         HttpStatusCode.Created,
                         CreateOutcomeResponse(
@@ -71,7 +74,10 @@ fun Route.outcomeRoutes(
             try {
                 val outcome = call.receive<OutcomeData>()
                 val updated = repository.update(id, outcome)
-                if (updated) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                if (updated) {
+                    sheetsPushScheduler?.requestPush("outcome updated")
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                }
                 else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
@@ -80,15 +86,14 @@ fun Route.outcomeRoutes(
         delete("/{id}") {
             val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
             if (repository.delete(id)) {
-                val sheetSynced = spreadsheetId?.let { configuredId ->
-                    syncService?.deleteOutcomeFromSheet(configuredId, id)
-                } ?: false
+                syncDeleteEventRepository?.record(SyncEntityType.OUTCOME, id)
+                sheetsPushScheduler?.requestPush("outcome deleted")
                 call.respond(
                     HttpStatusCode.OK,
                     mapOf(
                         "status" to "Success",
                         "message" to "Outcome deleted",
-                        "sheetSynced" to sheetSynced.toString()
+                        "sheetSynced" to "queued"
                     )
                 )
             } else {

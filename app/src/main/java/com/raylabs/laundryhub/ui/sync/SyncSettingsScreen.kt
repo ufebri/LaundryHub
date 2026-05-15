@@ -146,7 +146,11 @@ fun SyncSettingsScreenContent(
             SyncStatusCard(
                 lastSyncTime = state.lastSyncTime,
                 changesCount = state.changesCount,
-                syncStatus = state.lastSyncStatus
+                syncStatus = state.lastSyncStatus,
+                pendingPushCount = state.pendingPushCount,
+                pendingDeleteCount = state.pendingDeleteCount,
+                nextScheduledPushTime = state.nextScheduledPushTime,
+                lastSyncError = state.lastSyncError
             )
 
             MasterSourceOfTruthSection(
@@ -192,7 +196,7 @@ private fun MasterSourceOfTruthSection(selectedSource: MasterSourceOfTruth, onSo
                     onClick = { onSourceSelected(MasterSourceOfTruth.SHEETS) }
                 )
                 RadioOptionRow(
-                    label = "Supabase (App)",
+                    label = "App Database",
                     selected = selectedSource == MasterSourceOfTruth.SUPABASE,
                     onClick = { onSourceSelected(MasterSourceOfTruth.SUPABASE) }
                 )
@@ -207,7 +211,15 @@ private fun MasterSourceOfTruthSection(selectedSource: MasterSourceOfTruth, onSo
 }
 
 @Composable
-private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int, syncStatus: String) {
+private fun SyncStatusCard(
+    lastSyncTime: String?,
+    changesCount: Int,
+    syncStatus: String,
+    pendingPushCount: Int,
+    pendingDeleteCount: Int,
+    nextScheduledPushTime: String?,
+    lastSyncError: String?
+) {
     Card(
         backgroundColor = ProfileCardColor,
         shape = RoundedCornerShape(12.dp),
@@ -237,6 +249,16 @@ private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int, syncStatus:
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Pending Push", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text("${pendingPushCount + pendingDeleteCount} items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Next Push", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text(formatScheduledTime(nextScheduledPushTime), color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Last Outcome", color = ProfileMutedText, style = MaterialTheme.typography.body2)
                 val statusColor = when (syncStatus) {
                     "SUCCESS" -> Color(0xFF4CAF50)
@@ -244,6 +266,10 @@ private fun SyncStatusCard(lastSyncTime: String?, changesCount: Int, syncStatus:
                     else -> ProfileMutedText
                 }
                 Text(syncStatus, color = statusColor, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            if (!lastSyncError.isNullOrBlank()) {
+                Spacer(Modifier.height(8.dp))
+                Text(lastSyncError, color = Color(0xFFF44336), style = MaterialTheme.typography.caption)
             }
         }
     }
@@ -266,7 +292,7 @@ private fun SyncIntervalSection(selectedMinutes: Int, onIntervalSelected: (Int) 
             modifier = Modifier.fillMaxWidth()
         ) {
             Column {
-                val options = listOf(3, 15, 30, 60)
+                val options = listOf(5, 15, 30, 60)
                 options.forEach { minutes ->
                     val label = if (minutes == 60) "1 Hour" else "$minutes Mins"
                     RadioOptionRow(
@@ -349,6 +375,23 @@ private fun formatRelativeTime(isoString: String?): String {
             diffMinutes < 1 -> "Just now"
             diffMinutes < 60 -> "$diffMinutes mins ago"
             diffMinutes < 1440 -> "${diffMinutes / 60} hours ago"
+            else -> parsed.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag("en")))
+        }
+    } catch (e: Exception) {
+        "Unknown"
+    }
+}
+
+private fun formatScheduledTime(isoString: String?): String {
+    if (isoString.isNullOrBlank()) return "Not queued"
+    return try {
+        val parsed = LocalDateTime.parse(isoString, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+        val now = LocalDateTime.now()
+        val diffSeconds = ChronoUnit.SECONDS.between(now, parsed)
+        when {
+            diffSeconds <= 0 -> "Queued"
+            diffSeconds < 60 -> "in ${diffSeconds}s"
+            diffSeconds < 3600 -> "in ${diffSeconds / 60} mins"
             else -> parsed.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag("en")))
         }
     } catch (e: Exception) {

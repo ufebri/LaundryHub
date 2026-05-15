@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
@@ -22,7 +23,8 @@ import kotlinx.coroutines.launch
 fun Route.syncRoutes(
     syncStateManager: SyncStateManager,
     batchSyncJob: SheetsBatchSyncJob?,
-    reverseSyncJob: SheetsReverseSyncJob?
+    reverseSyncJob: SheetsReverseSyncJob?,
+    sheetsPushScheduler: SheetsPushScheduler?
 ) {
     route("/api/sync") {
         get("/status") {
@@ -36,7 +38,11 @@ fun Route.syncRoutes(
                     reverseSyncSchedule = config.reverseSyncSchedule,
                     masterSourceOfTruth = config.masterSourceOfTruth,
                     isSyncing = syncStateManager.isSyncing,
-                    lastSyncStatus = syncStateManager.lastSyncStatus
+                    lastSyncStatus = syncStateManager.lastSyncStatus,
+                    lastSyncError = syncStateManager.lastSyncError,
+                    pendingPushCount = batchSyncJob?.pendingPushCount() ?: 0,
+                    pendingDeleteCount = batchSyncJob?.pendingDeleteCount() ?: 0,
+                    nextScheduledPushTime = sheetsPushScheduler?.nextScheduledPushTime
                 )
             )
         }
@@ -80,7 +86,7 @@ fun Route.syncRoutes(
 
                     syncStateManager.recordSync(totalChanges, "SUCCESS")
                 } catch (e: Exception) {
-                    syncStateManager.recordSyncFailure()
+                    syncStateManager.recordSyncFailure(e.message)
                 } finally {
                     syncStateManager.setSyncing(false)
                 }
