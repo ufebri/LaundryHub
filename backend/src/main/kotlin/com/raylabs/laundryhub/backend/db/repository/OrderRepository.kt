@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidStatusValue
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidStatusValue
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
@@ -218,6 +219,7 @@ class OrderRepository {
 
         OrdersTable
             .selectAll()
+            .orderBy(OrdersTable.id to SortOrder.DESC)
             .map { it.toOrderData() }
             .asSequence()
             .filter { it.matchesFilter(filter) }
