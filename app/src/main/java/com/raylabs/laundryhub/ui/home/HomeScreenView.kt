@@ -59,7 +59,6 @@ import com.raylabs.laundryhub.ui.component.InfoCard
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAd
 import com.raylabs.laundryhub.ui.component.InlineAdaptiveBannerAdState
 import com.raylabs.laundryhub.ui.component.OrderStatusCard
-import com.raylabs.laundryhub.ui.component.SectionOrLoading
 import com.raylabs.laundryhub.ui.component.SelectionSheetInlineOverlay
 import com.raylabs.laundryhub.ui.component.Transaction
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
@@ -191,23 +190,23 @@ fun HomeScreenContent(
                         imageSeed = state.user.data?.uid ?: "guest"
                     )
 
-                    SectionOrLoading(
-                        isLoading = state.summary.isLoading,
-                        error = state.summary.errorMessage,
-                        hasContent = !state.summary.data.isNullOrEmpty(),
-                        showMiniLoading = !state.isRefreshing,
-                        content = {
-                            InfoCardSection(
-                                summary = state.summary.data.orEmpty(),
-                                onGrossCardClick = onGrossCardClick,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .heightIn(max = 300.dp)
-                                    .padding(horizontal = 16.dp)
-                                    .offset(y = 90.dp)
-                            )
-                        }
+                    // Tetap tampilkan konten summary meskipun sedang refresh agar layar tidak loncat
+                    InfoCardSection(
+                        summary = state.summary.data.orEmpty(),
+                        onGrossCardClick = onGrossCardClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp)
+                            .padding(horizontal = 16.dp)
+                            .offset(y = 90.dp)
                     )
+                    
+                    if (state.summary.isLoading && state.summary.data.isNullOrEmpty()) {
+                        // Hanya tampilkan loading spinner jika data benar-benar kosong (first load)
+                        Box(modifier = Modifier.fillMaxWidth().height(300.dp).offset(y = 90.dp), contentAlignment = Alignment.Center) {
+                            CircularProgressIndicator()
+                        }
+                    }
                 }
             }
 
@@ -222,34 +221,33 @@ fun HomeScreenContent(
             }
 
             item(span = { GridItemSpan(2) }) {
-                SectionOrLoading(
-                    isLoading = state.todayIncome.isLoading,
-                    error = state.todayIncome.errorMessage,
-                    hasContent = !state.todayIncome.data.isNullOrEmpty() || state.optimisticOrders.any { it.orderDate == PlatformDate.getTodayDate("dd/MM/yyyy") },
-                    content = {
-                        val todayDate = PlatformDate.getTodayDate("dd/MM/yyyy")
-                        val optimisticForToday = state.optimisticOrders
-                            .filter { it.orderDate == todayDate }
-                            .map {
-                                TransactionItem(
-                                    id = it.orderID,
-                                    name = it.customerName,
-                                    totalPrice = it.rawPayload?.totalPrice?.toRupiahFormat() ?: "",
-                                    status = it.nowStatus,
-                                    statusColor = it.nowStatus.toColor(),
-                                    packageDuration = it.packageType
-                                )
-                            }
-                        val realList = state.todayIncome.data.orEmpty()
-                        val combinedList = (optimisticForToday + realList).distinctBy { it.id }
-
-                        if (combinedList.isEmpty()) {
-                            Text(stringResource(R.string.no_transactions_today), modifier = Modifier.padding(horizontal = 16.dp))
-                        } else {
-                            CardList(combinedList, onItemClick = onTodayActivityClick)
-                        }
+                val todayDate = PlatformDate.getTodayDate("dd/MM/yyyy")
+                val optimisticForToday = state.optimisticOrders
+                    .filter { it.orderDate == todayDate }
+                    .map {
+                        TransactionItem(
+                            id = it.orderID,
+                            name = it.customerName,
+                            totalPrice = it.rawPayload?.totalPrice?.toRupiahFormat() ?: "",
+                            status = it.nowStatus,
+                            statusColor = it.nowStatus.toColor(),
+                            packageDuration = it.packageType
+                        )
                     }
-                )
+                val realList = state.todayIncome.data.orEmpty()
+                val combinedList = (optimisticForToday + realList).distinctBy { it.id }
+
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    if (combinedList.isEmpty() && !state.todayIncome.isLoading) {
+                        Text(stringResource(R.string.no_transactions_today), modifier = Modifier.padding(horizontal = 16.dp))
+                    } else {
+                        CardList(combinedList, onItemClick = onTodayActivityClick)
+                    }
+
+                    if (state.todayIncome.isLoading && combinedList.isEmpty()) {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center).padding(16.dp))
+                    }
+                }
             }
 
             item(span = { GridItemSpan(2) }) { Spacer(Modifier.height(24.dp)) }

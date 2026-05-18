@@ -257,11 +257,11 @@ fun Application.configureRouting() {
 
         if (isMigrationRoutesEnabled()) {
             post("/api/migrate-orders") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
                 val range = "income" // Based on typical order columns
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(
                         HttpStatusCode.BadRequest,
                         mapOf("status" to "Error", "message" to "Missing spreadsheetId or accessToken")
@@ -271,7 +271,7 @@ fun Application.configureRouting() {
 
                 try {
                     // 1. Fetch from legacy Google Sheets
-                    val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
+                    val response = sheetsApiClient.getValues(querySpreadsheetId, range, accessToken)
                     val rows = response.values ?: emptyList()
 
                     // 2. Map to Shared DTO
@@ -312,17 +312,17 @@ fun Application.configureRouting() {
             }
 
             get("/api/debug-sheets") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
                 val range = "income"
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
                     return@get
                 }
 
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
+                    val response = sheetsApiClient.getValues(querySpreadsheetId, range, accessToken)
                     call.respond(response) // Kirim full response agar kita bisa lihat meta-nya
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")
@@ -330,16 +330,16 @@ fun Application.configureRouting() {
             }
 
             get("/api/debug-metadata") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
                     return@get
                 }
 
                 try {
-                    val metadata = sheetsApiClient.getSpreadsheet(spreadsheetId, accessToken)
+                    val metadata = sheetsApiClient.getSpreadsheet(querySpreadsheetId, accessToken)
                     call.respondText(metadata, io.ktor.http.ContentType.Application.Json)
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")

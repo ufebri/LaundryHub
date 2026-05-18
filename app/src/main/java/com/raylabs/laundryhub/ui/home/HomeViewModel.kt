@@ -63,18 +63,20 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    // Trigger khusus untuk Paging agar tidak terpengaruh oleh update status (Optimistic UI)
+    // yang sering menyebabkan layar loncat ke atas.
+    private val _pagingTrigger = MutableStateFlow(PendingOrderQuery("", SortOption.ORDER_DATE_DESC))
+
     val grossPagingData: Flow<PagingData<GrossData>> =
         grossUseCase.getPagingData()
             .cachedIn(viewModelScope)
 
     @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> =
-        _uiState.map {
-            PendingOrderQuery(
-                searchQuery = it.searchQuery.toRemotePendingOrderSearchQuery(),
-                sortOption = it.currentSortOption
-            )
-        }
+        _pagingTrigger
+            .map { query ->
+                query.copy(searchQuery = query.searchQuery.toRemotePendingOrderSearchQuery())
+            }
             .debounce { query ->
                 if (query.searchQuery.isBlank()) 0L else PENDING_ORDER_SEARCH_DEBOUNCE_MILLIS
             }
@@ -250,19 +252,26 @@ class HomeViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        _pagingTrigger.update { it.copy(searchQuery = query) }
     }
 
     fun toggleSearch() {
         _uiState.update {
+            val nextActive = !it.isSearchActive
+            val nextQuery = if (it.isSearchActive) "" else it.searchQuery
             it.copy(
-                isSearchActive = !it.isSearchActive,
-                searchQuery = if (it.isSearchActive) "" else it.searchQuery
+                isSearchActive = nextActive,
+                searchQuery = nextQuery
             )
+        }
+        _pagingTrigger.update { 
+            it.copy(searchQuery = if (_uiState.value.isSearchActive) _uiState.value.searchQuery else "")
         }
     }
 
     fun changeSortOrder(option: SortOption) {
         _uiState.update { it.copy(currentSortOption = option) }
+        _pagingTrigger.update { it.copy(sortOption = option) }
     }
 
     fun refreshAfterOrderChanged() {

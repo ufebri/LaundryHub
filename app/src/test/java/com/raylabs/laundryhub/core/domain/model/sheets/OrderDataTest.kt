@@ -37,16 +37,16 @@ class OrderDataTest {
             paymentMethod = "", remark = "", weight = "",
             orderDate = "01/01/2025", dueDate = "3d"
         )
-        assertEquals("Paid", cash.getSpreadSheetPaidStatus)
+        assertEquals("lunas", cash.getSpreadSheetPaidStatus)
 
         val qris = cash.copy(paidStatus = PAID_BY_QRIS)
-        assertEquals("Paid", qris.getSpreadSheetPaidStatus)
+        assertEquals("lunas", qris.getSpreadSheetPaidStatus)
 
         val unpaid = cash.copy(paidStatus = UNPAID)
-        assertEquals("Unpaid", unpaid.getSpreadSheetPaidStatus)
+        assertEquals("belum", unpaid.getSpreadSheetPaidStatus)
 
         val canonicalUnpaid = cash.copy(paidStatus = UNPAID_ID)
-        assertEquals("Unpaid", canonicalUnpaid.getSpreadSheetPaidStatus)
+        assertEquals("belum", canonicalUnpaid.getSpreadSheetPaidStatus)
     }
 
     @Test
@@ -124,12 +124,12 @@ class OrderDataTest {
 
     @Test
     fun `getDisplayPaidStatus returns correct label`() {
-        assertEquals("Paid", getDisplayPaidStatus(PAID_BY_CASH))
-        assertEquals("Paid", getDisplayPaidStatus(PAID_BY_QRIS))
-        assertEquals("Paid", getDisplayPaidStatus("Paid"))
-        assertEquals("Paid", getDisplayPaidStatus(PAID))
-        assertEquals("Unpaid", getDisplayPaidStatus(UNPAID))
-        assertEquals("Unpaid", getDisplayPaidStatus(UNPAID_ID))
+        assertEquals("lunas", getDisplayPaidStatus(PAID_BY_CASH))
+        assertEquals("lunas", getDisplayPaidStatus(PAID_BY_QRIS))
+        assertEquals("lunas", getDisplayPaidStatus("Paid"))
+        assertEquals("lunas", getDisplayPaidStatus(PAID))
+        assertEquals("belum", getDisplayPaidStatus(UNPAID))
+        assertEquals("belum", getDisplayPaidStatus(UNPAID_ID))
         assertEquals("", getDisplayPaidStatus("OTHER"))
     }
 
