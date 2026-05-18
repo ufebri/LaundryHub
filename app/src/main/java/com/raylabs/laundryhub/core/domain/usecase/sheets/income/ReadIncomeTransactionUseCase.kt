@@ -33,7 +33,7 @@ class ReadIncomeTransactionUseCase @Inject constructor(private val repository: L
         sort: String? = null
     ): Flow<PagingData<TransactionData>> {
         return Pager(
-            config = PagingConfig(pageSize = 20, enablePlaceholders = false),
+            config = PagingConfig(pageSize = 50, enablePlaceholders = false),
             pagingSourceFactory = { OrderPagingSource(repository, filter, rangeDate, searchQuery, sort) }
         ).flow
     }

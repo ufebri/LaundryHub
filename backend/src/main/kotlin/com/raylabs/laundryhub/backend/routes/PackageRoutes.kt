@@ -1,7 +1,9 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
-import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -19,8 +21,8 @@ fun Route.packageRoutes(
     repository: PackageRepository,
     sheetsApiClient: GoogleSheetsApiClient,
     migrationRoutesEnabled: Boolean = false,
-    syncService: SheetsSyncService? = null,
-    spreadsheetId: String? = null
+    syncDeleteEventRepository: SyncDeleteEventRepository? = null,
+    sheetsPushScheduler: SheetsPushScheduler? = null
 ) {
     route("/api/packages") {
         get {
@@ -30,7 +32,10 @@ fun Route.packageRoutes(
             try {
                 val pkg = call.receive<PackageData>()
                 val inserted = repository.insert(pkg)
-                if (inserted) call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+                if (inserted) {
+                    sheetsPushScheduler?.requestPush("package created")
+                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+                }
                 else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
@@ -41,7 +46,10 @@ fun Route.packageRoutes(
             try {
                 val pkg = call.receive<PackageData>()
                 val updated = repository.update(name, pkg)
-                if (updated) call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                if (updated) {
+                    sheetsPushScheduler?.requestPush("package updated")
+                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+                }
                 else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
             } catch (e: Exception) {
                 call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
@@ -50,15 +58,14 @@ fun Route.packageRoutes(
         delete("/{name}") {
             val name = call.parameters["name"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
             if (repository.delete(name)) {
-                val sheetSynced = spreadsheetId?.let { configuredId ->
-                    syncService?.deletePackageFromSheet(configuredId, name)
-                } ?: false
+                syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
+                sheetsPushScheduler?.requestPush("package deleted")
                 call.respond(
                     HttpStatusCode.OK,
                     mapOf(
                         "status" to "Success",
                         "message" to "Package deleted",
-                        "sheetSynced" to sheetSynced.toString()
+                        "sheetSynced" to "queued"
                     )
                 )
             } else {

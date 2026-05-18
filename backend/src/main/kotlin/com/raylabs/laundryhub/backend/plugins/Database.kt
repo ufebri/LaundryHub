@@ -1,10 +1,12 @@
 package com.raylabs.laundryhub.backend.plugins
 
+import com.raylabs.laundryhub.backend.db.schema.DeviceTokensTable
 import com.raylabs.laundryhub.backend.db.schema.GrossTable
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
 import com.raylabs.laundryhub.backend.db.schema.PackagesTable
 import com.raylabs.laundryhub.backend.db.schema.SummaryTable
+import com.raylabs.laundryhub.backend.db.schema.SyncDeleteEventsTable
 import com.zaxxer.hikari.HikariConfig
 import com.zaxxer.hikari.HikariDataSource
 import io.ktor.server.application.Application
@@ -12,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.slf4j.LoggerFactory
 
@@ -54,7 +57,16 @@ fun Application.configureDatabase() {
 
         runBlocking {
             dbQuery {
-                SchemaUtils.create(OrdersTable, PackagesTable, OutcomesTable, GrossTable, SummaryTable)
+                SchemaUtils.createMissingTablesAndColumns(
+                    OrdersTable,
+                    PackagesTable,
+                    OutcomesTable,
+                    GrossTable,
+                    SummaryTable,
+                    DeviceTokensTable,
+                    SyncDeleteEventsTable
+                )
+                ensureDeviceTokenColumnCapacity(jdbcUrl)
             }
         }
         logger.info("Database connected successfully!")
@@ -63,6 +75,14 @@ fun Application.configureDatabase() {
         // Railway akan restart container jika kita exit dengan status 1
         System.exit(1)
     }
+}
+
+private fun ensureDeviceTokenColumnCapacity(jdbcUrl: String) {
+    if (!jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) return
+
+    TransactionManager.current().exec(
+        "ALTER TABLE device_tokens ALTER COLUMN token TYPE VARCHAR(512)"
+    )
 }
 
 private fun buildJdbcUrlFromEnv(): String? {

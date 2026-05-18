@@ -25,3 +25,14 @@ fun Map<String, String>.toGrossData(): GrossData {
         tax = this[GROSS_TAX].orEmpty()
     )
 }
+
+fun GrossData.toSheetValues(): List<List<String>> {
+    return listOf(
+        listOf(
+            month,
+            totalNominal,
+            orderCount,
+            tax
+        )
+    )
+}

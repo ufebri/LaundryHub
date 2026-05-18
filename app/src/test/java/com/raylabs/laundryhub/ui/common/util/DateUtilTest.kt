@@ -92,6 +92,21 @@ class DateUtilTest {
     }
 
     @Test
+    fun `parseSupportedAppDate accepts English and Indonesian month names`() {
+        val inputs = mapOf(
+            "11 Apr 2026" to "11/04/2026",
+            "11 April 2026" to "11/04/2026",
+            "15 Mei 2026" to "15/05/2026"
+        )
+
+        inputs.forEach { (input, expected) ->
+            val parsed = DateUtil.parseSupportedAppDate(input)
+
+            assertEquals(expected, parsed?.let { DateUtil.formatDate(it) })
+        }
+    }
+
+    @Test
     fun `parseSupportedAppDate rejects impossible calendar dates`() {
         assertNull(DateUtil.parseSupportedAppDate("31/02/2026"))
     }

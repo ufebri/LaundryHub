@@ -120,7 +120,7 @@ class OutcomeViewModelTest {
         val data = vm.buildOutcomeDataForSubmit()
 
         assertNotNull(data)
-        assertEquals("", data!!.id)
+        assertEquals("", data.id)
     }
 
     @Test
@@ -140,7 +140,7 @@ class OutcomeViewModelTest {
         assertNotNull(data)
 
         var completedId: String? = null
-        vm.submitOutcome(data!!) { completedId = it }
+        vm.submitOutcome(data) { completedId = it }
         dispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(vm.uiState.isSubmitting)
@@ -164,7 +164,7 @@ class OutcomeViewModelTest {
         val data = vm.buildOutcomeDataForSubmit()
         assertNotNull(data)
 
-        vm.submitOutcome(data!!) {}
+        vm.submitOutcome(data) {}
         dispatcher.scheduler.advanceUntilIdle()
 
         assertFalse(vm.uiState.isSubmitting)
@@ -238,7 +238,7 @@ class OutcomeViewModelTest {
 
         val data = vm.buildOutcomeDataForSubmit()
         assertNotNull(data)
-        assertEquals("", data!!.id)
+        assertEquals("", data.id)
         assertEquals("1000", data.price)
         assertEquals(getPaymentValueFromDescription("Paid by Cash"), data.payment)
     }

@@ -1,16 +1,22 @@
 package com.raylabs.laundryhub.backend.plugins
 
+import com.raylabs.laundryhub.backend.db.repository.DeviceTokenRepository
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
 import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.routes.fcmRoutes
 import com.raylabs.laundryhub.backend.routes.grossRoutes
 import com.raylabs.laundryhub.backend.routes.outcomeRoutes
 import com.raylabs.laundryhub.backend.routes.packageRoutes
 import com.raylabs.laundryhub.backend.routes.summaryRoutes
 import com.raylabs.laundryhub.backend.routes.syncRoutes
+import com.raylabs.laundryhub.backend.service.FcmNotificationService
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.backend.service.SyncStateManager
@@ -36,16 +42,20 @@ private val logger = LoggerFactory.getLogger("Routing")
 fun Application.configureRouting() {
     val syncService = SheetsSyncService()
     val syncStateManager = SyncStateManager()
+    val fcmNotificationService = FcmNotificationService()
+    val deviceTokenRepository = DeviceTokenRepository()
     val orderRepository = OrderRepository()
     val packageRepository = PackageRepository()
     val outcomeRepository = OutcomeRepository()
     val grossRepository = GrossRepository()
     val summaryRepository = SummaryRepository()
+    val syncDeleteEventRepository = SyncDeleteEventRepository()
     val sheetsApiClient = GoogleSheetsApiClient(HttpClientProvider.createClient())
     val spreadsheetId = configuredSpreadsheetId()
 
     var batchSyncJob: SheetsBatchSyncJob? = null
     var reverseSyncJob: SheetsReverseSyncJob? = null
+    var sheetsPushScheduler: SheetsPushScheduler? = null
 
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
@@ -57,11 +67,17 @@ fun Application.configureRouting() {
                 orderRepository = orderRepository,
                 outcomeRepository = outcomeRepository,
                 packageRepository = packageRepository,
+                grossRepository = grossRepository,
+                summaryRepository = summaryRepository,
+                syncDeleteEventRepository = syncDeleteEventRepository,
                 syncService = syncService,
                 spreadsheetId = spreadsheetId,
-                syncStateManager = syncStateManager
+                syncStateManager = syncStateManager,
+                deviceTokenRepository = deviceTokenRepository,
+                fcmNotificationService = fcmNotificationService
             )
             batchSyncJob.start()
+            sheetsPushScheduler = SheetsPushScheduler(batchSyncJob, syncStateManager)
 
             // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
             reverseSyncJob = SheetsReverseSyncJob(
@@ -72,7 +88,9 @@ fun Application.configureRouting() {
                 summaryRepository = summaryRepository,
                 syncService = syncService,
                 spreadsheetId = spreadsheetId,
-                syncStateManager = syncStateManager
+                syncStateManager = syncStateManager,
+                deviceTokenRepository = deviceTokenRepository,
+                fcmNotificationService = fcmNotificationService
             )
             reverseSyncJob.start()
         }
@@ -80,12 +98,37 @@ fun Application.configureRouting() {
 
     routing {
         val migrationRoutesEnabled = isMigrationRoutesEnabled()
-        packageRoutes(packageRepository, sheetsApiClient, migrationRoutesEnabled, syncService, spreadsheetId)
-        outcomeRoutes(outcomeRepository, sheetsApiClient, migrationRoutesEnabled, syncService, spreadsheetId)
-        grossRoutes(grossRepository, sheetsApiClient, migrationRoutesEnabled)
-        summaryRoutes(summaryRepository, sheetsApiClient, migrationRoutesEnabled)
+        packageRoutes(
+            repository = packageRepository,
+            sheetsApiClient = sheetsApiClient,
+            migrationRoutesEnabled = migrationRoutesEnabled,
+            syncDeleteEventRepository = syncDeleteEventRepository,
+            sheetsPushScheduler = sheetsPushScheduler
+        )
+        outcomeRoutes(
+            repository = outcomeRepository,
+            sheetsApiClient = sheetsApiClient,
+            migrationRoutesEnabled = migrationRoutesEnabled,
+            syncDeleteEventRepository = syncDeleteEventRepository,
+            sheetsPushScheduler = sheetsPushScheduler
+        )
+        grossRoutes(
+            repository = grossRepository,
+            sheetsApiClient = sheetsApiClient,
+            migrationRoutesEnabled = migrationRoutesEnabled,
+            syncDeleteEventRepository = syncDeleteEventRepository,
+            sheetsPushScheduler = sheetsPushScheduler
+        )
+        summaryRoutes(
+            repository = summaryRepository,
+            sheetsApiClient = sheetsApiClient,
+            migrationRoutesEnabled = migrationRoutesEnabled,
+            syncDeleteEventRepository = syncDeleteEventRepository,
+            sheetsPushScheduler = sheetsPushScheduler
+        )
         
-        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob)
+        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob, sheetsPushScheduler)
+        fcmRoutes(deviceTokenRepository)
         
         get("/") {
             call.respond(mapOf("status" to "OK", "message" to "LaundryHub KMP Backend is running"))
@@ -144,6 +187,7 @@ fun Application.configureRouting() {
                         )
                     )
                     // Trigger background sync here if needed
+                    sheetsPushScheduler?.requestPush("order created")
                 } else {
                     call.respond(
                         HttpStatusCode.Conflict,
@@ -161,6 +205,7 @@ fun Application.configureRouting() {
                 val order = call.receive<OrderData>()
                 val updated = orderRepository.update(id, order)
                 if (updated) {
+                    sheetsPushScheduler?.requestPush("order updated")
                     call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "message" to "Order updated"))
                 } else {
                     call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error", "message" to "Order not found"))
@@ -174,18 +219,14 @@ fun Application.configureRouting() {
             val id = call.parameters["id"] ?: return@delete call.respond(HttpStatusCode.BadRequest, "Missing id")
             val deleted = orderRepository.delete(id)
             if (deleted) {
-                val sheetSynced = configuredSpreadsheetId()?.let { spreadsheetId ->
-                    syncService.deleteOrderFromSheet(
-                        spreadsheetId = spreadsheetId,
-                        orderId = id
-                    )
-                } ?: false
+                syncDeleteEventRepository.record(SyncEntityType.ORDER, id)
+                sheetsPushScheduler?.requestPush("order deleted")
                 call.respond(
                     HttpStatusCode.OK,
                     mapOf(
                         "status" to "Success",
                         "message" to "Order deleted",
-                        "sheetSynced" to sheetSynced.toString()
+                        "sheetSynced" to "queued"
                     )
                 )
             } else {
@@ -216,11 +257,11 @@ fun Application.configureRouting() {
 
         if (isMigrationRoutesEnabled()) {
             post("/api/migrate-orders") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
                 val range = "income" // Based on typical order columns
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(
                         HttpStatusCode.BadRequest,
                         mapOf("status" to "Error", "message" to "Missing spreadsheetId or accessToken")
@@ -230,7 +271,7 @@ fun Application.configureRouting() {
 
                 try {
                     // 1. Fetch from legacy Google Sheets
-                    val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
+                    val response = sheetsApiClient.getValues(querySpreadsheetId, range, accessToken)
                     val rows = response.values ?: emptyList()
 
                     // 2. Map to Shared DTO
@@ -271,17 +312,17 @@ fun Application.configureRouting() {
             }
 
             get("/api/debug-sheets") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
                 val range = "income"
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
                     return@get
                 }
 
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, range, accessToken)
+                    val response = sheetsApiClient.getValues(querySpreadsheetId, range, accessToken)
                     call.respond(response) // Kirim full response agar kita bisa lihat meta-nya
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")
@@ -289,16 +330,16 @@ fun Application.configureRouting() {
             }
 
             get("/api/debug-metadata") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val querySpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
 
-                if (spreadsheetId == null || accessToken == null) {
+                if (querySpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing spreadsheetId or accessToken")
                     return@get
                 }
 
                 try {
-                    val metadata = sheetsApiClient.getSpreadsheet(spreadsheetId, accessToken)
+                    val metadata = sheetsApiClient.getSpreadsheet(querySpreadsheetId, accessToken)
                     call.respondText(metadata, io.ktor.http.ContentType.Application.Json)
                 } catch (e: Exception) {
                     call.respond(HttpStatusCode.InternalServerError, e.message ?: "Unknown error")

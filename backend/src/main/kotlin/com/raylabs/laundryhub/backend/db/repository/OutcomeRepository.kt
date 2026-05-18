@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.backend.db.repository
 
 import com.raylabs.laundryhub.backend.db.schema.OutcomesTable
 import com.raylabs.laundryhub.backend.plugins.dbQuery
+import com.raylabs.laundryhub.backend.util.parseSupportedLaundryDate
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
@@ -137,7 +138,7 @@ class OutcomeRepository {
         val offset = ((page - 1) * size).coerceAtLeast(0)
         OutcomesTable.selectAll()
             .map { it.toOutcomeData() }
-            .sortedByDescending { it.id.toIntOrNull() ?: Int.MIN_VALUE }
+            .sortedWith(outcomeDateComparator())
             .drop(offset)
             .take(size)
     }
@@ -172,6 +173,12 @@ class OutcomeRepository {
             remark = this[OutcomesTable.remark],
             payment = this[OutcomesTable.payment]
         )
+    }
+
+    private fun outcomeDateComparator(): Comparator<OutcomeData> {
+        val idDesc = compareByDescending<OutcomeData> { it.id.toIntOrNull() ?: Int.MIN_VALUE }
+        return compareByDescending<OutcomeData> { parseSupportedLaundryDate(it.date)?.time ?: Long.MIN_VALUE }
+            .then(idDesc)
     }
 }
 

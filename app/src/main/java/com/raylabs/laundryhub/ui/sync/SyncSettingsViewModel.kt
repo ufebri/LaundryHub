@@ -19,11 +19,16 @@ import javax.inject.Inject
 data class SyncSettingsUiState(
     val lastSyncTime: String? = null,
     val changesCount: Int = 0,
-    val autoSyncIntervalMinutes: Int = 15,
-    val reverseSyncSchedule: ReverseSyncSchedule = ReverseSyncSchedule.DEFAULT_23,
-    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
+    val autoSyncIntervalMinutes: Int = 5,
+    val reverseSyncSchedule: ReverseSyncSchedule = ReverseSyncSchedule.MANUAL,
+    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SUPABASE,
     val isLoading: Boolean = false,
     val isSyncing: Boolean = false,
+    val lastSyncStatus: String = "UNKNOWN",
+    val lastSyncError: String? = null,
+    val pendingPushCount: Int = 0,
+    val pendingDeleteCount: Int = 0,
+    val nextScheduledPushTime: String? = null,
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
@@ -58,7 +63,12 @@ class SyncSettingsViewModel @Inject constructor(
                             autoSyncIntervalMinutes = data.autoSyncIntervalMinutes,
                             reverseSyncSchedule = data.reverseSyncSchedule,
                             masterSourceOfTruth = data.masterSourceOfTruth,
-                            isSyncing = data.isSyncing
+                            isSyncing = data.isSyncing,
+                            lastSyncStatus = data.lastSyncStatus,
+                            lastSyncError = data.lastSyncError,
+                            pendingPushCount = data.pendingPushCount,
+                            pendingDeleteCount = data.pendingDeleteCount,
+                            nextScheduledPushTime = data.nextScheduledPushTime
                         )
                     }
                     

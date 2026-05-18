@@ -1,6 +1,8 @@
 package com.raylabs.laundryhub.backend.service
 
 import com.google.auth.oauth2.GoogleCredentials
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
@@ -9,6 +11,8 @@ import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesRequest
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesRequest
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -165,6 +169,94 @@ class SheetsSyncService {
         }
     }
 
+    suspend fun syncGross(spreadsheetId: String, gross: GrossData): Boolean = withContext(Dispatchers.IO) {
+        syncRows(
+            spreadsheetId = spreadsheetId,
+            sheetName = "gross",
+            keyRange = "gross!A:A",
+            key = gross.month,
+            updateColumnRange = "A:D",
+            values = gross.toSheetValues()
+        )
+    }
+
+    suspend fun syncSummary(spreadsheetId: String, summary: SpreadsheetData): Boolean = withContext(Dispatchers.IO) {
+        syncRows(
+            spreadsheetId = spreadsheetId,
+            sheetName = "summary",
+            keyRange = "summary!A:A",
+            key = summary.key,
+            updateColumnRange = "A:B",
+            values = summary.toSheetValues()
+        )
+    }
+
+    suspend fun syncOrdersBatch(spreadsheetId: String, orders: List<OrderData>): Int = syncBatch(
+        spreadsheetId = spreadsheetId,
+        sheetName = "income",
+        keyRange = "income!A:A",
+        updateColumnRange = "A:L",
+        rows = orders.map { order ->
+            SheetRow(
+                key = order.orderId,
+                values = listOf(
+                    order.orderId,
+                    order.orderDate,
+                    order.name,
+                    order.weight,
+                    order.priceKg,
+                    order.totalPrice,
+                    order.paidStatus,
+                    order.packageName,
+                    order.remark,
+                    order.paymentMethod,
+                    order.phoneNumber,
+                    order.dueDate
+                )
+            )
+        }
+    )
+
+    suspend fun syncOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): Int = syncBatch(
+        spreadsheetId = spreadsheetId,
+        sheetName = "outcome",
+        keyRange = "outcome!A:A",
+        updateColumnRange = "A:F",
+        rows = outcomes.map { outcome ->
+            SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
+        }
+    )
+
+    suspend fun syncPackagesBatch(spreadsheetId: String, packages: List<PackageData>): Int = syncBatch(
+        spreadsheetId = spreadsheetId,
+        sheetName = "notes",
+        keyRange = "notes!B:B",
+        updateColumnRange = "A:D",
+        rows = packages.map { pkg ->
+            SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
+        }
+    )
+
+    suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int = syncBatch(
+        spreadsheetId = spreadsheetId,
+        sheetName = "gross",
+        keyRange = "gross!A:A",
+        updateColumnRange = "A:D",
+        rows = grossList.map { gross ->
+            SheetRow(key = gross.month, values = gross.toSheetValues().single())
+        }
+    )
+
+    suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int = syncBatch(
+        spreadsheetId = spreadsheetId,
+        sheetName = "summary",
+        keyRange = "summary!A:A",
+        updateColumnRange = "A:B",
+        rows = summaries.map { summary ->
+            SheetRow(key = summary.key, values = summary.toSheetValues().single())
+        }
+    )
+
     suspend fun deleteOutcomeFromSheet(spreadsheetId: String, outcomeId: String): Boolean = withContext(Dispatchers.IO) {
         try {
             val token = getServiceAccountToken()
@@ -200,6 +292,38 @@ class SheetsSyncService {
         } catch (e: Exception) {
             logger.error("Error clearing package $packageName: ${e.message}")
             false
+        }
+    }
+
+    suspend fun clearDeletedRows(spreadsheetId: String, events: List<SyncDeleteEvent>): List<Int> = withContext(Dispatchers.IO) {
+        if (events.isEmpty()) return@withContext emptyList()
+
+        try {
+            val token = getServiceAccountToken()
+            val rangesToEvents = events.mapNotNull { event ->
+                val target = event.toSheetDeleteTarget() ?: return@mapNotNull event.id to null
+                val rows = sheetsApiClient.getValues(spreadsheetId, target.keyRange, token).values ?: emptyList()
+                val rowIndex = rows.indexOfFirst { it.getOrNull(0) == event.entityId }
+                if (rowIndex == -1) {
+                    event.id to null
+                } else {
+                    event.id to buildRowRange(target.sheetName, target.clearColumns, rowIndex + 1)
+                }
+            }
+
+            val ranges = rangesToEvents.mapNotNull { it.second }
+            if (ranges.isNotEmpty()) {
+                sheetsApiClient.batchClearValues(
+                    spreadsheetId = spreadsheetId,
+                    request = BatchClearValuesRequest(ranges = ranges),
+                    accessToken = token
+                )
+            }
+
+            rangesToEvents.map { it.first }
+        } catch (e: Exception) {
+            logger.error("Error clearing deleted rows from sheets: ${e.message}")
+            emptyList()
         }
     }
 
@@ -344,4 +468,104 @@ class SheetsSyncService {
             emptyList()
         }
     }
+
+    private suspend fun syncRows(
+        spreadsheetId: String,
+        sheetName: String,
+        keyRange: String,
+        key: String,
+        updateColumnRange: String,
+        values: List<List<String>>
+    ): Boolean {
+        return syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = sheetName,
+            keyRange = keyRange,
+            updateColumnRange = updateColumnRange,
+            rows = values.map { SheetRow(key = key, values = it) }
+        ) == values.size
+    }
+
+    private suspend fun syncBatch(
+        spreadsheetId: String,
+        sheetName: String,
+        keyRange: String,
+        updateColumnRange: String,
+        rows: List<SheetRow>
+    ): Int = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) return@withContext 0
+
+        try {
+            val token = getServiceAccountToken()
+            val existingRows = sheetsApiClient.getValues(spreadsheetId, keyRange, token).values ?: emptyList()
+            val rowsByKey = existingRows
+                .mapIndexedNotNull { index, row -> row.getOrNull(0)?.takeIf { it.isNotBlank() }?.let { it to index + 1 } }
+                .toMap()
+
+            val updates = rows.mapNotNull { row ->
+                val rowIndex = rowsByKey[row.key] ?: return@mapNotNull null
+                ValueRange(
+                    range = buildRowRange(sheetName, updateColumnRange, rowIndex),
+                    majorDimension = "ROWS",
+                    values = listOf(row.values)
+                )
+            }
+            val appends = rows.filter { it.key !in rowsByKey }.map { it.values }
+
+            if (updates.isNotEmpty()) {
+                sheetsApiClient.batchUpdateValues(
+                    spreadsheetId = spreadsheetId,
+                    request = BatchUpdateValuesRequest(data = updates),
+                    accessToken = token
+                )
+            }
+
+            if (appends.isNotEmpty()) {
+                sheetsApiClient.appendValues(
+                    spreadsheetId = spreadsheetId,
+                    range = sheetName,
+                    valueRange = ValueRange(
+                        range = sheetName,
+                        majorDimension = "ROWS",
+                        values = appends
+                    ),
+                    accessToken = token
+                )
+            }
+
+            rows.size
+        } catch (e: Exception) {
+            logger.error("Error syncing $sheetName batch: ${e.message}")
+            0
+        }
+    }
+
+    private fun SyncDeleteEvent.toSheetDeleteTarget(): SheetDeleteTarget? {
+        return when (entityType) {
+            SyncEntityType.ORDER -> SheetDeleteTarget("income", "income!A:A", "A:L")
+            SyncEntityType.OUTCOME -> SheetDeleteTarget("outcome", "outcome!A:A", "A:F")
+            SyncEntityType.PACKAGE -> SheetDeleteTarget("notes", "notes!B:B", "A:D")
+            SyncEntityType.GROSS -> SheetDeleteTarget("gross", "gross!A:A", "A:D")
+            SyncEntityType.SUMMARY -> SheetDeleteTarget("summary", "summary!A:A", "A:B")
+            else -> null
+        }
+    }
+
+    private fun buildRowRange(sheetName: String, columns: String, rowIndex: Int): String {
+        val (startColumn, endColumn) = columns.split(":").let { parts ->
+            parts.first() to parts.getOrElse(1) { parts.first() }
+        }
+        return "$sheetName!$startColumn$rowIndex:$endColumn$rowIndex"
+    }
 }
+
+private data class SheetRow(
+    val key: String,
+    val values: List<String>
+)
+
+private data class SheetDeleteTarget(
+    val sheetName: String,
+    val keyRange: String,
+    val clearColumns: String
+)

@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
+import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
@@ -22,7 +23,8 @@ import kotlinx.coroutines.launch
 fun Route.syncRoutes(
     syncStateManager: SyncStateManager,
     batchSyncJob: SheetsBatchSyncJob?,
-    reverseSyncJob: SheetsReverseSyncJob?
+    reverseSyncJob: SheetsReverseSyncJob?,
+    sheetsPushScheduler: SheetsPushScheduler?
 ) {
     route("/api/sync") {
         get("/status") {
@@ -34,7 +36,13 @@ fun Route.syncRoutes(
                     changesCount = syncStateManager.lastChangesCount,
                     autoSyncIntervalMinutes = config.intervalMinutes,
                     reverseSyncSchedule = config.reverseSyncSchedule,
-                    isSyncing = syncStateManager.isSyncing
+                    masterSourceOfTruth = config.masterSourceOfTruth,
+                    isSyncing = syncStateManager.isSyncing,
+                    lastSyncStatus = syncStateManager.lastSyncStatus,
+                    lastSyncError = syncStateManager.lastSyncError,
+                    pendingPushCount = batchSyncJob?.pendingPushCount() ?: 0,
+                    pendingDeleteCount = batchSyncJob?.pendingDeleteCount() ?: 0,
+                    nextScheduledPushTime = sheetsPushScheduler?.nextScheduledPushTime
                 )
             )
         }
@@ -76,11 +84,9 @@ fun Route.syncRoutes(
                         totalChanges += reverseSyncJob.processReverseSync()
                     }
 
-                    if (totalChanges > 0) {
-                        syncStateManager.recordSync(totalChanges)
-                    }
+                    syncStateManager.recordSync(totalChanges, "SUCCESS")
                 } catch (e: Exception) {
-                    // Log error if needed, state is reset in finally
+                    syncStateManager.recordSyncFailure(e.message)
                 } finally {
                     syncStateManager.setSyncing(false)
                 }

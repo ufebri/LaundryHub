@@ -33,19 +33,13 @@
             </intent-filter>
         </activity>
 
-        <receiver
-            android:name=".core.reminder.ReminderAlarmReceiver"
-            android:enabled="true"
-            android:exported="false" />
-
-        <receiver
-            android:name=".core.reminder.ReminderBootReceiver"
-            android:enabled="true"
+        <service
+            android:name=".core.fcm.LaundryHubFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
-        </receiver>
+        </service>
     </application>
 
 </manifest>

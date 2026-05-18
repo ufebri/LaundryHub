@@ -15,6 +15,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `GET /api/outcomes`, `GET /api/outcomes/{id}`, and `GET /api/outcomes/last-id` mirror the outcome read flow.
 - `POST /api/outcomes` now assigns the next outcome id on the backend and returns `status`, `message`, and `outcomeId`.
 - `PUT /api/outcomes/{id}` and `DELETE /api/outcomes/{id}` cover existing-outcome mutations.
+- `POST /api/notifications/token` registers the current device FCM token for backend push delivery.
 - Package create still posts package data. Package update/delete now target the original package name with `PUT /api/packages/{name}` and `DELETE /api/packages/{name}` instead of relying on a Sheets row index.
 - Package, gross, and summary reads stay on backend endpoints.
 
@@ -23,15 +24,22 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Runtime database config must come from environment or `application.yaml`; no project-specific fallback credentials are allowed.
 - Background Sheets jobs start only when `SPREADSHEET_ID` is configured.
 - Migration/debug routes are disabled by default and require `ENABLE_MIGRATION_ROUTES=true`.
-- Rows imported from Sheets migrations should be marked already synced. Rows created or updated through app writes remain unsynced until the relevant sync job confirms them.
-- Order delete clears the matching Sheets row only when backend Sheets config is available. The app delete still succeeds if the database delete succeeds.
+- Rows imported from Sheets migrations should be marked already synced. Rows created or updated through app writes remain unsynced until the relevant push job confirms them.
+- App database writes are the success boundary. Google Sheets is a mirror/reporting surface, so create/update/delete responses should not wait for Sheets API completion.
+- After a successful order, outcome, package, gross, or summary mutation, the backend schedules a debounced DB -> Sheets push. The normal target is under one minute, with changes coalesced so bursts do not create one Sheets request per write.
+- The fallback DB -> Sheets job runs from the configurable interval, defaulting to 5 minutes, and retries rows that still have `is_synced=false`.
+- Deletes are recorded in a durable sync delete outbox and cleared from Sheets by the same push path. Delete API responses report Sheets cleanup as queued, not complete.
 - Order creation id allocation belongs to `POST /api/orders`, not Android. `OrderRepository.insertWithNextId()` serializes allocation with a Postgres advisory lock, calculates max numeric id + 1, inserts the row, and returns the created id.
 - `OrderRepository.getNextId()` remains for the legacy `last-id` route, but it is not part of the Android submit flow.
 - Outcome creation now follows the same ownership model as orders. `OutcomeRepository.insertWithNextId()` serializes allocation with an advisory lock, calculates max numeric id + 1, inserts the row, and returns the created id.
-- The batch Sheets job now processes unsynced orders, outcomes, and packages through the normal repository/service path. It should still be enabled only when the target spreadsheet configuration is intentionally set.
-- Outcome and package deletes clear matching Sheets rows only when backend Sheets config is available. The database mutation remains the app-facing success boundary.
+- The batch Sheets job processes unsynced orders, outcomes, packages, gross rows, summary rows, and queued deletes through the normal repository/service path. It should still be enabled only when the target spreadsheet configuration is intentionally set.
+- Google Sheets push uses one key-column read per tab and batches updates/appends/clears where practical to reduce request pressure.
 - Package name is the current stable external identifier for package update/delete. Android sends the original package name in the route and the edited package data in the body so rename flows can update the same database row.
 - `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
+- Order filtering uses the shared payment-status normalization helpers. `UNPAID` includes `Unpaid`, `belum`, and blank legacy rows; `PAID` includes `Paid`, `lunas`, and paid-by-method display labels. This keeps Home Pending Orders aligned with History data instead of letting paid rows pollute the pending page.
+- Order date sorting and range checks accept both storage formats such as `15/05/2026` and display/import formats such as `15 May 2026` or `15 Mei 2026`, so pending-order sorting does not hide older imported rows behind unparseable dates.
+- Outcome list ordering is date-first, then id. This prevents a newly-created or high-id outcome dated `8 May 2026` from appearing above a lower-id outcome dated `15 May 2026`.
+- Notification token registration trims tokens, rejects blank payloads, and keeps enough column capacity for longer FCM registration tokens. Existing PostgreSQL deployments widen `device_tokens.token` during startup when needed.
 
 ## Android Decisions
 
@@ -45,7 +53,10 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Query parameters are sent through Ktor request parameters instead of manual URL string assembly.
 - Mutation calls now validate HTTP status codes explicitly. A non-2xx response is surfaced as a `Resource.Error`, using the API `message` field when available, so duplicate-order `409` responses cannot show a false submit success.
 - Payment status helpers accept both canonical storage values and user-facing display values to keep edit and history flows stable.
-- Home pending orders pass server-side search and sort options into paging.
+- Home pending orders pass server-side search and sort options into paging. Search input stays local while the user types; backend search is debounced and only starts once the query has at least two characters, so one-letter edits do not trigger repeated loading states.
+- Home pending orders now rely on the same normalized paid/unpaid status semantics used by shared transaction mapping, so display values from the app and canonical values from Sheets are treated consistently.
+- Device token registration waits until startup has resolved a healthy active backend root, then posts to the active API root's `notifications/token` route. This avoids sending FCM tokens to the wrong fallback URL or to a doubled `/api/api/...` path.
+- Sync Settings now presents the app database as the default master source, shows queued push counts and the next scheduled push, and uses a 5-minute fallback interval by default. Reverse sync is manual by default to avoid Sheets overwriting app-owned data.
 - Inventory update/delete no longer depends on `sheetRowIndex`. The ViewModel uses the package name contract and treats package writes as successful as soon as the backend write succeeds, then refreshes silently.
 - Outcome, History, and Inventory keep write success feedback separate from follow-up refresh work. A slow refresh should not make a confirmed write feel failed.
 
@@ -63,6 +74,28 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `./gradlew :macrobenchmark:assembleBenchmark --no-daemon`
 - `./gradlew :app:connectedDebugAndroidTest --no-daemon`
 - `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon`
+
+Latest pending-order parity check:
+
+- `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.db.repository.OrderRepositoryTest`
+- `./gradlew :backend:test`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.core.domain.model.sheets.OrderDataTest --tests com.raylabs.laundryhub.core.domain.model.sheets.TransactionDataTest`
+- `./gradlew testDebugUnitTest`
+
+Latest near-real-time Sheets mirror sync check:
+
+- `./gradlew :backend:test`
+- `./gradlew :app:compileDebugKotlin`
+- `./gradlew testDebugUnitTest`
+
+Latest search/outcome/notification registration check:
+
+- `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.db.repository.OutcomeRepositoryTest --tests com.raylabs.laundryhub.backend.db.repository.DeviceTokenRepositoryTest`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.home.HomeViewModelTest --tests com.raylabs.laundryhub.ui.outcome.state.EntryItemTest --tests com.raylabs.laundryhub.ui.common.util.DateUtilTest --tests com.raylabs.laundryhub.core.fcm.DeviceTokenManagerTest`
+- `./gradlew :backend:test`
+- `./gradlew testDebugUnitTest`
+- `./gradlew jacocoTestReport`
+- `git diff --check`
 
 The latest safe connected instrumentation run passed on `SM-S931B - 16`: Gradle reported 21 finished, 0 failed, 4 skipped. The skips were the four guarded mutating flows because the safe run intentionally did not pass sandbox mutation arguments; the signed-in shell smoke passed.
 

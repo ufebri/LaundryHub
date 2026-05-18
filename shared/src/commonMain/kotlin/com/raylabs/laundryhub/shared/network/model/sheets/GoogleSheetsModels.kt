@@ -38,6 +38,33 @@ data class ClearValuesRequest(
 )
 
 @Serializable
+data class BatchUpdateValuesRequest(
+    val valueInputOption: String = "USER_ENTERED",
+    val data: List<ValueRange>
+)
+
+@Serializable
+data class BatchUpdateValuesResponse(
+    val spreadsheetId: String? = null,
+    val totalUpdatedRows: Int? = null,
+    val totalUpdatedColumns: Int? = null,
+    val totalUpdatedCells: Int? = null,
+    val totalUpdatedSheets: Int? = null,
+    val responses: List<UpdateValuesResponse>? = null
+)
+
+@Serializable
+data class BatchClearValuesRequest(
+    val ranges: List<String>
+)
+
+@Serializable
+data class BatchClearValuesResponse(
+    val spreadsheetId: String? = null,
+    val clearedRanges: List<String>? = null
+)
+
+@Serializable
 data class BatchUpdateSpreadsheetRequest(
     val requests: List<Request>
 )
