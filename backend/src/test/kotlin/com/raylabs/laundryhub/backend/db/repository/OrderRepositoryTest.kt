@@ -68,4 +68,63 @@ class OrderRepositoryTest {
         val all = repository.getAll(page = 1, size = 10)
         assertEquals(2, all.size)
     }
+
+    @Test
+    fun `unpaid filter includes only normalized unpaid statuses`() = runBlocking {
+        listOf(
+            sampleOrder(orderId = "1", paidStatus = "Unpaid", orderDate = "15/05/2026"),
+            sampleOrder(orderId = "2", paidStatus = "belum", orderDate = "14/05/2026"),
+            sampleOrder(orderId = "3", paidStatus = "", orderDate = "13/05/2026"),
+            sampleOrder(orderId = "4", paidStatus = "Paid", orderDate = "15/05/2026"),
+            sampleOrder(orderId = "5", paidStatus = "lunas", orderDate = "14/05/2026"),
+            sampleOrder(orderId = "6", paidStatus = "Paid by Cash", orderDate = "13/05/2026")
+        ).forEach { repository.insert(it) }
+
+        val unpaidIds = repository.getAll(filter = "UNPAID", page = 1, size = 10)
+            .map { it.orderId }
+            .toSet()
+        val paidIds = repository.getAll(filter = "PAID", page = 1, size = 10)
+            .map { it.orderId }
+            .toSet()
+
+        assertEquals(setOf("1", "2", "3"), unpaidIds)
+        assertEquals(setOf("4", "5", "6"), paidIds)
+    }
+
+    @Test
+    fun `order date sort accepts display month names from history data`() = runBlocking {
+        listOf(
+            sampleOrder(orderId = "1", paidStatus = "Unpaid", orderDate = "13/05/2026"),
+            sampleOrder(orderId = "2", paidStatus = "Unpaid", orderDate = "14 May 2026"),
+            sampleOrder(orderId = "3", paidStatus = "Unpaid", orderDate = "15 Mei 2026")
+        ).forEach { repository.insert(it) }
+
+        val sortedIds = repository.getAll(
+            filter = "UNPAID",
+            sort = "ORDER_DATE_DESC",
+            page = 1,
+            size = 10
+        ).map { it.orderId }
+
+        assertEquals(listOf("3", "2", "1"), sortedIds)
+    }
+
+    private fun sampleOrder(
+        orderId: String,
+        paidStatus: String,
+        orderDate: String
+    ) = OrderData(
+        orderId = orderId,
+        name = "User $orderId",
+        phoneNumber = orderId,
+        packageName = "Regular",
+        priceKg = "7000",
+        totalPrice = "14000",
+        paidStatus = paidStatus,
+        paymentMethod = "cash",
+        remark = "",
+        weight = "2",
+        orderDate = orderDate,
+        dueDate = orderDate
+    )
 }

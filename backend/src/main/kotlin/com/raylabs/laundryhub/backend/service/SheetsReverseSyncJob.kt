@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.backend.db.repository.DeviceTokenRepository
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
 import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
@@ -24,6 +25,8 @@ class SheetsReverseSyncJob(
     private val syncService: SheetsSyncService,
     private val spreadsheetId: String,
     private val syncStateManager: SyncStateManager,
+    private val deviceTokenRepository: DeviceTokenRepository,
+    private val fcmNotificationService: FcmNotificationService,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val logger = LoggerFactory.getLogger(SheetsReverseSyncJob::class.java)
@@ -41,9 +44,10 @@ class SheetsReverseSyncJob(
                             syncStateManager.setSyncing(true)
                             try {
                                 val count = processReverseSync()
-                                if (count > 0) {
-                                    syncStateManager.recordSync(count)
-                                }
+                                syncStateManager.recordSync(count, "SUCCESS")
+                            } catch (e: Exception) {
+                                logger.error("Reverse Sync Pull Error: ${e.message}")
+                                syncStateManager.recordSyncFailure()
                             } finally {
                                 syncStateManager.setSyncing(false)
                             }

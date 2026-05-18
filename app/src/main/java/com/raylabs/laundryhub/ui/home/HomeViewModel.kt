@@ -31,6 +31,7 @@ import com.raylabs.laundryhub.ui.home.state.toUI
 import com.raylabs.laundryhub.ui.home.state.toUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -39,6 +40,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
@@ -61,19 +63,29 @@ class HomeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(HomeUiState())
     val uiState: StateFlow<HomeUiState> = _uiState
 
+    // Trigger khusus untuk Paging agar tidak terpengaruh oleh update status (Optimistic UI)
+    // yang sering menyebabkan layar loncat ke atas.
+    private val _pagingTrigger = MutableStateFlow(PendingOrderQuery("", SortOption.ORDER_DATE_DESC))
+
     val grossPagingData: Flow<PagingData<GrossData>> =
         grossUseCase.getPagingData()
             .cachedIn(viewModelScope)
 
-    @OptIn(ExperimentalCoroutinesApi::class)
+    @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
     val pendingOrdersPagingData: Flow<PagingData<UnpaidOrderItem>> =
-        _uiState.map { it.searchQuery to it.currentSortOption }
+        _pagingTrigger
+            .map { query ->
+                query.copy(searchQuery = query.searchQuery.toRemotePendingOrderSearchQuery())
+            }
+            .debounce { query ->
+                if (query.searchQuery.isBlank()) 0L else PENDING_ORDER_SEARCH_DEBOUNCE_MILLIS
+            }
             .distinctUntilChanged()
-            .flatMapLatest { (query, sort) ->
+            .flatMapLatest { query ->
                 readIncomeUseCase.getPagingData(
                     filter = FILTER.SHOW_UNPAID_DATA,
-                    searchQuery = query,
-                    sort = sort.name
+                    searchQuery = query.searchQuery,
+                    sort = query.sortOption.name
                 )
                     .map { pagingData ->
                         pagingData.map { it.toUnpaidOrderItem() }
@@ -240,19 +252,26 @@ class HomeViewModel @Inject constructor(
 
     fun onSearchQueryChanged(query: String) {
         _uiState.update { it.copy(searchQuery = query) }
+        _pagingTrigger.update { it.copy(searchQuery = query) }
     }
 
     fun toggleSearch() {
         _uiState.update {
+            val nextActive = !it.isSearchActive
+            val nextQuery = if (it.isSearchActive) "" else it.searchQuery
             it.copy(
-                isSearchActive = !it.isSearchActive,
-                searchQuery = if (it.isSearchActive) "" else it.searchQuery
+                isSearchActive = nextActive,
+                searchQuery = nextQuery
             )
+        }
+        _pagingTrigger.update { 
+            it.copy(searchQuery = if (_uiState.value.isSearchActive) _uiState.value.searchQuery else "")
         }
     }
 
     fun changeSortOrder(option: SortOption) {
         _uiState.update { it.copy(currentSortOption = option) }
+        _pagingTrigger.update { it.copy(sortOption = option) }
     }
 
     fun refreshAfterOrderChanged() {
@@ -323,6 +342,16 @@ class HomeViewModel @Inject constructor(
     }
 }
 
+private data class PendingOrderQuery(
+    val searchQuery: String,
+    val sortOption: SortOption
+)
+
+private fun String.toRemotePendingOrderSearchQuery(): String {
+    val sanitized = trim()
+    return sanitized.takeIf { it.length >= MIN_PENDING_ORDER_REMOTE_SEARCH_LENGTH }.orEmpty()
+}
+
 fun TransactionData.toUnpaidOrderItem(): UnpaidOrderItem {
     return UnpaidOrderItem(
         orderID = orderID,
@@ -333,3 +362,6 @@ fun TransactionData.toUnpaidOrderItem(): UnpaidOrderItem {
         orderDate = date
     )
 }
+
+private const val MIN_PENDING_ORDER_REMOTE_SEARCH_LENGTH = 2
+private const val PENDING_ORDER_SEARCH_DEBOUNCE_MILLIS = 450L

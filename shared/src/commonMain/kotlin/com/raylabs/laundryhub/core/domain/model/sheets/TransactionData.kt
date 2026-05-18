@@ -73,9 +73,9 @@ fun TransactionData.filterRangeDateData(rangeDate: RangeDate?): Boolean {
 }
 
 fun TransactionData.isUnpaidData(): Boolean =
-    this.paymentStatus.equals(UNPAID_ID, ignoreCase = true) || this.paymentStatus.isEmpty()
+    isUnpaidStatusValue(paymentStatus, treatBlankAsUnpaid = true)
 
-fun TransactionData.isPaidData(): Boolean = this.paymentStatus.equals(PAID, ignoreCase = true)
+fun TransactionData.isPaidData(): Boolean = isPaidStatusValue(paymentStatus)
 
 fun TransactionData.isQRISData(): Boolean = this.paymentMethod.equals(QRIS, ignoreCase = true)
 

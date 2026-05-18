@@ -2,8 +2,12 @@ package com.raylabs.laundryhub.backend.db.repository
 
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.plugins.dbQuery
+import com.raylabs.laundryhub.backend.util.parseSupportedLaundryDate
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.isPaidStatusValue
+import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidStatusValue
 import org.jetbrains.exposed.sql.ResultRow
+import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
@@ -11,10 +15,8 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
-import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
-import java.util.Locale
 
 class OrderRepository {
 
@@ -217,6 +219,7 @@ class OrderRepository {
 
         OrdersTable
             .selectAll()
+            .orderBy(OrdersTable.id to SortOrder.DESC)
             .map { it.toOrderData() }
             .asSequence()
             .filter { it.matchesFilter(filter) }
@@ -246,11 +249,11 @@ class OrderRepository {
     }
 
     private fun OrderData.matchesFilter(filter: String?): Boolean {
-        return when (filter) {
+        return when (filter?.uppercase()) {
             null, "", "ALL" -> true
             "TODAY" -> isSameDay(orderDate, Date())
-            "UNPAID" -> paidStatus.equals("belum", ignoreCase = true) || paidStatus.isBlank()
-            "PAID" -> paidStatus.equals("lunas", ignoreCase = true)
+            "UNPAID" -> isUnpaidStatusValue(paidStatus, treatBlankAsUnpaid = true)
+            "PAID" -> isPaidStatusValue(paidStatus)
             "QRIS" -> paymentMethod.equals("qris", ignoreCase = true)
             "CASH" -> paymentMethod.equals("cash", ignoreCase = true)
             else -> true
@@ -260,9 +263,9 @@ class OrderRepository {
     private fun OrderData.matchesDateRange(startDate: String?, endDate: String?): Boolean {
         if (startDate.isNullOrBlank() && endDate.isNullOrBlank()) return true
 
-        val orderTime = parseSupportedDate(orderDate)?.time ?: return false
-        val startTime = startDate?.takeIf { it.isNotBlank() }?.let { parseSupportedDate(it)?.time }
-        val endTime = endDate?.takeIf { it.isNotBlank() }?.let { parseSupportedDate(it)?.endOfDayTime() }
+        val orderTime = parseSupportedLaundryDate(orderDate)?.time ?: return false
+        val startTime = startDate?.takeIf { it.isNotBlank() }?.let { parseSupportedLaundryDate(it)?.time }
+        val endTime = endDate?.takeIf { it.isNotBlank() }?.let { parseSupportedLaundryDate(it)?.endOfDayTime() }
 
         return (startTime == null || orderTime >= startTime) &&
             (endTime == null || orderTime <= endTime)
@@ -280,20 +283,20 @@ class OrderRepository {
     private fun orderComparator(sort: String?): Comparator<OrderData> {
         val idDesc = compareByDescending<OrderData> { it.orderId.toIntOrNull() ?: Int.MIN_VALUE }
         return when (sort) {
-            "ORDER_DATE_ASC" -> compareBy<OrderData> { parseSupportedDate(it.orderDate)?.time ?: Long.MAX_VALUE }
+            "ORDER_DATE_ASC" -> compareBy<OrderData> { parseSupportedLaundryDate(it.orderDate)?.time ?: Long.MAX_VALUE }
                 .thenBy { it.orderId.toIntOrNull() ?: Int.MAX_VALUE }
-            "ORDER_DATE_DESC" -> compareByDescending<OrderData> { parseSupportedDate(it.orderDate)?.time ?: Long.MIN_VALUE }
+            "ORDER_DATE_DESC" -> compareByDescending<OrderData> { parseSupportedLaundryDate(it.orderDate)?.time ?: Long.MIN_VALUE }
                 .then(idDesc)
-            "DUE_DATE_ASC" -> compareBy<OrderData> { parseSupportedDate(it.dueDate)?.time ?: Long.MAX_VALUE }
+            "DUE_DATE_ASC" -> compareBy<OrderData> { parseSupportedLaundryDate(it.dueDate)?.time ?: Long.MAX_VALUE }
                 .thenBy { it.orderId.toIntOrNull() ?: Int.MAX_VALUE }
-            "DUE_DATE_DESC" -> compareByDescending<OrderData> { parseSupportedDate(it.dueDate)?.time ?: Long.MIN_VALUE }
+            "DUE_DATE_DESC" -> compareByDescending<OrderData> { parseSupportedLaundryDate(it.dueDate)?.time ?: Long.MIN_VALUE }
                 .then(idDesc)
             else -> idDesc
         }
     }
 
     private fun isSameDay(left: String, right: Date): Boolean {
-        val parsed = parseSupportedDate(left) ?: return false
+        val parsed = parseSupportedLaundryDate(left) ?: return false
         val leftCalendar = Calendar.getInstance().apply { time = parsed }
         val rightCalendar = Calendar.getInstance().apply { time = right }
 
@@ -309,28 +312,6 @@ class OrderRepository {
             set(Calendar.SECOND, 59)
             set(Calendar.MILLISECOND, 999)
         }.timeInMillis
-    }
-
-    private fun parseSupportedDate(value: String?): Date? {
-        val sanitized = value?.trim().orEmpty()
-        if (sanitized.isBlank()) return null
-
-        val formats = listOf(
-            "dd/MM/yyyy",
-            "dd-MM-yyyy",
-            "yyyy-MM-dd",
-            "dd/MM/yyyy HH:mm",
-            "dd-MM-yyyy HH:mm",
-            "yyyy-MM-dd HH:mm"
-        )
-
-        return formats.firstNotNullOfOrNull { pattern ->
-            runCatching {
-                SimpleDateFormat(pattern, Locale.getDefault()).apply {
-                    isLenient = false
-                }.parse(sanitized)
-            }.getOrNull()
-        }
     }
 }
 

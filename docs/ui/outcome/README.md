@@ -10,6 +10,7 @@ Outcome should behave like Order: the backend owns ids, Android gives success fe
 - New outcomes are submitted with a blank id. `POST /api/outcomes` assigns the next id and returns it as `outcomeId`.
 - Submit, update, and delete success callbacks run after the backend write succeeds. The list refresh runs afterward as silent follow-up work.
 - Delete hides the removed outcome id locally so the row disappears immediately after backend success while Paging catches up.
+- Outcome rows are shown newest-date first, with id used only as the tie-breaker within the same date.
 - The FAB is hidden while the outcome sheet is visible so the sheet covers the same visual area as the Add Order flow.
 
 ## Important Decisions
@@ -18,12 +19,15 @@ Outcome should behave like Order: the backend owns ids, Android gives success fe
 - Write success and refresh failure are separate outcomes. The user should see the write result promptly, and any later refresh issue should be handled as a refresh problem.
 - The sheet stays inside the Compose hierarchy instead of using a custom window-backed dialog, matching the modal surface direction used by Order.
 - Backend Sheets sync for outcomes goes through the batch sync service when spreadsheet config is enabled.
+- Date parsing accepts app storage dates and imported display dates such as `15 May 2026` and `15 Mei 2026`, so imported rows do not drift above newer outcome data just because their id is larger.
 
 ## Verification
 
 - `./gradlew :app:testDebugUnitTest :backend:test --no-daemon`
 - `./gradlew :shared:jvmTest --no-daemon`
 - `./gradlew assembleRelease --no-daemon`
+- `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.db.repository.OutcomeRepositoryTest`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.outcome.state.EntryItemTest --tests com.raylabs.laundryhub.ui.common.util.DateUtilTest`
 
 ## Follow-ups
 

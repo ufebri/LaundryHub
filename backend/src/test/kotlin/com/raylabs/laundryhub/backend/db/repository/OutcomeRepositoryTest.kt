@@ -50,4 +50,19 @@ class OutcomeRepositoryTest {
         assertEquals("Soap", retrieved?.purpose)
         assertEquals("50000", retrieved?.price)
     }
+
+    @Test
+    fun `getAll sorts by date descending before id descending`() = runBlocking {
+        val outcomes = listOf(
+            OutcomeData("10", "08 May 2026", "Old high id", "1000", "", "cash"),
+            OutcomeData("2", "15 Mei 2026", "Latest", "2000", "", "cash"),
+            OutcomeData("3", "14/05/2026", "Middle", "3000", "", "cash")
+        )
+
+        outcomes.forEach { repository.insert(it) }
+
+        val result = repository.getAll()
+
+        assertEquals(listOf("2", "3", "10"), result.map { it.id })
+    }
 }
