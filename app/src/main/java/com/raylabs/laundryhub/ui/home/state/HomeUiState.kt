@@ -24,6 +24,7 @@ data class HomeUiState(
     val searchQuery: String = "", // Added for search functionality
     val isSearchActive: Boolean = false, // Added for search functionality
     val refreshCounter: Int = 0, // Added to trigger Paging 3 refresh
+    val isSummaryRefreshing: Boolean = false, // Added for reactive sync UI feedback
     val optimisticOrders: List<UnpaidOrderItem> = emptyList() // Added for Optimistic UI
 )
 

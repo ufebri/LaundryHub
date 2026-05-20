@@ -11,6 +11,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
@@ -20,7 +21,6 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransa
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
 import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.SectionState
-import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
 import com.raylabs.laundryhub.ui.home.state.HomeUiState
@@ -35,6 +35,7 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +52,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
+    private val repository: LaundryRepository,
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val grossUseCase: ReadGrossDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
@@ -135,7 +137,7 @@ class HomeViewModel @Inject constructor(
 
             is Resource.Error -> {
                 _uiState.update {
-                    it.copy(todayIncome = it.todayIncome.error(result.message))
+                    it.copy(todayIncome = it.todayIncome.copy(isLoading = false, errorMessage = result.message))
                 }
             }
 
@@ -161,18 +163,42 @@ class HomeViewModel @Inject constructor(
         }
 
         val grossResult = grossUseCase()
-        val grossItem = if (grossResult is Resource.Success) grossResult.data.firstOrNull()?.toUi() else null
+        val currentSummaryData = _uiState.value.summary.data
+        val grossItem = if (grossResult is Resource.Success && grossResult.data.isNotEmpty()) {
+            grossResult.data.firstOrNull()?.toUi()
+        } else {
+            // Keep last known gross item from UI if fetch fails
+            currentSummaryData?.find { it.title == "Gross Income" }?.let { existingItem ->
+                // Reverse map from SummaryItem back to GrossItem is hard without full data,
+                // but we only need it for the UI construction later.
+                // We'll pass null and let `toUI` handle the missing grossItem,
+                // but wait, `toUI` creates a new list. We need a way to pass the old item.
+                null
+            }
+        }
 
         when (val result = summaryUseCase()) {
             is Resource.Success -> {
+                val newUiData = result.data.toUI(
+                    grossItem ?: currentSummaryData?.find { it.title == "Gross Income" }?.let {
+                        // Re-construct GrossItem from SummaryItem if we couldn't fetch it
+                        com.raylabs.laundryhub.ui.home.state.GrossItem(
+                            id = 0,
+                            month = "",
+                            totalNominal = it.body,
+                            orderCount = it.footer.replace(" order", "").trim(),
+                            tax = ""
+                        )
+                    }
+                )
                 _uiState.update {
-                    it.copy(summary = it.summary.success(result.data.toUI(grossItem)))
+                    it.copy(summary = it.summary.success(newUiData))
                 }
             }
 
             is Resource.Error -> {
                 _uiState.update {
-                    it.copy(summary = it.summary.error(result.message))
+                    it.copy(summary = it.summary.copy(isLoading = false, data = currentSummaryData, errorMessage = result.message))
                 }
             }
 
@@ -239,14 +265,38 @@ class HomeViewModel @Inject constructor(
 
     fun refreshAllData() {
         _uiState.update { it.copy(isRefreshing = true, refreshCounter = it.refreshCounter + 1) }
+        triggerFullReactiveSync()
+    }
+
+    private fun triggerFullReactiveSync(isSilent: Boolean = false) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isSummaryRefreshing = true) }
+
+            // Trigger backend sync
+            repository.triggerManualSync()
+
+            // Poll sync status
+            var isSyncing = true
+            while (isSyncing) {
+                delay(1500)
+                val statusResult = repository.getSyncStatus()
+                if (statusResult is Resource.Success && !statusResult.data.isSyncing) {
+                    isSyncing = false
+                }
+            }
+
+            // Settlement delay
+            delay(1000)
+
+            // Final fetch
             coroutineScope {
                 listOf(
-                    async { fetchTodayIncome() },
-                    async { fetchSummary() }
+                    async { fetchTodayIncome(isSilent) },
+                    async { fetchSummary(isSilent) }
                 ).awaitAll()
             }
-            _uiState.update { it.copy(isRefreshing = false) }
+
+            _uiState.update { it.copy(isRefreshing = false, isSummaryRefreshing = false) }
         }
     }
 
@@ -283,14 +333,7 @@ class HomeViewModel @Inject constructor(
         // Silent refresh: don't clear optimistic orders immediately so they stay on screen until real data arrives
         // We also avoid setting isRefreshing = true so the pull-to-refresh spinner doesn't show
         _uiState.update { it.copy(refreshCounter = it.refreshCounter + 1) }
-        viewModelScope.launch {
-            coroutineScope {
-                listOf(
-                    async { fetchTodayIncome(isSilent = true) },
-                    async { fetchSummary(isSilent = true) }
-                ).awaitAll()
-            }
-        }
+        triggerFullReactiveSync(isSilent = true)
     }
 
     fun refreshAfterOutcomeChanged() {
