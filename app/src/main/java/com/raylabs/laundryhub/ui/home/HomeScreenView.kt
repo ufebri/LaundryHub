@@ -193,6 +193,7 @@ fun HomeScreenContent(
                     // Tetap tampilkan konten summary meskipun sedang refresh agar layar tidak loncat
                     InfoCardSection(
                         summary = state.summary.data.orEmpty(),
+                        isRefreshing = state.isSummaryRefreshing,
                         onGrossCardClick = onGrossCardClick,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -200,9 +201,8 @@ fun HomeScreenContent(
                             .padding(horizontal = 16.dp)
                             .offset(y = 90.dp)
                     )
-                    
-                    if (state.summary.isLoading && state.summary.data.isNullOrEmpty()) {
-                        // Hanya tampilkan loading spinner jika data benar-benar kosong (first load)
+
+                    if (state.summary.isLoading && state.summary.data.isNullOrEmpty()) {                        // Hanya tampilkan loading spinner jika data benar-benar kosong (first load)
                         Box(modifier = Modifier.fillMaxWidth().height(300.dp).offset(y = 90.dp), contentAlignment = Alignment.Center) {
                             CircularProgressIndicator()
                         }
@@ -425,7 +425,7 @@ private fun ReminderDiscoveryCard(state: ReminderDiscoveryUiState, onClick: () -
 }
 
 @Composable
-fun InfoCardSection(summary: List<SummaryItem>, onGrossCardClick: () -> Unit, modifier: Modifier = Modifier) {
+fun InfoCardSection(summary: List<SummaryItem>, isRefreshing: Boolean, onGrossCardClick: () -> Unit, modifier: Modifier = Modifier) {
     LazyVerticalGrid(
         modifier = modifier,
         columns = GridCells.Fixed(2),
@@ -433,7 +433,11 @@ fun InfoCardSection(summary: List<SummaryItem>, onGrossCardClick: () -> Unit, mo
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         content = {
             items(items = summary, key = { it.title }) { mData ->
-                InfoCard(summaryItem = mData, onClick = if (mData.isInteractive) onGrossCardClick else null)
+                InfoCard(
+                    summaryItem = mData,
+                    isRefreshing = isRefreshing,
+                    onClick = if (mData.isInteractive) onGrossCardClick else null
+                )
             }
         }
     )
