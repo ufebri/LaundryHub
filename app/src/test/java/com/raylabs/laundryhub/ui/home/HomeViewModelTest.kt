@@ -44,8 +44,6 @@ class HomeViewModelTest {
     private val observeReminderSettingsUseCase: ObserveReminderSettingsUseCase = mock()
     private val observeReminderLocalStatesUseCase: ObserveReminderLocalStatesUseCase = mock()
     private val evaluateReminderCandidatesUseCase: EvaluateReminderCandidatesUseCase = mock()
-    private val repository: com.raylabs.laundryhub.core.domain.repository.LaundryRepository = mock()
-
     @Before
     fun setUp() = runTest {
         Dispatchers.setMain(dispatcher)
@@ -53,20 +51,6 @@ class HomeViewModelTest {
         whenever(observeReminderLocalStatesUseCase.invoke()).thenReturn(flowOf(emptyMap()))
         whenever(summaryUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
         whenever(grossUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
-        whenever(repository.getSyncStatus()).thenReturn(Resource.Success(com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse(
-            lastSyncTime = null,
-            changesCount = 0,
-            autoSyncIntervalMinutes = 15,
-            reverseSyncSchedule = com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule.MANUAL,
-            masterSourceOfTruth = com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth.SUPABASE,
-            isSyncing = false,
-            lastSyncStatus = "SUCCESS",
-            lastSyncError = null,
-            pendingPushCount = 0,
-            pendingDeleteCount = 0,
-            nextScheduledPushTime = null
-        )))
-        
         // Also mock the parameterless calls if defaults are used
         whenever(summaryUseCase.invoke()).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
         whenever(grossUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
@@ -130,40 +114,23 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `refreshAllData triggers manual sync and updates state`() = runTest {
+    fun `refreshAllData fetches visible data without manual sync`() = runTest {
         val viewModel = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
         
         whenever(summaryUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
         whenever(grossUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
-        whenever(repository.getSyncStatus()).thenReturn(Resource.Success(com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse(
-            lastSyncTime = null,
-            changesCount = 0,
-            autoSyncIntervalMinutes = 15,
-            reverseSyncSchedule = com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule.MANUAL,
-            masterSourceOfTruth = com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth.SUPABASE,
-            isSyncing = false,
-            lastSyncStatus = "SUCCESS",
-            lastSyncError = null,
-            pendingPushCount = 0,
-            pendingDeleteCount = 0,
-            nextScheduledPushTime = null
-        )))
         
         viewModel.refreshAllData()
         
-        // Wait for coroutines to execute
-        dispatcher.scheduler.advanceTimeBy(3000) // Advance past delays
         dispatcher.scheduler.advanceUntilIdle()
         
-        verify(repository).triggerManualSync()
         assertEquals(false, viewModel.uiState.value.isRefreshing)
         assertEquals(false, viewModel.uiState.value.isSummaryRefreshing)
     }
 
     private fun createViewModel(): HomeViewModel {
         return HomeViewModel(
-            repository = repository,
             summaryUseCase = summaryUseCase,
             grossUseCase = grossUseCase,
             readIncomeUseCase = readIncomeUseCase,

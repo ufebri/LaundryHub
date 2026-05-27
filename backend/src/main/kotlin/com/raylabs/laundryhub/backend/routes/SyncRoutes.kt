@@ -2,11 +2,12 @@ package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
-import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
+import com.raylabs.laundryhub.backend.service.SyncRunManager
 import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunRequest
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
@@ -16,15 +17,12 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 
 fun Route.syncRoutes(
     syncStateManager: SyncStateManager,
     batchSyncJob: SheetsBatchSyncJob?,
-    reverseSyncJob: SheetsReverseSyncJob?,
-    sheetsPushScheduler: SheetsPushScheduler?
+    sheetsPushScheduler: SheetsPushScheduler?,
+    syncRunManager: SyncRunManager?
 ) {
     route("/api/sync") {
         get("/status") {
@@ -47,6 +45,51 @@ fun Route.syncRoutes(
             )
         }
 
+        post("/preview") {
+            val manager = syncRunManager
+            if (manager == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Sync jobs are not running (Check SPREADSHEET_ID configuration)."))
+                return@post
+            }
+
+            val request = runCatching { call.receive<SyncPreviewRequest>() }.getOrDefault(SyncPreviewRequest())
+            val sourceOfTruth = request.sourceOfTruth ?: syncStateManager.config.value.masterSourceOfTruth
+            val preview = manager.createPreview(sourceOfTruth)
+            call.respond(HttpStatusCode.OK, preview)
+        }
+
+        post("/runs") {
+            val manager = syncRunManager
+            if (manager == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Sync jobs are not running (Check SPREADSHEET_ID configuration)."))
+                return@post
+            }
+
+            val request = call.receive<SyncRunRequest>()
+            try {
+                val run = manager.startRun(request.previewId, request.sourceOfTruth)
+                call.respond(HttpStatusCode.Accepted, run)
+            } catch (e: IllegalStateException) {
+                call.respond(HttpStatusCode.Conflict, mapOf("message" to (e.message ?: "Sync cannot start.")))
+            }
+        }
+
+        get("/runs/{runId}") {
+            val manager = syncRunManager
+            if (manager == null) {
+                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Sync jobs are not running (Check SPREADSHEET_ID configuration)."))
+                return@get
+            }
+
+            val runId = call.parameters["runId"]
+            val run = runId?.let { manager.getRun(it) }
+            if (run == null) {
+                call.respond(HttpStatusCode.NotFound, mapOf("message" to "Sync run not found."))
+            } else {
+                call.respond(HttpStatusCode.OK, run)
+            }
+        }
+
         put("/config") {
             val request = call.receive<SyncConfigUpdateRequest>()
             request.autoSyncIntervalMinutes?.let { syncStateManager.updateInterval(it) }
@@ -57,49 +100,9 @@ fun Route.syncRoutes(
         }
 
         post("/trigger") {
-            if (batchSyncJob == null || reverseSyncJob == null) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("message" to "Sync jobs are not running (Check SPREADSHEET_ID configuration)."))
-                return@post
-            }
-
-            if (syncStateManager.isSyncing) {
-                call.respond(HttpStatusCode.Conflict, mapOf("message" to "Sync is already running."))
-                return@post
-            }
-
-            syncStateManager.setSyncing(true)
-            
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val sourceOfTruth = syncStateManager.config.value.masterSourceOfTruth.name
-                    var totalChanges = 0
-
-                    if (sourceOfTruth.equals("SUPABASE", ignoreCase = true) || sourceOfTruth.equals("BOTH", ignoreCase = true)) {
-                        // Push to sheets
-                        totalChanges += batchSyncJob.processUnsyncedAll()
-                    }
-
-                    if (sourceOfTruth.equals("SHEETS", ignoreCase = true) || sourceOfTruth.equals("BOTH", ignoreCase = true)) {
-                        // Pull from sheets and overwrite local Database
-                        totalChanges += reverseSyncJob.processReverseSync()
-                    }
-
-                    syncStateManager.recordSync(totalChanges, "SUCCESS")
-                } catch (e: Exception) {
-                    syncStateManager.recordSyncFailure(e.message)
-                } finally {
-                    syncStateManager.setSyncing(false)
-                }
-            }
-
             call.respond(
-                HttpStatusCode.Accepted,
-                SyncTriggerResponse(
-                    success = true,
-                    message = "Background sync started.",
-                    itemsPushed = 0,
-                    itemsPulled = 0
-                )
+                HttpStatusCode.Gone,
+                mapOf("message" to "Manual sync now requires /api/sync/preview followed by /api/sync/runs.")
             )
         }
     }

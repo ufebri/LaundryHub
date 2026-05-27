@@ -12,9 +12,12 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStartResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatusResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
@@ -190,16 +193,22 @@ class LaundryRepositoryImpl(
         client.get(endpoint("sync/status")).body()
     }
 
-    override suspend fun updateSyncConfig(request: SyncConfigUpdateRequest): Resource<Boolean> = safeApiCall {
-        client.put(endpoint("sync/config")) {
+    override suspend fun previewSync(request: SyncPreviewRequest): Resource<SyncPreviewResponse> = safeApiCall {
+        client.post(endpoint("sync/preview")) {
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.requireSuccessfulResponse()
-        true
+        }.body()
     }
 
-    override suspend fun triggerManualSync(): Resource<SyncTriggerResponse> = safeApiCall {
-        client.post(endpoint("sync/trigger")).body()
+    override suspend fun startSyncRun(request: SyncRunRequest): Resource<SyncRunStartResponse> = safeApiCall {
+        client.post(endpoint("sync/runs")) {
+            contentType(ContentType.Application.Json)
+            setBody(request)
+        }.body()
+    }
+
+    override suspend fun getSyncRunStatus(runId: String): Resource<SyncRunStatusResponse> = safeApiCall {
+        client.get(endpoint("sync/runs/${runId.encodeURLPathPart()}")).body()
     }
 
     private suspend fun endpoint(path: String): String {

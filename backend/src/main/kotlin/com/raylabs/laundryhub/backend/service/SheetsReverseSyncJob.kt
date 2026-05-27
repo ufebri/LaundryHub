@@ -65,44 +65,68 @@ class SheetsReverseSyncJob(
 
     suspend fun processReverseSync(): Int {
         logger.info("Starting Reverse Sync (Sheets -> DB)...")
-        var successCount = 0
+        val successCount = pullOrdersFromSheets() +
+            pullOutcomesFromSheets() +
+            pullPackagesFromSheets() +
+            pullGrossFromSheets() +
+            pullSummaryFromSheets()
 
+        logger.info("Reverse Sync Completed. Upserted $successCount total items into PostgreSQL.")
+        return successCount
+    }
+
+    suspend fun pullOrdersFromSheets(): Int {
+        var successCount = 0
         val sheetOrders = syncService.fetchOrdersFromSheet(spreadsheetId)
         if (sheetOrders.isNotEmpty()) {
             for (order in sheetOrders) {
                 if (orderRepository.upsert(order)) successCount++
             }
         }
+        return successCount
+    }
 
+    suspend fun pullOutcomesFromSheets(): Int {
+        var successCount = 0
         val sheetOutcomes = syncService.fetchOutcomesFromSheet(spreadsheetId)
         if (sheetOutcomes.isNotEmpty()) {
             for (outcome in sheetOutcomes) {
                 if (outcomeRepository.upsert(outcome)) successCount++
             }
         }
+        return successCount
+    }
 
+    suspend fun pullPackagesFromSheets(): Int {
+        var successCount = 0
         val sheetPackages = syncService.fetchPackagesFromSheet(spreadsheetId)
         if (sheetPackages.isNotEmpty()) {
             for (pkg in sheetPackages) {
                 if (packageRepository.upsert(pkg)) successCount++
             }
         }
+        return successCount
+    }
 
+    suspend fun pullGrossFromSheets(): Int {
+        var successCount = 0
         val sheetGross = syncService.fetchGrossFromSheet(spreadsheetId)
         if (sheetGross.isNotEmpty()) {
             for (gross in sheetGross) {
                 if (grossRepository.upsert(gross)) successCount++
             }
         }
+        return successCount
+    }
 
+    suspend fun pullSummaryFromSheets(): Int {
+        var successCount = 0
         val sheetSummary = syncService.fetchSummaryFromSheet(spreadsheetId)
         if (sheetSummary.isNotEmpty()) {
             for (summary in sheetSummary) {
                 if (summaryRepository.upsert(summary)) successCount++
             }
         }
-
-        logger.info("Reverse Sync Completed. Upserted $successCount total items into PostgreSQL.")
         return successCount
     }
 
@@ -121,5 +145,4 @@ class SheetsReverseSyncJob(
         return false
     }
 }
-
 

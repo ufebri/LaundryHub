@@ -13,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 data class SyncConfig(
     val intervalMinutes: Int = 5,
     val reverseSyncSchedule: ReverseSyncSchedule = ReverseSyncSchedule.MANUAL,
-    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SUPABASE
+    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS
 )
 
 class SyncStateManager {

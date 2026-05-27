@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +29,10 @@ class SheetsPushScheduler(
             logger.info("Sheets push not scheduled for $reason: sync job is not configured.")
             return
         }
+        if (syncStateManager.config.value.masterSourceOfTruth != MasterSourceOfTruth.SUPABASE) {
+            logger.info("Sheets push not scheduled for $reason: App Database is not the configured master source.")
+            return
+        }
 
         if (!scheduled.compareAndSet(false, true)) {
             logger.info("Sheets push already scheduled. Coalescing $reason into pending batch.")
@@ -47,6 +52,7 @@ class SheetsPushScheduler(
 
     fun triggerNow(reason: String) {
         if (batchSyncJob == null) return
+        if (syncStateManager.config.value.masterSourceOfTruth != MasterSourceOfTruth.SUPABASE) return
         if (!scheduled.compareAndSet(false, true)) return
         _nextScheduledPushTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         scheduledJob = scope.launch { flushScheduled(reason) }

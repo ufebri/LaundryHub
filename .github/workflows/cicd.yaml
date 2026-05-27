@@ -234,14 +234,20 @@ jobs:
       - name: Run tests and generate Jacoco report
         run: ./gradlew clean testDebugUnitTest jacocoTestReport
 
-      - name: Check if coverage report exists
-        run: ls -lh app/build/reports/jacoco/jacocoTestReport/
+      - name: Check if coverage reports exist
+        run: |
+          test -s app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          test -s backend/build/reports/jacoco/test/jacocoTestReport.xml
+          ls -lh app/build/reports/jacoco/jacocoTestReport/
+          ls -lh backend/build/reports/jacoco/test/
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-          file: app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+          files: >
+            app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
+            backend/build/reports/jacoco/test/jacocoTestReport.xml
           format: jacoco
 
       - name: Cache SonarQube packages

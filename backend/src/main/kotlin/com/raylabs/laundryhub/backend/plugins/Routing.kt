@@ -19,6 +19,8 @@ import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.backend.service.SyncPreviewService
+import com.raylabs.laundryhub.backend.service.SyncRunManager
 import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.CreateOrderResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -54,8 +56,8 @@ fun Application.configureRouting() {
     val spreadsheetId = configuredSpreadsheetId()
 
     var batchSyncJob: SheetsBatchSyncJob? = null
-    var reverseSyncJob: SheetsReverseSyncJob? = null
     var sheetsPushScheduler: SheetsPushScheduler? = null
+    var syncRunManager: SyncRunManager? = null
 
     // Start background sync job (Skip in tests to prevent DB connection errors)
     if (System.getProperty("isTest") != "true") {
@@ -63,7 +65,7 @@ fun Application.configureRouting() {
             logger.info("Sheets sync jobs disabled: SPREADSHEET_ID is not configured.")
         } else {
             // Job 1: DB -> Sheets (Every 15 mins)
-            batchSyncJob = SheetsBatchSyncJob(
+            val createdBatchSyncJob = SheetsBatchSyncJob(
                 orderRepository = orderRepository,
                 outcomeRepository = outcomeRepository,
                 packageRepository = packageRepository,
@@ -76,11 +78,13 @@ fun Application.configureRouting() {
                 deviceTokenRepository = deviceTokenRepository,
                 fcmNotificationService = fcmNotificationService
             )
+            batchSyncJob = createdBatchSyncJob
             batchSyncJob.start()
-            sheetsPushScheduler = SheetsPushScheduler(batchSyncJob, syncStateManager)
+            sheetsPushScheduler = SheetsPushScheduler(createdBatchSyncJob, syncStateManager)
 
-            // Job 2: Sheets -> DB (Reverse Sync every 23:00 WIB)
-            reverseSyncJob = SheetsReverseSyncJob(
+            // Job 2: Sheets -> DB. It is available for confirmed manual sync runs,
+            // but is not started as a scheduler because pull can overwrite app-owned data.
+            val createdReverseSyncJob = SheetsReverseSyncJob(
                 orderRepository = orderRepository,
                 outcomeRepository = outcomeRepository,
                 packageRepository = packageRepository,
@@ -92,7 +96,21 @@ fun Application.configureRouting() {
                 deviceTokenRepository = deviceTokenRepository,
                 fcmNotificationService = fcmNotificationService
             )
-            reverseSyncJob.start()
+            syncRunManager = SyncRunManager(
+                previewService = SyncPreviewService(
+                    orderRepository = orderRepository,
+                    outcomeRepository = outcomeRepository,
+                    packageRepository = packageRepository,
+                    grossRepository = grossRepository,
+                    summaryRepository = summaryRepository,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    syncService = syncService,
+                    spreadsheetId = spreadsheetId
+                ),
+                batchSyncJob = createdBatchSyncJob,
+                reverseSyncJob = createdReverseSyncJob,
+                syncStateManager = syncStateManager
+            )
         }
     }
 
@@ -127,7 +145,7 @@ fun Application.configureRouting() {
             sheetsPushScheduler = sheetsPushScheduler
         )
         
-        syncRoutes(syncStateManager, batchSyncJob, reverseSyncJob, sheetsPushScheduler)
+        syncRoutes(syncStateManager, batchSyncJob, sheetsPushScheduler, syncRunManager)
         fcmRoutes(deviceTokenRepository)
         
         get("/") {
