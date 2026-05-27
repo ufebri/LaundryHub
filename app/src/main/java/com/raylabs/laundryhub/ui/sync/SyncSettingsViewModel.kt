@@ -4,7 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
 import com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatus
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatusResponse
 import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.shared.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,14 +25,18 @@ data class SyncSettingsUiState(
     val changesCount: Int = 0,
     val autoSyncIntervalMinutes: Int = 5,
     val reverseSyncSchedule: ReverseSyncSchedule = ReverseSyncSchedule.MANUAL,
-    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SUPABASE,
+    val masterSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
+    val selectedSourceOfTruth: MasterSourceOfTruth = MasterSourceOfTruth.SHEETS,
     val isLoading: Boolean = false,
+    val isCheckingDifferences: Boolean = false,
     val isSyncing: Boolean = false,
     val lastSyncStatus: String = "UNKNOWN",
     val lastSyncError: String? = null,
     val pendingPushCount: Int = 0,
     val pendingDeleteCount: Int = 0,
     val nextScheduledPushTime: String? = null,
+    val syncPreview: SyncPreviewResponse? = null,
+    val activeRun: SyncRunStatusResponse? = null,
     val errorMessage: String? = null,
     val successMessage: String? = null
 )
@@ -63,6 +71,11 @@ class SyncSettingsViewModel @Inject constructor(
                             autoSyncIntervalMinutes = data.autoSyncIntervalMinutes,
                             reverseSyncSchedule = data.reverseSyncSchedule,
                             masterSourceOfTruth = data.masterSourceOfTruth,
+                            selectedSourceOfTruth = if (data.masterSourceOfTruth == MasterSourceOfTruth.BOTH) {
+                                MasterSourceOfTruth.SHEETS
+                            } else {
+                                data.masterSourceOfTruth
+                            },
                             isSyncing = data.isSyncing,
                             lastSyncStatus = data.lastSyncStatus,
                             lastSyncError = data.lastSyncError,
@@ -94,46 +107,71 @@ class SyncSettingsViewModel @Inject constructor(
         }
     }
 
-    fun updateAutoSyncInterval(minutes: Int) {
-        if (_uiState.value.autoSyncIntervalMinutes == minutes) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(autoSyncIntervalMinutes = minutes) }
-            val request = SyncConfigUpdateRequest(autoSyncIntervalMinutes = minutes)
-            repository.updateSyncConfig(request)
+    fun selectSourceOfTruth(source: MasterSourceOfTruth) {
+        if (source == MasterSourceOfTruth.BOTH) return
+        _uiState.update {
+            it.copy(
+                selectedSourceOfTruth = source,
+                syncPreview = null,
+                activeRun = null,
+                successMessage = null,
+                errorMessage = null
+            )
         }
     }
 
-    fun updateReverseSyncSchedule(schedule: ReverseSyncSchedule) {
-        if (_uiState.value.reverseSyncSchedule == schedule) return
+    fun checkDifferences() {
+        if (_uiState.value.isCheckingDifferences || _uiState.value.isSyncing) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(reverseSyncSchedule = schedule) }
-            val request = SyncConfigUpdateRequest(reverseSyncSchedule = schedule)
-            repository.updateSyncConfig(request)
+            val selectedSource = _uiState.value.selectedSourceOfTruth
+            _uiState.update {
+                it.copy(
+                    isCheckingDifferences = true,
+                    syncPreview = null,
+                    activeRun = null,
+                    errorMessage = null,
+                    successMessage = null
+                )
+            }
+            when (val result = repository.previewSync(SyncPreviewRequest(selectedSource))) {
+                is Resource.Success -> {
+                    _uiState.update {
+                        it.copy(
+                            isCheckingDifferences = false,
+                            syncPreview = result.data,
+                            successMessage = if (result.data.totalDifferences == 0) {
+                                "Data is already in sync."
+                            } else {
+                                null
+                            }
+                        )
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isCheckingDifferences = false, errorMessage = result.message) }
+                }
+                else -> {}
+            }
         }
     }
 
-    fun updateMasterSourceOfTruth(source: MasterSourceOfTruth) {
-        if (_uiState.value.masterSourceOfTruth == source) return
-
-        viewModelScope.launch {
-            _uiState.update { it.copy(masterSourceOfTruth = source) }
-            val request = SyncConfigUpdateRequest(masterSourceOfTruth = source)
-            repository.updateSyncConfig(request)
-        }
-    }
-
-    fun triggerManualSync() {
+    fun confirmSyncNow() {
+        val preview = _uiState.value.syncPreview ?: return
         if (_uiState.value.isSyncing) return
 
         viewModelScope.launch {
-            _uiState.update { it.copy(isSyncing = true, errorMessage = null, successMessage = null) }
-            when (val result = repository.triggerManualSync()) {
-                is Resource.Success -> {
-                    _uiState.update { it.copy(successMessage = result.data.message) }
-                    pollSyncStatus()
-                }
+            _uiState.update {
+                it.copy(
+                    isSyncing = true,
+                    syncPreview = null,
+                    activeRun = null,
+                    errorMessage = null,
+                    successMessage = null
+                )
+            }
+            when (val result = repository.startSyncRun(SyncRunRequest(preview.previewId, _uiState.value.selectedSourceOfTruth))) {
+                is Resource.Success -> pollRunStatus(result.data.runId)
                 is Resource.Error -> {
                     _uiState.update { it.copy(isSyncing = false, errorMessage = result.message) }
                 }
@@ -142,7 +180,51 @@ class SyncSettingsViewModel @Inject constructor(
         }
     }
 
+    fun dismissPreview() {
+        _uiState.update { it.copy(syncPreview = null) }
+    }
+
     fun clearMessages() {
         _uiState.update { it.copy(errorMessage = null, successMessage = null) }
     }
+
+    private suspend fun pollRunStatus(runId: String) {
+        while (true) {
+            when (val result = repository.getSyncRunStatus(runId)) {
+                is Resource.Success -> {
+                    val run = result.data
+                    _uiState.update {
+                        it.copy(
+                            activeRun = run,
+                            isSyncing = run.status.isActive(),
+                            successMessage = when (run.status) {
+                                SyncRunStatus.SUCCEEDED -> "Sync completed successfully."
+                                SyncRunStatus.PARTIAL -> "Sync completed with remaining differences."
+                                else -> it.successMessage
+                            },
+                            errorMessage = if (run.status == SyncRunStatus.FAILED) {
+                                run.lastError ?: "Sync failed."
+                            } else {
+                                it.errorMessage
+                            }
+                        )
+                    }
+                    if (!run.status.isActive()) {
+                        fetchStatus()
+                        return
+                    }
+                }
+                is Resource.Error -> {
+                    _uiState.update { it.copy(isSyncing = false, errorMessage = result.message) }
+                    return
+                }
+                else -> {}
+            }
+            delay(1500)
+        }
+    }
+}
+
+private fun SyncRunStatus.isActive(): Boolean {
+    return this == SyncRunStatus.PENDING || this == SyncRunStatus.RUNNING
 }

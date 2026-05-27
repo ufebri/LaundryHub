@@ -7,9 +7,12 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStartResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatusResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
-import com.raylabs.laundryhub.core.domain.model.sheets.SyncTriggerResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.shared.util.Resource
 
@@ -35,7 +38,7 @@ interface LaundryRepository {
     suspend fun deleteOutcome(outcomeId: String): Resource<Boolean>
 
     suspend fun getSyncStatus(): Resource<SyncStatusResponse>
-    suspend fun updateSyncConfig(request: SyncConfigUpdateRequest): Resource<Boolean>
-    suspend fun triggerManualSync(): Resource<SyncTriggerResponse>
+    suspend fun previewSync(request: SyncPreviewRequest): Resource<SyncPreviewResponse>
+    suspend fun startSyncRun(request: SyncRunRequest): Resource<SyncRunStartResponse>
+    suspend fun getSyncRunStatus(runId: String): Resource<SyncRunStatusResponse>
 }
-

@@ -47,6 +47,9 @@ fun Route.packageRoutes(
                 val pkg = call.receive<PackageData>()
                 val updated = repository.update(name, pkg)
                 if (updated) {
+                    if (!name.equals(pkg.name, ignoreCase = true)) {
+                        syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
+                    }
                     sheetsPushScheduler?.requestPush("package updated")
                     call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
                 }

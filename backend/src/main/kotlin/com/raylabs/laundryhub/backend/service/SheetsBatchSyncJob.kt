@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
 import com.raylabs.laundryhub.backend.db.repository.PackageRepository
 import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
+import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -36,7 +37,9 @@ class SheetsBatchSyncJob(
             while (isActive) {
                 val intervalMinutes = syncStateManager.config.value.intervalMinutes
                 logger.info("Sync Job waiting for $intervalMinutes minutes...")
-                if (syncStateManager.isSyncing) {
+                if (syncStateManager.config.value.masterSourceOfTruth != MasterSourceOfTruth.SUPABASE) {
+                    logger.info("Sync job skipped because App Database is not the configured master source.")
+                } else if (syncStateManager.isSyncing) {
                     logger.info("Sync job skipped because another sync is already running.")
                 } else {
                     syncStateManager.setSyncing(true)
@@ -77,7 +80,7 @@ class SheetsBatchSyncJob(
         return syncDeleteEventRepository.getPending().size
     }
 
-    private suspend fun processUnsyncedOrders(): Int {
+    suspend fun processUnsyncedOrders(): Int {
         val unsyncedOrders = orderRepository.getUnsyncedOrders()
 
         if (unsyncedOrders.isEmpty()) {
@@ -98,7 +101,7 @@ class SheetsBatchSyncJob(
         return successCount
     }
 
-    private suspend fun processUnsyncedOutcomes(): Int {
+    suspend fun processUnsyncedOutcomes(): Int {
         val unsyncedOutcomes = outcomeRepository.getUnsyncedOutcomes()
 
         if (unsyncedOutcomes.isEmpty()) {
@@ -119,7 +122,7 @@ class SheetsBatchSyncJob(
         return successCount
     }
 
-    private suspend fun processUnsyncedPackages(): Int {
+    suspend fun processUnsyncedPackages(): Int {
         val unsyncedPackages = packageRepository.getUnsyncedPackages()
 
         if (unsyncedPackages.isEmpty()) {
@@ -140,7 +143,7 @@ class SheetsBatchSyncJob(
         return successCount
     }
 
-    private suspend fun processUnsyncedGross(): Int {
+    suspend fun processUnsyncedGross(): Int {
         val unsyncedGross = grossRepository.getUnsyncedGross()
 
         if (unsyncedGross.isEmpty()) {
@@ -158,7 +161,7 @@ class SheetsBatchSyncJob(
         return successCount
     }
 
-    private suspend fun processUnsyncedSummaries(): Int {
+    suspend fun processUnsyncedSummaries(): Int {
         val unsyncedSummaries = summaryRepository.getUnsyncedSummaries()
 
         if (unsyncedSummaries.isEmpty()) {
@@ -176,7 +179,7 @@ class SheetsBatchSyncJob(
         return successCount
     }
 
-    private suspend fun processPendingDeletes(): Int {
+    suspend fun processPendingDeletes(): Int {
         val pendingDeletes = syncDeleteEventRepository.getPending()
         if (pendingDeletes.isEmpty()) {
             logger.info("No pending sheet delete events found. Sync job skipped.")

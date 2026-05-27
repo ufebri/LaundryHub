@@ -21,6 +21,7 @@ import androidx.compose.material.ButtonDefaults
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Icon
+import androidx.compose.material.LinearProgressIndicator
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.RadioButton
 import androidx.compose.material.RadioButtonDefaults
@@ -43,7 +44,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
-import com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatusResponse
+import com.raylabs.laundryhub.ui.component.AppConfirmationSheet
 import com.raylabs.laundryhub.ui.component.DefaultTopAppBar
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -64,10 +67,10 @@ fun SyncSettingsScreen(
     SyncSettingsScreenContent(
         state = state,
         onNavigateBack = onNavigateBack,
-        onIntervalSelected = viewModel::updateAutoSyncInterval,
-        onScheduleSelected = viewModel::updateReverseSyncSchedule,
-        onMasterSourceSelected = viewModel::updateMasterSourceOfTruth,
-        onSyncNowClick = viewModel::triggerManualSync,
+        onMasterSourceSelected = viewModel::selectSourceOfTruth,
+        onCheckDifferencesClick = viewModel::checkDifferences,
+        onConfirmSyncNow = viewModel::confirmSyncNow,
+        onDismissPreview = viewModel::dismissPreview,
         onClearMessages = viewModel::clearMessages
     )
 }
@@ -76,10 +79,10 @@ fun SyncSettingsScreen(
 fun SyncSettingsScreenContent(
     state: SyncSettingsUiState,
     onNavigateBack: () -> Unit,
-    onIntervalSelected: (Int) -> Unit,
-    onScheduleSelected: (ReverseSyncSchedule) -> Unit,
     onMasterSourceSelected: (MasterSourceOfTruth) -> Unit,
-    onSyncNowClick: () -> Unit,
+    onCheckDifferencesClick: () -> Unit,
+    onConfirmSyncNow: () -> Unit,
+    onDismissPreview: () -> Unit,
     onClearMessages: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
@@ -95,80 +98,99 @@ fun SyncSettingsScreenContent(
         }
     }
 
-    Scaffold(
-        topBar = {
-            DefaultTopAppBar(
-                title = "Sync Master Data",
-                onBackClick = onNavigateBack
-            )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        bottomBar = {
-            Box(modifier = Modifier.padding(16.dp)) {
-                Button(
-                    onClick = onSyncNowClick,
-                    enabled = !state.isSyncing,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    shape = RoundedCornerShape(12.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        backgroundColor = MaterialTheme.colors.primary,
-                        contentColor = Color.White
-                    )
-                ) {
-                    if (state.isSyncing) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(24.dp),
-                            strokeWidth = 2.dp
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                DefaultTopAppBar(
+                    title = "Sync Master Data",
+                    onBackClick = onNavigateBack
+                )
+            },
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            bottomBar = {
+                Box(modifier = Modifier.padding(16.dp)) {
+                    Button(
+                        onClick = onCheckDifferencesClick,
+                        enabled = !state.isCheckingDifferences && !state.isSyncing,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            backgroundColor = MaterialTheme.colors.primary,
+                            contentColor = Color.White
                         )
-                        Spacer(Modifier.width(8.dp))
-                        Text("Syncing in background...", style = MaterialTheme.typography.button)
-                    } else {
-                        Icon(Icons.Default.Refresh, contentDescription = null)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Sync Now", style = MaterialTheme.typography.button)
+                    ) {
+                        if (state.isCheckingDifferences || state.isSyncing) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                text = if (state.isCheckingDifferences) "Checking differences..." else "Syncing...",
+                                style = MaterialTheme.typography.button
+                            )
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Check differences", style = MaterialTheme.typography.button)
+                        }
                     }
                 }
             }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colors.background)
+                    .padding(padding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(24.dp)
+            ) {
+                SyncStatusCard(
+                    lastSyncTime = state.lastSyncTime,
+                    changesCount = state.changesCount,
+                    syncStatus = state.lastSyncStatus,
+                    pendingPushCount = state.pendingPushCount,
+                    pendingDeleteCount = state.pendingDeleteCount,
+                    lastSyncError = state.lastSyncError
+                )
+
+                MasterSourceOfTruthSection(
+                    selectedSource = state.selectedSourceOfTruth,
+                    onSourceSelected = onMasterSourceSelected
+                )
+
+                state.syncPreview?.takeIf { it.totalDifferences == 0 }?.let { preview ->
+                    SyncPreviewCard(preview = preview)
+                }
+
+                state.activeRun?.let { run ->
+                    SyncRunProgressCard(run = run)
+                }
+
+                Spacer(modifier = Modifier.height(32.dp))
+            }
         }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colors.background)
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
-        ) {
-            SyncStatusCard(
-                lastSyncTime = state.lastSyncTime,
-                changesCount = state.changesCount,
-                syncStatus = state.lastSyncStatus,
-                pendingPushCount = state.pendingPushCount,
-                pendingDeleteCount = state.pendingDeleteCount,
-                nextScheduledPushTime = state.nextScheduledPushTime,
-                lastSyncError = state.lastSyncError
-            )
 
-            MasterSourceOfTruthSection(
-                selectedSource = state.masterSourceOfTruth,
-                onSourceSelected = onMasterSourceSelected
+        state.syncPreview?.takeIf { it.totalDifferences > 0 }?.let { preview ->
+            AppConfirmationSheet(
+                title = "Sync ${preview.totalDifferences} differences?",
+                message = preview.recommendedAction,
+                confirmLabel = "Sync now",
+                dismissLabel = "Not now",
+                onConfirm = onConfirmSyncNow,
+                onDismiss = onDismissPreview,
+                icon = Icons.Default.Refresh,
+                bulletPoints = preview.entities
+                    .filter { it.totalDifferences > 0 }
+                    .map { entity ->
+                        "${entity.entity}: ${entity.totalDifferences} differences"
+                    }
             )
-
-            SyncIntervalSection(
-                selectedMinutes = state.autoSyncIntervalMinutes,
-                onIntervalSelected = onIntervalSelected
-            )
-
-            ReverseSyncScheduleSection(
-                selectedSchedule = state.reverseSyncSchedule,
-                onScheduleSelected = onScheduleSelected
-            )
-            
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -200,11 +222,6 @@ private fun MasterSourceOfTruthSection(selectedSource: MasterSourceOfTruth, onSo
                     selected = selectedSource == MasterSourceOfTruth.SUPABASE,
                     onClick = { onSourceSelected(MasterSourceOfTruth.SUPABASE) }
                 )
-                RadioOptionRow(
-                    label = "Two-Way (Both)",
-                    selected = selectedSource == MasterSourceOfTruth.BOTH,
-                    onClick = { onSourceSelected(MasterSourceOfTruth.BOTH) }
-                )
             }
         }
     }
@@ -217,7 +234,6 @@ private fun SyncStatusCard(
     syncStatus: String,
     pendingPushCount: Int,
     pendingDeleteCount: Int,
-    nextScheduledPushTime: String?,
     lastSyncError: String?
 ) {
     Card(
@@ -249,13 +265,8 @@ private fun SyncStatusCard(
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Pending Push", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text("Pending Sync", color = ProfileMutedText, style = MaterialTheme.typography.body2)
                 Text("${pendingPushCount + pendingDeleteCount} items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
-            }
-            Spacer(Modifier.height(8.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Next Push", color = ProfileMutedText, style = MaterialTheme.typography.body2)
-                Text(formatScheduledTime(nextScheduledPushTime), color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -270,74 +281,6 @@ private fun SyncStatusCard(
             if (!lastSyncError.isNullOrBlank()) {
                 Spacer(Modifier.height(8.dp))
                 Text(lastSyncError, color = Color(0xFFF44336), style = MaterialTheme.typography.caption)
-            }
-        }
-    }
-}
-
-@Composable
-private fun SyncIntervalSection(selectedMinutes: Int, onIntervalSelected: (Int) -> Unit) {
-    Column {
-        Text(
-            text = "Auto-Sync Interval (Push)",
-            style = MaterialTheme.typography.subtitle1,
-            color = MaterialTheme.colors.onBackground,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Card(
-            backgroundColor = ProfileCardColor,
-            shape = RoundedCornerShape(12.dp),
-            elevation = 0.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column {
-                val options = listOf(5, 15, 30, 60)
-                options.forEach { minutes ->
-                    val label = if (minutes == 60) "1 Hour" else "$minutes Mins"
-                    RadioOptionRow(
-                        label = label,
-                        selected = selectedMinutes == minutes,
-                        onClick = { onIntervalSelected(minutes) }
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun ReverseSyncScheduleSection(selectedSchedule: ReverseSyncSchedule, onScheduleSelected: (ReverseSyncSchedule) -> Unit) {
-    Column {
-        Text(
-            text = "Pull Schedule (Sheets -> App)",
-            style = MaterialTheme.typography.subtitle1,
-            color = MaterialTheme.colors.onBackground,
-            fontWeight = FontWeight.Bold
-        )
-        Spacer(Modifier.height(8.dp))
-        Card(
-            backgroundColor = ProfileCardColor,
-            shape = RoundedCornerShape(12.dp),
-            elevation = 0.dp,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column {
-                RadioOptionRow(
-                    label = "23:00 WIB",
-                    selected = selectedSchedule == ReverseSyncSchedule.DEFAULT_23,
-                    onClick = { onScheduleSelected(ReverseSyncSchedule.DEFAULT_23) }
-                )
-                RadioOptionRow(
-                    label = "12:00 & 23:00 WIB",
-                    selected = selectedSchedule == ReverseSyncSchedule.TWICE_DAILY,
-                    onClick = { onScheduleSelected(ReverseSyncSchedule.TWICE_DAILY) }
-                )
-                RadioOptionRow(
-                    label = "Manual Only",
-                    selected = selectedSchedule == ReverseSyncSchedule.MANUAL,
-                    onClick = { onScheduleSelected(ReverseSyncSchedule.MANUAL) }
-                )
             }
         }
     }
@@ -365,6 +308,57 @@ private fun RadioOptionRow(label: String, selected: Boolean, onClick: () -> Unit
     }
 }
 
+@Composable
+private fun SyncPreviewCard(preview: SyncPreviewResponse) {
+    Card(
+        backgroundColor = ProfileCardColor,
+        shape = RoundedCornerShape(12.dp),
+        elevation = 0.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("Latest check", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.subtitle1)
+            Text("Data is in sync", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+            Text("Checked ${formatRelativeTime(preview.generatedAt)}", color = ProfileMutedText, style = MaterialTheme.typography.caption)
+        }
+    }
+}
+
+@Composable
+private fun SyncRunProgressCard(run: SyncRunStatusResponse) {
+    val progress = if (run.totalItems <= 0) {
+        0f
+    } else {
+        run.processedItems.toFloat() / run.totalItems.toFloat()
+    }.coerceIn(0f, 1f)
+
+    Card(
+        backgroundColor = ProfileCardColor,
+        shape = RoundedCornerShape(12.dp),
+        elevation = 0.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text("Sync progress", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.subtitle1)
+            Text(run.message, color = ProfileMutedText, style = MaterialTheme.typography.body2)
+            LinearProgressIndicator(progress = progress, modifier = Modifier.fillMaxWidth())
+            Text(
+                text = "${run.processedItems} of ${run.totalItems} changes",
+                color = ProfileMutedText,
+                style = MaterialTheme.typography.caption
+            )
+            run.finalDifferenceCount?.let { count ->
+                Text(
+                    text = "$count differences remaining",
+                    color = if (count == 0) Color(0xFF4CAF50) else Color(0xFFFFC107),
+                    style = MaterialTheme.typography.caption,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
 private fun formatRelativeTime(isoString: String?): String {
     if (isoString.isNullOrBlank()) return "Never"
     return try {
@@ -375,23 +369,6 @@ private fun formatRelativeTime(isoString: String?): String {
             diffMinutes < 1 -> "Just now"
             diffMinutes < 60 -> "$diffMinutes mins ago"
             diffMinutes < 1440 -> "${diffMinutes / 60} hours ago"
-            else -> parsed.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag("en")))
-        }
-    } catch (e: Exception) {
-        "Unknown"
-    }
-}
-
-private fun formatScheduledTime(isoString: String?): String {
-    if (isoString.isNullOrBlank()) return "Not queued"
-    return try {
-        val parsed = LocalDateTime.parse(isoString, DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-        val now = LocalDateTime.now()
-        val diffSeconds = ChronoUnit.SECONDS.between(now, parsed)
-        when {
-            diffSeconds <= 0 -> "Queued"
-            diffSeconds < 60 -> "in ${diffSeconds}s"
-            diffSeconds < 3600 -> "in ${diffSeconds / 60} mins"
             else -> parsed.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(Locale.forLanguageTag("en")))
         }
     } catch (e: Exception) {
