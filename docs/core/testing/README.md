@@ -11,6 +11,17 @@ LaundryHub uses `origin/master` as the product-behavior baseline while the KMP/A
 - Port only stable, user-visible contracts into KMP instrumentation tests.
 - Keep mutating scenarios behind an explicit decision because the current macrobenchmark flow can create real orders.
 
+## Coverage Reporting
+
+- CI generates JaCoCo XML with `./gradlew clean testDebugUnitTest jacocoTestReport`.
+- SonarCloud imports the app aggregate report plus the backend report:
+  - `app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml`
+  - `backend/build/reports/jacoco/test/jacocoTestReport.xml`
+- Coveralls receives the same two JaCoCo XML files through the GitHub Action `files` input.
+- The app report intentionally carries the Android app coverage and the shared module coverage currently aggregated by the app Jacoco task. Backend coverage stays separate because its Gradle report is generated under `backend/build/reports/jacoco/test/`.
+- Sonar tokens are expected to live in GitHub Actions secrets. Local verification should stop at generating and inspecting JaCoCo XML unless a developer intentionally provides a local token.
+- The canonical repository for coverage badges and CI secrets is `ufebri/LaundryHub`.
+
 ## Current Instrumentation Coverage
 
 - Order bottom sheet WhatsApp option visibility stays covered in `OrderBottomSheetWhatsAppOptionTest`.
@@ -70,6 +81,9 @@ Only use the guarded mutation run after confirming the installed app points to a
 - KMP branch after deployed backend: `./gradlew :macrobenchmark:connectedBenchmarkAndroidTest --no-daemon` passed on `SM-S931B - 16`: 2 tests completed, 0 failed.
 - Deployed backend package API was verified with create, update-by-name, delete-by-name, and post-delete list checks. The package delete response reported `sheetSynced=true`.
 - Focused inventory UI E2E attempts compiled and launched. One signed-in attempt exposed the edit-mode bug fixed in this pass; later focused reruns skipped because the target app started at onboarding after reinstall. That is a device auth precondition, not a package API failure.
+- Coverage reporting fix: `./gradlew clean testDebugUnitTest jacocoTestReport --no-daemon` passed after the CI coverage path update.
+- Coverage reporting fix: `./gradlew :app:testDebugUnitTest --no-daemon --stacktrace` passed.
+- Coverage reporting fix: `./gradlew jacocoTestReport --no-daemon` passed, and the app plus backend JaCoCo XML files were present with nonzero counters.
 
 ## Remaining E2E Risk
 

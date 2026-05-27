@@ -11,7 +11,6 @@ import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
-import com.raylabs.laundryhub.core.domain.repository.LaundryRepository
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
@@ -35,7 +34,6 @@ import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +50,6 @@ import javax.inject.Inject
 
 @HiltViewModel
 class HomeViewModel @Inject constructor(
-    private val repository: LaundryRepository,
     private val summaryUseCase: ReadSpreadsheetDataUseCase,
     private val grossUseCase: ReadGrossDataUseCase,
     private val readIncomeUseCase: ReadIncomeTransactionUseCase,
@@ -264,31 +261,19 @@ class HomeViewModel @Inject constructor(
     }
 
     fun refreshAllData() {
-        _uiState.update { it.copy(isRefreshing = true, refreshCounter = it.refreshCounter + 1) }
-        triggerFullReactiveSync()
+        refreshHomeData(isSilent = false, showRefreshIndicator = true)
     }
 
-    private fun triggerFullReactiveSync(isSilent: Boolean = false) {
+    private fun refreshHomeData(isSilent: Boolean, showRefreshIndicator: Boolean) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isSummaryRefreshing = true) }
-
-            // Trigger backend sync
-            repository.triggerManualSync()
-
-            // Poll sync status
-            var isSyncing = true
-            while (isSyncing) {
-                delay(1500)
-                val statusResult = repository.getSyncStatus()
-                if (statusResult is Resource.Success && !statusResult.data.isSyncing) {
-                    isSyncing = false
-                }
+            _uiState.update {
+                it.copy(
+                    isRefreshing = showRefreshIndicator,
+                    isSummaryRefreshing = true,
+                    refreshCounter = it.refreshCounter + 1
+                )
             }
 
-            // Settlement delay
-            delay(1000)
-
-            // Final fetch
             coroutineScope {
                 listOf(
                     async { fetchTodayIncome(isSilent) },
@@ -332,8 +317,7 @@ class HomeViewModel @Inject constructor(
     fun refreshAfterOrderChangedSilent() {
         // Silent refresh: don't clear optimistic orders immediately so they stay on screen until real data arrives
         // We also avoid setting isRefreshing = true so the pull-to-refresh spinner doesn't show
-        _uiState.update { it.copy(refreshCounter = it.refreshCounter + 1) }
-        triggerFullReactiveSync(isSilent = true)
+        refreshHomeData(isSilent = true, showRefreshIndicator = false)
     }
 
     fun refreshAfterOutcomeChanged() {

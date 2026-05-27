@@ -29,10 +29,10 @@ class SyncSettingsScreenTest {
                 SyncSettingsScreenContent(
                     state = dummyState,
                     onNavigateBack = {},
-                    onIntervalSelected = {},
-                    onScheduleSelected = {},
                     onMasterSourceSelected = {},
-                    onSyncNowClick = {},
+                    onCheckDifferencesClick = {},
+                    onConfirmSyncNow = {},
+                    onDismissPreview = {},
                     onClearMessages = {}
                 )
             }
@@ -44,18 +44,12 @@ class SyncSettingsScreenTest {
 
         // Verify sections exist
         composeRule.onNodeWithText("Master Data Source").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Auto-Sync Interval (Push)").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Pull Schedule (Sheets -> App)").performScrollTo().assertIsDisplayed()
         
         // Verify options
         composeRule.onNodeWithText("Google Sheets").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("Supabase (App)").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("3 Mins").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("30 Mins").performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText("12:00 & 23:00 WIB").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("App Database").performScrollTo().assertIsDisplayed()
 
         // Verify primary button
-        composeRule.onNodeWithText("Sync Now").assertIsDisplayed()
+        composeRule.onNodeWithText("Check differences").assertIsDisplayed()
     }
 }
-

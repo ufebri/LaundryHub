@@ -343,7 +343,7 @@ private fun SettingsCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Atur interval dan sinkronisasi manual Google Sheets",
+                        text = "Cek perbedaan data sebelum sinkronisasi",
                         color = ProfileMutedText,
                         style = MaterialTheme.typography.caption
                     )
@@ -599,4 +599,3 @@ fun PreviewProfileScreen() {
         )
     }
 }
-
