@@ -28,7 +28,7 @@ class SheetsBatchSyncJob(
     private val deviceTokenRepository: DeviceTokenRepository,
     private val fcmNotificationService: FcmNotificationService,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
-) {
+) : SheetsPushJob {
     private val logger = LoggerFactory.getLogger(SheetsBatchSyncJob::class.java)
 
     fun start() {
@@ -58,7 +58,7 @@ class SheetsBatchSyncJob(
         }
     }
 
-    suspend fun processUnsyncedAll(): Int {
+    override suspend fun processUnsyncedAll(): Int {
         val deleteCount = processPendingDeletes()
         val oCount = processUnsyncedOrders()
         val outCount = processUnsyncedOutcomes()

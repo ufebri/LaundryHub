@@ -1,0 +1,19 @@
+{
+	email {$ACME_EMAIL}
+}
+
+{$ORACLE_PUBLIC_HOST} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+
+	handle /api {
+		reverse_proxy backend:8080
+	}
+
+	handle {
+		respond "LaundryHub backend is running. Use /api/health for health checks." 200
+	}
+}

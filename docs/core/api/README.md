@@ -33,6 +33,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - App database writes are the success boundary. Google Sheets is a mirror/reporting surface, so create/update/delete responses should not wait for Sheets API completion.
 - App Database is the default sync master. This keeps app-created rows moving to Google Sheets automatically after service restarts, including on Render free instances.
 - Summary reads prefer live Google Sheets data when `SPREADSHEET_ID` and the service account are configured, then fall back to the database cache. This keeps formula-driven summary cards fresh while the backend still owns order/outcome writes.
+- Sheets push is near-real-time for all mutation routes. `SHEETS_PUSH_DEBOUNCE_MILLIS` defaults to `3000`, so rapid writes coalesce into one batch push instead of one Sheets request per API call.
 - After a successful order, outcome, package, gross, or summary mutation, the backend schedules a debounced DB -> Sheets push only when App Database is the configured master source. This prevents the temporary Sheets-master recovery mode from pushing stale database rows back into Sheets.
 - The fallback DB -> Sheets job runs from the configurable interval, defaulting to 5 minutes, only when App Database is the configured master source. It retries rows that still have `is_synced=false`.
 - Deletes are recorded in a durable sync delete outbox and cleared from Sheets by the same push path. Delete API responses report Sheets cleanup as queued, not complete.
