@@ -29,6 +29,10 @@ class SyncRunManager(
         return preview
     }
 
+    suspend fun currentDifferenceCount(sourceOfTruth: MasterSourceOfTruth): Int {
+        return previewService.createPreview(sourceOfTruth).totalDifferences
+    }
+
     fun startRun(previewId: String, requestedSource: MasterSourceOfTruth?): SyncRunStatusResponse {
         val preview = previews[previewId] ?: error("Preview expired. Check differences again.")
         val sourceOfTruth = requestedSource ?: preview.sourceOfTruth
@@ -133,19 +137,13 @@ class SyncRunManager(
     private suspend fun applyDatabaseToSheets(run: MutableSyncRun): Int {
         var processed = 0
         processed += runStage(run, SyncRunStage.APPLYING_ORDERS, "Applying orders to Google Sheets", "Orders") {
-            batchSyncJob.processUnsyncedOrders()
+            batchSyncJob.processAllOrdersToSheets()
         }
         processed += runStage(run, SyncRunStage.APPLYING_OUTCOMES, "Applying outcomes to Google Sheets", "Outcomes") {
-            batchSyncJob.processUnsyncedOutcomes()
+            batchSyncJob.processAllOutcomesToSheets()
         }
         processed += runStage(run, SyncRunStage.APPLYING_PACKAGES, "Applying packages to Google Sheets", "Packages") {
-            batchSyncJob.processUnsyncedPackages()
-        }
-        processed += runStage(run, SyncRunStage.APPLYING_GROSS, "Applying gross rows to Google Sheets", "Gross") {
-            batchSyncJob.processUnsyncedGross()
-        }
-        processed += runStage(run, SyncRunStage.APPLYING_SUMMARY, "Applying summary rows to Google Sheets", "Summary") {
-            batchSyncJob.processUnsyncedSummaries()
+            batchSyncJob.processAllPackagesToSheets()
         }
         processed += runStage(run, SyncRunStage.CLEANING_DELETES, "Cleaning deleted rows from Google Sheets", "Deletes") {
             batchSyncJob.processPendingDeletes()

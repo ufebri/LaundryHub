@@ -43,7 +43,8 @@ class SyncPreviewService(
                 databaseRows = orderRepository.getAll(page = 1, size = SYNC_READ_LIMIT),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.ORDER] ?: 0,
                 keySelector = OrderData::orderId,
-                signatureSelector = OrderData::syncSignature
+                signatureSelector = OrderData::syncSignature,
+                suspiciousKeySelector = ::isOrderHeaderKey
             ),
             buildEntityPreview(
                 entity = "Outcomes",
@@ -110,6 +111,24 @@ internal fun <T> buildEntityPreview(
     pendingDeletes: Int,
     keySelector: (T) -> String,
     signatureSelector: (T) -> String
+): SyncEntityPreview = buildEntityPreview(
+    entity = entity,
+    sheetRows = sheetRows,
+    databaseRows = databaseRows,
+    pendingDeletes = pendingDeletes,
+    keySelector = keySelector,
+    signatureSelector = signatureSelector,
+    suspiciousKeySelector = { false }
+)
+
+internal fun <T> buildEntityPreview(
+    entity: String,
+    sheetRows: List<T>,
+    databaseRows: List<T>,
+    pendingDeletes: Int,
+    keySelector: (T) -> String,
+    signatureSelector: (T) -> String,
+    suspiciousKeySelector: (String) -> Boolean
 ): SyncEntityPreview {
     val sheetKeys = sheetRows.map { keySelector(it).trim() }.filter { it.isNotBlank() }
     val databaseKeys = databaseRows.map { keySelector(it).trim() }.filter { it.isNotBlank() }
@@ -127,7 +146,8 @@ internal fun <T> buildEntityPreview(
         onlyInDatabase = (databaseRowsByKey.keys - sheetRowsByKey.keys).size,
         changedRows = changedRows,
         duplicateKeys = sheetKeys.duplicateExtraCount() + databaseKeys.duplicateExtraCount(),
-        pendingDeletes = pendingDeletes
+        pendingDeletes = pendingDeletes,
+        suspiciousRows = databaseKeys.count(suspiciousKeySelector) + sheetKeys.count(suspiciousKeySelector)
     )
 }
 
@@ -144,7 +164,7 @@ private fun List<String>.duplicateExtraCount(): Int {
         .sumOf { count -> (count - 1).coerceAtLeast(0) }
 }
 
-private fun OrderData.syncSignature(): String = listOf(
+internal fun OrderData.syncSignature(): String = listOf(
     orderId,
     orderDate,
     name,
@@ -159,7 +179,7 @@ private fun OrderData.syncSignature(): String = listOf(
     dueDate
 ).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
 
-private fun OutcomeData.syncSignature(): String = listOf(
+internal fun OutcomeData.syncSignature(): String = listOf(
     id,
     date,
     purpose,
@@ -168,24 +188,28 @@ private fun OutcomeData.syncSignature(): String = listOf(
     payment
 ).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
 
-private fun PackageData.syncSignature(): String = listOf(
+internal fun PackageData.syncSignature(): String = listOf(
     name,
     price,
     duration,
     unit
 ).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
 
-private fun GrossData.syncSignature(): String = listOf(
+internal fun GrossData.syncSignature(): String = listOf(
     month,
     totalNominal,
     orderCount,
     tax
 ).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
 
-private fun SpreadsheetData.syncSignature(): String = listOf(
+internal fun SpreadsheetData.syncSignature(): String = listOf(
     key,
     value
 ).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
 
 private const val SYNC_READ_LIMIT = 100_000
 private const val SIGNATURE_SEPARATOR = "\u001F"
+
+internal fun isOrderHeaderKey(key: String): Boolean {
+    return key.trim().lowercase().filter { it.isLetterOrDigit() } == "orderid"
+}

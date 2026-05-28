@@ -191,71 +191,99 @@ class SheetsSyncService {
         )
     }
 
-    suspend fun syncOrdersBatch(spreadsheetId: String, orders: List<OrderData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "income",
-        keyRange = "income!A:A",
-        updateColumnRange = "A:L",
-        rows = orders.map { order ->
-            SheetRow(
-                key = order.orderId,
-                values = listOf(
-                    order.orderId,
-                    order.orderDate,
-                    order.name,
-                    order.weight,
-                    order.priceKg,
-                    order.totalPrice,
-                    order.paidStatus,
-                    order.packageName,
-                    order.remark,
-                    order.paymentMethod,
-                    order.phoneNumber,
-                    order.dueDate
+    suspend fun syncOrdersBatch(spreadsheetId: String, orders: List<OrderData>): Int {
+        return syncAndVerifyOrdersBatch(spreadsheetId, orders).size
+    }
+
+    suspend fun syncAndVerifyOrdersBatch(spreadsheetId: String, orders: List<OrderData>): List<String> {
+        val candidates = orders.filterNot { isOrderHeaderKey(it.orderId) }
+        val writtenCount = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "income",
+            keyRange = "income!A:A",
+            updateColumnRange = "A:L",
+            rows = candidates.map { order ->
+                SheetRow(
+                    key = order.orderId,
+                    values = listOf(
+                        order.orderId,
+                        order.orderDate,
+                        order.name,
+                        order.weight,
+                        order.priceKg,
+                        order.totalPrice,
+                        order.paidStatus,
+                        order.packageName,
+                        order.remark,
+                        order.paymentMethod,
+                        order.phoneNumber,
+                        order.dueDate
+                    )
                 )
-            )
-        }
-    )
+            }
+        )
+        if (writtenCount == 0) return emptyList()
+        val sheetRowsById = fetchOrdersFromSheet(spreadsheetId).associateBy { it.orderId.trim() }
+        return candidates
+            .filter { order -> sheetRowsById[order.orderId.trim()]?.syncSignature() == order.syncSignature() }
+            .map { it.orderId }
+    }
 
-    suspend fun syncOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "outcome",
-        keyRange = "outcome!A:A",
-        updateColumnRange = "A:F",
-        rows = outcomes.map { outcome ->
-            SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
-        }
-    )
+    suspend fun syncOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): Int {
+        return syncAndVerifyOutcomesBatch(spreadsheetId, outcomes).size
+    }
 
-    suspend fun syncPackagesBatch(spreadsheetId: String, packages: List<PackageData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "notes",
-        keyRange = "notes!B:B",
-        updateColumnRange = "A:D",
-        rows = packages.map { pkg ->
-            SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
-        }
-    )
+    suspend fun syncAndVerifyOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): List<String> {
+        val writtenCount = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "outcome",
+            keyRange = "outcome!A:A",
+            updateColumnRange = "A:F",
+            rows = outcomes.map { outcome ->
+                SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
+            }
+        )
+        if (writtenCount == 0) return emptyList()
+        val sheetRowsById = fetchOutcomesFromSheet(spreadsheetId).associateBy { it.id.trim() }
+        return outcomes
+            .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncSignature() == outcome.syncSignature() }
+            .map { it.id }
+    }
 
-    suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "gross",
-        keyRange = "gross!A:A",
-        updateColumnRange = "A:D",
-        rows = grossList.map { gross ->
-            SheetRow(key = gross.month, values = gross.toSheetValues().single())
-        }
-    )
+    suspend fun syncPackagesBatch(spreadsheetId: String, packages: List<PackageData>): Int {
+        return syncAndVerifyPackagesBatch(spreadsheetId, packages).size
+    }
 
-    suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "summary",
-        keyRange = "summary!A:A",
-        updateColumnRange = "A:B",
-        rows = summaries.map { summary ->
-            SheetRow(key = summary.key, values = summary.toSheetValues().single())
-        }
-    )
+    suspend fun syncAndVerifyPackagesBatch(spreadsheetId: String, packages: List<PackageData>): List<String> {
+        val writtenCount = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "notes",
+            keyRange = "notes!B:B",
+            updateColumnRange = "A:D",
+            rows = packages.map { pkg ->
+                SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
+            }
+        )
+        if (writtenCount == 0) return emptyList()
+        val sheetRowsByName = fetchPackagesFromSheet(spreadsheetId).associateBy { it.name.trim() }
+        return packages
+            .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncSignature() == pkg.syncSignature() }
+            .map { it.name }
+    }
+
+    suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int {
+        logger.info(
+            "Skipping ${grossList.size} gross rows for spreadsheet $spreadsheetId because gross is a Sheet-owned reporting tab."
+        )
+        return 0
+    }
+
+    suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int {
+        logger.info(
+            "Skipping ${summaries.size} summary rows for spreadsheet $spreadsheetId because summary is a Sheet-owned reporting tab."
+        )
+        return 0
+    }
 
     suspend fun deleteOutcomeFromSheet(spreadsheetId: String, outcomeId: String): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -545,8 +573,8 @@ class SheetsSyncService {
             SyncEntityType.ORDER -> SheetDeleteTarget("income", "income!A:A", "A:L")
             SyncEntityType.OUTCOME -> SheetDeleteTarget("outcome", "outcome!A:A", "A:F")
             SyncEntityType.PACKAGE -> SheetDeleteTarget("notes", "notes!B:B", "A:D")
-            SyncEntityType.GROSS -> SheetDeleteTarget("gross", "gross!A:A", "A:D")
-            SyncEntityType.SUMMARY -> SheetDeleteTarget("summary", "summary!A:A", "A:B")
+            SyncEntityType.GROSS,
+            SyncEntityType.SUMMARY -> null
             else -> null
         }
     }

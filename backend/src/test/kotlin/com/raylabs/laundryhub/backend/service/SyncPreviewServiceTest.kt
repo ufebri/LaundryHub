@@ -32,6 +32,26 @@ class SyncPreviewServiceTest {
         assertEquals(2, preview.pendingDeletes)
         assertEquals(6, preview.totalDifferences)
     }
+
+    @Test
+    fun `buildEntityPreview flags header rows as suspicious differences`() {
+        val preview = buildEntityPreview(
+            entity = "Orders",
+            sheetRows = listOf(TestRow("1", "same")),
+            databaseRows = listOf(
+                TestRow("1", "same"),
+                TestRow("orderID", "header")
+            ),
+            pendingDeletes = 0,
+            keySelector = TestRow::id,
+            signatureSelector = TestRow::signature,
+            suspiciousKeySelector = ::isOrderHeaderKey
+        )
+
+        assertEquals(1, preview.onlyInDatabase)
+        assertEquals(1, preview.suspiciousRows)
+        assertEquals(1, preview.totalDifferences)
+    }
 }
 
 private data class TestRow(

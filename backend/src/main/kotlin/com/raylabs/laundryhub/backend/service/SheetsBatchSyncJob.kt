@@ -63,17 +63,13 @@ class SheetsBatchSyncJob(
         val oCount = processUnsyncedOrders()
         val outCount = processUnsyncedOutcomes()
         val pkgCount = processUnsyncedPackages()
-        val grossCount = processUnsyncedGross()
-        val summaryCount = processUnsyncedSummaries()
-        return deleteCount + oCount + outCount + pkgCount + grossCount + summaryCount
+        return deleteCount + oCount + outCount + pkgCount
     }
 
     suspend fun pendingPushCount(): Int {
         return orderRepository.getUnsyncedOrders().size +
             outcomeRepository.getUnsyncedOutcomes().size +
-            packageRepository.getUnsyncedPackages().size +
-            grossRepository.getUnsyncedGross().size +
-            summaryRepository.getUnsyncedSummaries().size
+            packageRepository.getUnsyncedPackages().size
     }
 
     suspend fun pendingDeleteCount(): Int {
@@ -90,15 +86,15 @@ class SheetsBatchSyncJob(
 
         logger.info("Found ${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
 
-        val successCount = syncService.syncOrdersBatch(spreadsheetId, unsyncedOrders)
-        if (successCount > 0) {
-            orderRepository.markAsSynced(unsyncedOrders.take(successCount).map { it.orderId })
+        val verifiedIds = syncService.syncAndVerifyOrdersBatch(spreadsheetId, unsyncedOrders)
+        if (verifiedIds.isNotEmpty()) {
+            orderRepository.markAsSynced(verifiedIds)
         }
 
-        if (successCount > 0) {
-            logger.info("Successfully synced $successCount orders to Google Sheets.")
+        if (verifiedIds.isNotEmpty()) {
+            logger.info("Successfully synced and verified ${verifiedIds.size} orders to Google Sheets.")
         }
-        return successCount
+        return verifiedIds.size
     }
 
     suspend fun processUnsyncedOutcomes(): Int {
@@ -111,15 +107,15 @@ class SheetsBatchSyncJob(
 
         logger.info("Found ${unsyncedOutcomes.size} unsynced outcomes. Preparing smart sync...")
 
-        val successCount = syncService.syncOutcomesBatch(spreadsheetId, unsyncedOutcomes)
-        if (successCount > 0) {
-            outcomeRepository.markAsSynced(unsyncedOutcomes.take(successCount).map { it.id })
+        val verifiedIds = syncService.syncAndVerifyOutcomesBatch(spreadsheetId, unsyncedOutcomes)
+        if (verifiedIds.isNotEmpty()) {
+            outcomeRepository.markAsSynced(verifiedIds)
         }
 
-        if (successCount > 0) {
-            logger.info("Successfully synced $successCount outcomes to Google Sheets.")
+        if (verifiedIds.isNotEmpty()) {
+            logger.info("Successfully synced and verified ${verifiedIds.size} outcomes to Google Sheets.")
         }
-        return successCount
+        return verifiedIds.size
     }
 
     suspend fun processUnsyncedPackages(): Int {
@@ -132,51 +128,52 @@ class SheetsBatchSyncJob(
 
         logger.info("Found ${unsyncedPackages.size} unsynced packages. Preparing smart sync...")
 
-        val successCount = syncService.syncPackagesBatch(spreadsheetId, unsyncedPackages)
-        if (successCount > 0) {
-            packageRepository.markAsSynced(unsyncedPackages.take(successCount).map { it.name })
+        val verifiedNames = syncService.syncAndVerifyPackagesBatch(spreadsheetId, unsyncedPackages)
+        if (verifiedNames.isNotEmpty()) {
+            packageRepository.markAsSynced(verifiedNames)
         }
 
-        if (successCount > 0) {
-            logger.info("Successfully synced $successCount packages to Google Sheets.")
+        if (verifiedNames.isNotEmpty()) {
+            logger.info("Successfully synced and verified ${verifiedNames.size} packages to Google Sheets.")
         }
-        return successCount
+        return verifiedNames.size
     }
 
     suspend fun processUnsyncedGross(): Int {
-        val unsyncedGross = grossRepository.getUnsyncedGross()
-
-        if (unsyncedGross.isEmpty()) {
-            logger.info("No unsynced gross rows found. Sync job skipped.")
-            return 0
-        }
-
-        logger.info("Found ${unsyncedGross.size} unsynced gross rows. Preparing smart sync...")
-
-        val successCount = syncService.syncGrossBatch(spreadsheetId, unsyncedGross)
-        if (successCount > 0) {
-            grossRepository.markAsSynced(unsyncedGross.take(successCount).map { it.month })
-            logger.info("Successfully synced $successCount gross rows to Google Sheets.")
-        }
-        return successCount
+        logger.info("Gross DB -> Sheets push skipped because gross is Sheet-owned reporting data.")
+        return 0
     }
 
     suspend fun processUnsyncedSummaries(): Int {
-        val unsyncedSummaries = summaryRepository.getUnsyncedSummaries()
+        logger.info("Summary DB -> Sheets push skipped because summary is Sheet-owned reporting data.")
+        return 0
+    }
 
-        if (unsyncedSummaries.isEmpty()) {
-            logger.info("No unsynced summary rows found. Sync job skipped.")
-            return 0
+    suspend fun processAllOrdersToSheets(): Int {
+        val orders = orderRepository.getAll(page = 1, size = SYNC_READ_LIMIT)
+        val verifiedIds = syncService.syncAndVerifyOrdersBatch(spreadsheetId, orders)
+        if (verifiedIds.isNotEmpty()) {
+            orderRepository.markAsSynced(verifiedIds)
         }
+        return verifiedIds.size
+    }
 
-        logger.info("Found ${unsyncedSummaries.size} unsynced summary rows. Preparing smart sync...")
-
-        val successCount = syncService.syncSummariesBatch(spreadsheetId, unsyncedSummaries)
-        if (successCount > 0) {
-            summaryRepository.markAsSynced(unsyncedSummaries.take(successCount).map { it.key })
-            logger.info("Successfully synced $successCount summary rows to Google Sheets.")
+    suspend fun processAllOutcomesToSheets(): Int {
+        val outcomes = outcomeRepository.getAll(page = 1, size = SYNC_READ_LIMIT)
+        val verifiedIds = syncService.syncAndVerifyOutcomesBatch(spreadsheetId, outcomes)
+        if (verifiedIds.isNotEmpty()) {
+            outcomeRepository.markAsSynced(verifiedIds)
         }
-        return successCount
+        return verifiedIds.size
+    }
+
+    suspend fun processAllPackagesToSheets(): Int {
+        val packages = packageRepository.getAll()
+        val verifiedNames = syncService.syncAndVerifyPackagesBatch(spreadsheetId, packages)
+        if (verifiedNames.isNotEmpty()) {
+            packageRepository.markAsSynced(verifiedNames)
+        }
+        return verifiedNames.size
     }
 
     suspend fun processPendingDeletes(): Int {
@@ -195,3 +192,5 @@ class SheetsBatchSyncJob(
         return processedIds.size
     }
 }
+
+private const val SYNC_READ_LIMIT = 100_000

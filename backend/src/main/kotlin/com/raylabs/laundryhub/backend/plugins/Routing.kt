@@ -133,18 +133,14 @@ fun Application.configureRouting() {
         grossRoutes(
             repository = grossRepository,
             sheetsApiClient = sheetsApiClient,
-            migrationRoutesEnabled = migrationRoutesEnabled,
-            syncDeleteEventRepository = syncDeleteEventRepository,
-            sheetsPushScheduler = sheetsPushScheduler
+            migrationRoutesEnabled = migrationRoutesEnabled
         )
         summaryRoutes(
             repository = summaryRepository,
             sheetsApiClient = sheetsApiClient,
             syncService = syncService,
             spreadsheetId = spreadsheetId,
-            migrationRoutesEnabled = migrationRoutesEnabled,
-            syncDeleteEventRepository = syncDeleteEventRepository,
-            sheetsPushScheduler = sheetsPushScheduler
+            migrationRoutesEnabled = migrationRoutesEnabled
         )
         
         syncRoutes(syncStateManager, batchSyncJob, sheetsPushScheduler, syncRunManager)

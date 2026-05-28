@@ -21,6 +21,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `POST /api/sync/preview` compares Google Sheets and the app database without writing data.
 - `POST /api/sync/runs` starts a confirmed manual sync from a preview id.
 - `GET /api/sync/runs/{runId}` returns sync stage, progress counts, final difference count, and any error.
+- `GET /api/sync/status` now reports both queued push work and cross-store data differences. `syncQueueState` distinguishes idle, pending push work, data drift, combined drift/push work, and unavailable sync configuration.
 - `POST /api/sync/trigger` is deprecated for Android because manual sync now requires preview and confirmation first.
 
 ## Backend Decisions
@@ -31,20 +32,23 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Migration/debug routes are disabled by default and require `ENABLE_MIGRATION_ROUTES=true`.
 - Rows imported from Sheets migrations should be marked already synced. Rows created or updated through app writes remain unsynced until the relevant push job confirms them.
 - App database writes are the success boundary. Google Sheets is a mirror/reporting surface, so create/update/delete responses should not wait for Sheets API completion.
-- App Database is the default sync master. This keeps app-created rows moving to Google Sheets automatically after service restarts, including on Render free instances.
+- App Database is the default sync master for app-owned write tabs. This keeps app-created rows moving to Google Sheets automatically after service restarts, including on Render free instances.
 - Summary reads prefer live Google Sheets data when `SPREADSHEET_ID` and the service account are configured, then fall back to the database cache. This keeps formula-driven summary cards fresh while the backend still owns order/outcome writes.
 - Sheets push is near-real-time for all mutation routes. `SHEETS_PUSH_DEBOUNCE_MILLIS` defaults to `3000`, so rapid writes coalesce into one batch push instead of one Sheets request per API call.
-- After a successful order, outcome, package, gross, or summary mutation, the backend schedules a debounced DB -> Sheets push only when App Database is the configured master source. This prevents the temporary Sheets-master recovery mode from pushing stale database rows back into Sheets.
-- The fallback DB -> Sheets job runs from the configurable interval, defaulting to 5 minutes, only when App Database is the configured master source. It retries rows that still have `is_synced=false`.
+- After a successful order, outcome, or package mutation, the backend schedules a debounced DB -> Sheets push only when App Database is the configured master source. This prevents the temporary Sheets-master recovery mode from pushing stale database rows back into Sheets.
+- `gross` and `summary` are Sheet-owned reporting tabs. Backend reads can cache or fall back to database rows, and Sheet-source manual sync may refresh the database cache, but DB -> Sheets push/delete intentionally skips those tabs.
+- The fallback DB -> Sheets job runs from the configurable interval, defaulting to 5 minutes, only when App Database is the configured master source. It retries app-owned rows that still have `is_synced=false`.
 - Deletes are recorded in a durable sync delete outbox and cleared from Sheets by the same push path. Delete API responses report Sheets cleanup as queued, not complete.
 - Order creation id allocation belongs to `POST /api/orders`, not Android. `OrderRepository.insertWithNextId()` serializes allocation with a Postgres advisory lock, calculates max numeric id + 1, inserts the row, and returns the created id.
 - `OrderRepository.getNextId()` remains for the legacy `last-id` route, but it is not part of the Android submit flow.
 - Outcome creation now follows the same ownership model as orders. `OutcomeRepository.insertWithNextId()` serializes allocation with an advisory lock, calculates max numeric id + 1, inserts the row, and returns the created id.
-- The batch Sheets job processes unsynced orders, outcomes, packages, gross rows, summary rows, and queued deletes through the normal repository/service path. It should still be enabled only when the target spreadsheet configuration is intentionally set.
+- The batch Sheets job processes unsynced orders, outcomes, packages, and queued deletes through the normal repository/service path. It should still be enabled only when the target spreadsheet configuration is intentionally set.
 - Google Sheets push uses one key-column read per tab and batches updates/appends/clears where practical to reduce request pressure.
 - Package name is the current stable external identifier for package update/delete. Android sends the original package name in the route and the edited package data in the body so rename flows can update the same database row. When a package rename succeeds, the backend records a delete event for the old package name so the legacy Sheet row can be cleared before/alongside writing the new package row.
 - Reverse sync from Sheets to the database is no longer started as a scheduled background job. Pulling from Sheets now belongs to a confirmed sync run after preview, because unsupervised pull can overwrite app-owned data.
-- Manual sync is now preview-confirm-progress: preview counts only-in-Sheets, only-in-database, changed rows, duplicate keys, and pending deletes; confirmed runs expose entity-stage progress; two-way sync is blocked until conflict resolution exists.
+- Manual sync is now preview-confirm-progress: preview counts only-in-Sheets, only-in-database, changed rows, duplicate keys, suspicious header-like rows, and pending deletes; confirmed runs expose entity-stage progress; two-way sync is blocked until conflict resolution exists.
+- DB -> Sheets sync now reads back the target rows and only marks app-owned rows as synced after their Sheet values match the database signature. This keeps `is_synced=true` from hiding failed or partial Sheet writes.
+- Manual App Database -> Sheets runs push the full app-owned data set for orders, outcomes, and packages so already-synced but drifted rows can be repaired. Automatic background push remains limited to `is_synced=false` rows plus pending deletes.
 - `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
 - Order filtering uses the shared payment-status normalization helpers. `UNPAID` includes `Unpaid`, `belum`, and blank legacy rows; `PAID` includes `Paid`, `lunas`, and paid-by-method display labels. This keeps Home Pending Orders aligned with History data instead of letting paid rows pollute the pending page.
 - Order date sorting and range checks accept both storage formats such as `15/05/2026` and display/import formats such as `15 May 2026` or `15 Mei 2026`, so pending-order sorting does not hide older imported rows behind unparseable dates.
@@ -103,6 +107,12 @@ Latest manual sync preview-confirm-progress check:
 
 - `./gradlew :backend:test --no-daemon`
 - `./gradlew testDebugUnitTest --no-daemon`
+
+Latest drift-aware backend sync hardening check:
+
+- `./gradlew :backend:test --no-daemon`
+- Supabase read-only aggregate audit on May 28, 2026: `orders=1672`, `outcomes=274`, `packages=5`, `gross=15`, `summary=27`, `orders.header_like_rows=0`, all checked tables had `is_synced=false` count `0`.
+- Deployed Render preview before this code was deployed still reported `33` differences: Orders `1` only-in-database and `18` changed, Gross `1` changed, Summary `13` changed. No live cleanup run was applied from that preview because the deployed endpoint exposes counts, not the exact row list required for safe mutation review.
 
 Latest search/outcome/notification registration check:
 

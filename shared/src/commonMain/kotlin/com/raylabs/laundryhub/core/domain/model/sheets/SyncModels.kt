@@ -50,8 +50,20 @@ data class SyncStatusResponse(
     val lastSyncError: String? = null,
     val pendingPushCount: Int = 0,
     val pendingDeleteCount: Int = 0,
-    val nextScheduledPushTime: String? = null
+    val nextScheduledPushTime: String? = null,
+    val dataDifferenceCount: Int = 0,
+    val hasDataDifferences: Boolean = false,
+    val syncQueueState: SyncQueueState = SyncQueueState.IDLE
 )
+
+@Serializable
+enum class SyncQueueState {
+    IDLE,
+    PENDING_PUSH,
+    DATA_DIFFERENCES,
+    PENDING_PUSH_AND_DATA_DIFFERENCES,
+    UNAVAILABLE
+}
 
 @Serializable
 data class SyncConfigUpdateRequest(
@@ -73,6 +85,7 @@ data class SyncEntityPreview(
     val changedRows: Int,
     val duplicateKeys: Int,
     val pendingDeletes: Int,
+    val suspiciousRows: Int = 0,
     val unresolvedConflicts: Int = 0
 ) {
     val totalDifferences: Int
