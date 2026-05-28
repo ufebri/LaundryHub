@@ -26,10 +26,13 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 ## Backend Decisions
 
 - Runtime database config must come from environment or `application.yaml`; no project-specific fallback credentials are allowed.
+- Deployment provider URLs must stay HTTPS because Android Remote Config rejects non-HTTPS remote backend URLs. Render is the temporary host; the Oracle Cloud Docker Compose + Caddy plan is deferred as a draft until A1 capacity is available.
 - Background Sheets jobs start only when `SPREADSHEET_ID` is configured.
 - Migration/debug routes are disabled by default and require `ENABLE_MIGRATION_ROUTES=true`.
 - Rows imported from Sheets migrations should be marked already synced. Rows created or updated through app writes remain unsynced until the relevant push job confirms them.
 - App database writes are the success boundary. Google Sheets is a mirror/reporting surface, so create/update/delete responses should not wait for Sheets API completion.
+- App Database is the default sync master. This keeps app-created rows moving to Google Sheets automatically after service restarts, including on Render free instances.
+- Summary reads prefer live Google Sheets data when `SPREADSHEET_ID` and the service account are configured, then fall back to the database cache. This keeps formula-driven summary cards fresh while the backend still owns order/outcome writes.
 - After a successful order, outcome, package, gross, or summary mutation, the backend schedules a debounced DB -> Sheets push only when App Database is the configured master source. This prevents the temporary Sheets-master recovery mode from pushing stale database rows back into Sheets.
 - The fallback DB -> Sheets job runs from the configurable interval, defaulting to 5 minutes, only when App Database is the configured master source. It retries rows that still have `is_synced=false`.
 - Deletes are recorded in a durable sync delete outbox and cleared from Sheets by the same push path. Delete API responses report Sheets cleanup as queued, not complete.
@@ -50,9 +53,9 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 ## Android Decisions
 
 - Android resolves the active backend API root from Firebase Remote Config at startup, falling back to the build-time `BASE_URL` when Remote Config is blank or invalid.
-- Remote Config keys are `api_base_url`, `api_maintenance_enabled`, `api_maintenance_message`, and `api_config_version`.
+- Remote Config keys are `api_base_url`, `api_fallback_base_urls`, `api_maintenance_enabled`, `api_maintenance_message`, and `api_config_version`.
 - Remote `api_base_url` values must be HTTPS. A host-only URL is normalized to `/api`; explicit API paths are preserved.
-- Android checks `/health` under each candidate API root. If Remote Config URL fails, the build-time fallback URL is checked before the failure UI is shown.
+- `api_fallback_base_urls` accepts multiple comma-separated or newline-separated HTTPS URLs. Android checks `/health` in order: `api_base_url`, each `api_fallback_base_urls` entry, then the build-time fallback URL.
 - The startup unavailable screen appears only when Remote Config explicitly enables maintenance or when all health candidates fail.
 - Android submits new orders without prefetching an id. The created id comes from the backend `POST /api/orders` response.
 - Android submits new outcomes without prefetching an id. The created id comes from the backend `POST /api/outcomes` response.

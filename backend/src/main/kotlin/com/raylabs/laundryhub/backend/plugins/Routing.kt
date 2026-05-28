@@ -140,6 +140,8 @@ fun Application.configureRouting() {
         summaryRoutes(
             repository = summaryRepository,
             sheetsApiClient = sheetsApiClient,
+            syncService = syncService,
+            spreadsheetId = spreadsheetId,
             migrationRoutesEnabled = migrationRoutesEnabled,
             syncDeleteEventRepository = syncDeleteEventRepository,
             sheetsPushScheduler = sheetsPushScheduler

@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.core.data.config
 
 import com.raylabs.laundryhub.core.data.config.RemoteBackendConfigProvider.Companion.KEY_API_BASE_URL
 import com.raylabs.laundryhub.core.data.config.RemoteBackendConfigProvider.Companion.KEY_API_CONFIG_VERSION
+import com.raylabs.laundryhub.core.data.config.RemoteBackendConfigProvider.Companion.KEY_API_FALLBACK_BASE_URLS
 import com.raylabs.laundryhub.core.data.config.RemoteBackendConfigProvider.Companion.KEY_API_MAINTENANCE_ENABLED
 import com.raylabs.laundryhub.core.data.config.RemoteBackendConfigProvider.Companion.KEY_API_MAINTENANCE_MESSAGE
 import kotlinx.coroutines.test.runTest
@@ -42,6 +43,56 @@ class RemoteBackendConfigProviderTest {
 
         assertEquals(FALLBACK_BASE_URL, config.baseUrl)
         assertEquals(listOf(FALLBACK_BASE_URL), provider.candidateBaseUrls())
+    }
+
+    @Test
+    fun `refresh includes remote fallback base urls before build fallback`() = runTest {
+        val source = FakeRemoteConfigSource(
+            strings = mutableMapOf(
+                KEY_API_BASE_URL to "https://render.example.com/api",
+                KEY_API_FALLBACK_BASE_URLS to """
+                    https://railway.example.com/api
+                    http://unsafe.example.com/api
+                    https://backup.example.com
+                """.trimIndent()
+            )
+        )
+        val provider = provider(source)
+
+        provider.refresh()
+
+        assertEquals(
+            listOf(
+                "https://render.example.com/api",
+                "https://railway.example.com/api",
+                "https://backup.example.com/api",
+                FALLBACK_BASE_URL
+            ),
+            provider.candidateBaseUrls()
+        )
+    }
+
+    @Test
+    fun `refresh can use fallback list when primary remote base url is unsafe`() = runTest {
+        val source = FakeRemoteConfigSource(
+            strings = mutableMapOf(
+                KEY_API_BASE_URL to "http://unsafe.example.com/api",
+                KEY_API_FALLBACK_BASE_URLS to "https://render.example.com/api, https://railway.example.com/api"
+            )
+        )
+        val provider = provider(source)
+
+        val config = provider.refresh()
+
+        assertEquals(FALLBACK_BASE_URL, config.baseUrl)
+        assertEquals(
+            listOf(
+                "https://render.example.com/api",
+                "https://railway.example.com/api",
+                FALLBACK_BASE_URL
+            ),
+            provider.candidateBaseUrls()
+        )
     }
 
     @Test

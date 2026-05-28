@@ -4,6 +4,7 @@ import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
 import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
 import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -20,13 +21,18 @@ import io.ktor.server.routing.route
 fun Route.summaryRoutes(
     repository: SummaryRepository,
     sheetsApiClient: GoogleSheetsApiClient,
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
     migrationRoutesEnabled: Boolean = false,
     syncDeleteEventRepository: SyncDeleteEventRepository? = null,
     sheetsPushScheduler: SheetsPushScheduler? = null
 ) {
     route("/api/summary") {
         get {
-            call.respond(HttpStatusCode.OK, repository.getAll())
+            val sheetSummary = spreadsheetId
+                ?.let { syncService.fetchSummaryFromSheet(it) }
+                .orEmpty()
+            call.respond(HttpStatusCode.OK, sheetSummary.ifEmpty { repository.getAll() })
         }
         post {
             try {
@@ -68,14 +74,14 @@ fun Route.summaryRoutes(
         
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
-                if (spreadsheetId == null || accessToken == null) {
+                if (migrationSpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing params")
                     return@post
                 }
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, "summary", accessToken)
+                    val response = sheetsApiClient.getValues(migrationSpreadsheetId, "summary", accessToken)
                     val rows = response.values ?: emptyList()
                     val summaries = rows.drop(1).mapNotNull { row ->
                         if (row.isEmpty()) return@mapNotNull null
