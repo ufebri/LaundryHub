@@ -1,10 +1,9 @@
 package com.raylabs.laundryhub.backend.service
 
 import com.raylabs.laundryhub.backend.db.repository.*
-import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
-import com.raylabs.laundryhub.backend.util.syncVerificationSignature
-import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import kotlinx.coroutines.test.runTest
 import org.mockito.kotlin.any
@@ -38,7 +37,7 @@ class SyncPreviewActionableTest {
     )
 
     @Test
-    fun `SUPABASE source of truth includes Gross and Summary in totalDifferences when sync is enabled`() = runTest {
+    fun `SUPABASE source of truth excludes Gross and Summary in totalDifferences`() = runTest {
         // Arrange
         whenever(syncDeleteEventRepository.getPending()).doReturn(emptyList())
         
@@ -63,8 +62,8 @@ class SyncPreviewActionableTest {
         val preview = service.createPreview(MasterSourceOfTruth.SUPABASE)
 
         // Assert
-        // Orders (1) + Gross (1) + Summary (1) = 3
-        assertEquals(3, preview.totalDifferences)
+        // Orders (1), but Gross (1) and Summary (1) are excluded under SUPABASE
+        assertEquals(1, preview.totalDifferences)
         
         // Ensure Gross and Summary still have differences in their individual entity previews
         val grossEntity = preview.entities.find { it.entity == "Gross" }!!

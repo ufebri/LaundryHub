@@ -145,12 +145,6 @@ class SyncRunManager(
         processed += runStage(run, SyncRunStage.APPLYING_PACKAGES, "Applying packages to Google Sheets", "Packages") {
             batchSyncJob.processAllPackagesToSheets()
         }
-        processed += runStage(run, SyncRunStage.APPLYING_GROSS, "Applying gross rows to Google Sheets", "Gross") {
-            batchSyncJob.processAllGrossToSheets()
-        }
-        processed += runStage(run, SyncRunStage.APPLYING_SUMMARY, "Applying summary rows to Google Sheets", "Summary") {
-            batchSyncJob.processAllSummariesToSheets()
-        }
         processed += runStage(run, SyncRunStage.CLEANING_DELETES, "Cleaning deleted rows from Google Sheets", "Deletes") {
             batchSyncJob.processPendingDeletes()
         }
