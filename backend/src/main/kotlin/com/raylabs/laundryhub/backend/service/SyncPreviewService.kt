@@ -80,9 +80,16 @@ class SyncPreviewService(
             )
         )
 
-        val totalDifferences = entities.sumOf { it.totalDifferences }
-        val hasDuplicateKeys = entities.any { it.duplicateKeys > 0 }
-        val hasTwoWayConflicts = sourceOfTruth == MasterSourceOfTruth.BOTH && entities.any { it.changedRows > 0 }
+        val actionableEntities = entities.filter { entity ->
+            when (sourceOfTruth) {
+                MasterSourceOfTruth.SUPABASE -> entity.entity !in listOf("Gross", "Summary")
+                else -> true
+            }
+        }
+
+        val totalDifferences = actionableEntities.sumOf { it.totalDifferences }
+        val hasDuplicateKeys = actionableEntities.any { it.duplicateKeys > 0 }
+        val hasTwoWayConflicts = sourceOfTruth == MasterSourceOfTruth.BOTH && actionableEntities.any { it.changedRows > 0 }
 
         return SyncPreviewResponse(
             previewId = "preview-${UUID.randomUUID()}",
