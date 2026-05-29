@@ -87,6 +87,9 @@ class SheetsBatchSyncJob(
         logger.info("Found ${unsyncedOrders.size} unsynced orders. Preparing smart sync...")
 
         val verifiedIds = syncService.syncAndVerifyOrdersBatch(spreadsheetId, unsyncedOrders)
+        if (verifiedIds.isEmpty()) {
+            error("Order sync wrote no verified rows for ${unsyncedOrders.size} pending orders.")
+        }
         if (verifiedIds.isNotEmpty()) {
             orderRepository.markAsSynced(verifiedIds)
         }
@@ -108,6 +111,9 @@ class SheetsBatchSyncJob(
         logger.info("Found ${unsyncedOutcomes.size} unsynced outcomes. Preparing smart sync...")
 
         val verifiedIds = syncService.syncAndVerifyOutcomesBatch(spreadsheetId, unsyncedOutcomes)
+        if (verifiedIds.isEmpty()) {
+            error("Outcome sync wrote no verified rows for ${unsyncedOutcomes.size} pending outcomes.")
+        }
         if (verifiedIds.isNotEmpty()) {
             outcomeRepository.markAsSynced(verifiedIds)
         }
@@ -129,6 +135,9 @@ class SheetsBatchSyncJob(
         logger.info("Found ${unsyncedPackages.size} unsynced packages. Preparing smart sync...")
 
         val verifiedNames = syncService.syncAndVerifyPackagesBatch(spreadsheetId, unsyncedPackages)
+        if (verifiedNames.isEmpty()) {
+            error("Package sync wrote no verified rows for ${unsyncedPackages.size} pending packages.")
+        }
         if (verifiedNames.isNotEmpty()) {
             packageRepository.markAsSynced(verifiedNames)
         }

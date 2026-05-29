@@ -9,6 +9,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SheetsPushSchedulerTest {
@@ -65,6 +66,27 @@ class SheetsPushSchedulerTest {
     }
 
     @Test
+    fun `requestPush records failure when pending push cannot verify rows`() = runTest {
+        val pushJob = FakeSheetsPushJob(errorMessage = "Order sync wrote no verified rows for 1 pending orders.")
+        val syncStateManager = SyncStateManager()
+        val scheduler = SheetsPushScheduler(
+            batchSyncJob = pushJob,
+            syncStateManager = syncStateManager,
+            debounceMillis = 1,
+            scope = this
+        )
+
+        scheduler.requestPush("order updated")
+        advanceTimeBy(1)
+        runCurrent()
+
+        assertEquals(1, pushJob.flushCount)
+        assertEquals("FAILED", syncStateManager.lastSyncStatus)
+        assertEquals(0, syncStateManager.lastChangesCount)
+        assertTrue(syncStateManager.lastSyncError.orEmpty().contains("no verified rows"))
+    }
+
+    @Test
     fun `parseDebounceMillis uses configured non-negative value or default`() {
         assertEquals(2_500, SheetsPushScheduler.parseDebounceMillis("2500"))
         assertEquals(0, SheetsPushScheduler.parseDebounceMillis("0"))
@@ -74,12 +96,14 @@ class SheetsPushSchedulerTest {
     }
 
     private class FakeSheetsPushJob(
-        private val result: Int
+        private val result: Int = 0,
+        private val errorMessage: String? = null
     ) : SheetsPushJob {
         var flushCount = 0
 
         override suspend fun processUnsyncedAll(): Int {
             flushCount++
+            errorMessage?.let { error(it) }
             return result
         }
     }

@@ -202,6 +202,7 @@ class SheetsSyncService {
             sheetName = "income",
             keyRange = "income!A:A",
             updateColumnRange = "A:L",
+            ignoredKeySelector = ::isOrderHeaderKey,
             rows = candidates.map { order ->
                 SheetRow(
                     key = order.orderId,
@@ -378,7 +379,7 @@ class SheetsSyncService {
                         paymentMethod = row.getOrNull(9) ?: "",
                         phoneNumber = row.getOrNull(10) ?: "",
                         dueDate = row.getOrNull(11) ?: ""
-                    ).takeIf { it.orderId.isNotBlank() }
+                    ).takeIf { it.orderId.isNotBlank() && !isOrderHeaderKey(it.orderId) }
                 } catch (e: Exception) {
                     logger.warn("Skipping invalid row: $row")
                     null
@@ -519,6 +520,7 @@ class SheetsSyncService {
         sheetName: String,
         keyRange: String,
         updateColumnRange: String,
+        ignoredKeySelector: (String) -> Boolean = { false },
         rows: List<SheetRow>
     ): Int = withContext(Dispatchers.IO) {
         if (rows.isEmpty()) return@withContext 0
@@ -527,18 +529,23 @@ class SheetsSyncService {
             val token = getServiceAccountToken()
             val existingRows = sheetsApiClient.getValues(spreadsheetId, keyRange, token).values ?: emptyList()
             val rowsByKey = existingRows
-                .mapIndexedNotNull { index, row -> row.getOrNull(0)?.takeIf { it.isNotBlank() }?.let { it to index + 1 } }
+                .mapIndexedNotNull { index, row ->
+                    row.getOrNull(0)
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() && !ignoredKeySelector(it) }
+                        ?.let { it to index + 1 }
+                }
                 .toMap()
 
             val updates = rows.mapNotNull { row ->
-                val rowIndex = rowsByKey[row.key] ?: return@mapNotNull null
+                val rowIndex = rowsByKey[row.key.trim()] ?: return@mapNotNull null
                 ValueRange(
                     range = buildRowRange(sheetName, updateColumnRange, rowIndex),
                     majorDimension = "ROWS",
                     values = listOf(row.values)
                 )
             }
-            val appends = rows.filter { it.key !in rowsByKey }.map { it.values }
+            val appends = rows.filter { it.key.trim() !in rowsByKey }.map { it.values }
 
             if (updates.isNotEmpty()) {
                 sheetsApiClient.batchUpdateValues(

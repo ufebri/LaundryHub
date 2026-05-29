@@ -49,6 +49,8 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Manual sync is now preview-confirm-progress: preview counts only-in-Sheets, only-in-database, changed rows, duplicate keys, suspicious header-like rows, and pending deletes; confirmed runs expose entity-stage progress; two-way sync is blocked until conflict resolution exists.
 - DB -> Sheets sync now reads back the target rows and only marks app-owned rows as synced after their Sheet values match the database signature. This keeps `is_synced=true` from hiding failed or partial Sheet writes.
 - Read-back verification normalizes common Sheet formatting differences for app-owned tabs, including currency/grouping text, payment-status casing/language (`lunas`/`Paid`), payment method casing, and numeric strings. This keeps harmless Sheet formatting from leaving a valid update permanently pending.
+- Income Sheet reads and key lookups ignore header-like rows found inside the data range, such as `orderID`. This prevents a duplicated header row in `income` from polluting previews or being treated as an order key.
+- If pending app-owned rows exist but a push verifies zero rows, the batch job now records a sync failure instead of reporting a misleading `SUCCESS` with `changesCount=0`.
 - Manual App Database -> Sheets runs push the full app-owned data set for orders, outcomes, and packages so already-synced but drifted rows can be repaired. Automatic background push remains limited to `is_synced=false` rows plus pending deletes.
 - `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
 - Order filtering uses the shared payment-status normalization helpers. `UNPAID` includes `Unpaid`, `belum`, and blank legacy rows; `PAID` includes `Paid`, `lunas`, and paid-by-method display labels. This keeps Home Pending Orders aligned with History data instead of letting paid rows pollute the pending page.
@@ -113,9 +115,12 @@ Latest drift-aware backend sync hardening check:
 
 - `./gradlew :backend:test --no-daemon`
 - Follow-up verification-format fix also passed `./gradlew :backend:test --no-daemon`.
+- Header-filter and zero-verified failure tests passed with `./gradlew :backend:test --no-daemon`.
+- Backend coverage report generated with `./gradlew :backend:jacocoTestReport --no-daemon`.
 - Supabase read-only aggregate audit on May 28, 2026: `orders=1672`, `outcomes=274`, `packages=5`, `gross=15`, `summary=27`, `orders.header_like_rows=0`, all checked tables had `is_synced=false` count `0`.
 - Deployed Render preview before this code was deployed still reported `33` differences: Orders `1` only-in-database and `18` changed, Gross `1` changed, Summary `13` changed. No live cleanup run was applied from that preview because the deployed endpoint exposes counts, not the exact row list required for safe mutation review.
 - On May 29, 2026, live status after an order payment update showed one pending push for order `1674`. The row was updated in Supabase but remained `is_synced=false`, which matched the exact read-back verification risk; the local fix normalizes Sheet formatting before deciding whether a pushed row is verified.
+- A follow-up live preview on May 29, 2026 showed `onlyInDatabase=1` and `suspiciousRows=1` for Orders while Supabase had no header-like order id, which points to a header-like row inside the Sheet data range. The local fix filters that row from Sheet reads and key lookup.
 
 Latest search/outcome/notification registration check:
 
