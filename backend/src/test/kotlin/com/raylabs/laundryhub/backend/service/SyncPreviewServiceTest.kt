@@ -1,5 +1,7 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.backend.util.syncVerificationSignature
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -120,8 +122,8 @@ class SyncPreviewServiceTest {
                 )
             ),
             pendingDeletes = 0,
-            keySelector = com.raylabs.laundryhub.core.domain.model.sheets.OrderData::orderId,
-            signatureSelector = com.raylabs.laundryhub.core.domain.model.sheets.OrderData::syncSignature,
+            keySelector = OrderData::orderId,
+            signatureSelector = OrderData::syncVerificationSignature,
             suspiciousKeySelector = ::isOrderHeaderKey
         )
 
@@ -142,7 +144,7 @@ private fun testOrder(
     totalPrice: String,
     paidStatus: String,
     paymentMethod: String
-) = com.raylabs.laundryhub.core.domain.model.sheets.OrderData(
+) = OrderData(
     orderId = orderId,
     orderDate = "29/05/2026",
     name = "test order baru",

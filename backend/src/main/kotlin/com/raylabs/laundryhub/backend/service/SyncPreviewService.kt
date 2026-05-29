@@ -15,6 +15,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncEntityPreview
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
+import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -43,7 +44,7 @@ class SyncPreviewService(
                 databaseRows = orderRepository.getAll(page = 1, size = SYNC_READ_LIMIT),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.ORDER] ?: 0,
                 keySelector = OrderData::orderId,
-                signatureSelector = OrderData::syncSignature,
+                signatureSelector = OrderData::syncVerificationSignature,
                 suspiciousKeySelector = ::isOrderHeaderKey
             ),
             buildEntityPreview(
@@ -52,7 +53,7 @@ class SyncPreviewService(
                 databaseRows = outcomeRepository.getAll(page = 1, size = SYNC_READ_LIMIT),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.OUTCOME] ?: 0,
                 keySelector = OutcomeData::id,
-                signatureSelector = OutcomeData::syncSignature
+                signatureSelector = OutcomeData::syncVerificationSignature
             ),
             buildEntityPreview(
                 entity = "Packages",
@@ -60,7 +61,7 @@ class SyncPreviewService(
                 databaseRows = packageRepository.getAll(),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.PACKAGE] ?: 0,
                 keySelector = PackageData::name,
-                signatureSelector = PackageData::syncSignature
+                signatureSelector = PackageData::syncVerificationSignature
             ),
             buildEntityPreview(
                 entity = "Gross",
@@ -68,7 +69,7 @@ class SyncPreviewService(
                 databaseRows = grossRepository.getAll(page = 1, size = SYNC_READ_LIMIT),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.GROSS] ?: 0,
                 keySelector = GrossData::month,
-                signatureSelector = GrossData::syncSignature
+                signatureSelector = GrossData::syncVerificationSignature
             ),
             buildEntityPreview(
                 entity = "Summary",
@@ -76,7 +77,7 @@ class SyncPreviewService(
                 databaseRows = summaryRepository.getAll(),
                 pendingDeletes = pendingDeletesByType[SyncEntityType.SUMMARY] ?: 0,
                 keySelector = SpreadsheetData::key,
-                signatureSelector = SpreadsheetData::syncSignature
+                signatureSelector = SpreadsheetData::syncVerificationSignature
             )
         )
 
@@ -164,51 +165,7 @@ private fun List<String>.duplicateExtraCount(): Int {
         .sumOf { count -> (count - 1).coerceAtLeast(0) }
 }
 
-internal fun OrderData.syncSignature(): String = listOf(
-    orderId,
-    orderDate,
-    name,
-    weight,
-    priceKg,
-    totalPrice,
-    paidStatus,
-    packageName,
-    remark,
-    paymentMethod,
-    phoneNumber,
-    dueDate
-).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
-
-internal fun OutcomeData.syncSignature(): String = listOf(
-    id,
-    date,
-    purpose,
-    price,
-    remark,
-    payment
-).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
-
-internal fun PackageData.syncSignature(): String = listOf(
-    name,
-    price,
-    duration,
-    unit
-).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
-
-internal fun GrossData.syncSignature(): String = listOf(
-    month,
-    totalNominal,
-    orderCount,
-    tax
-).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
-
-internal fun SpreadsheetData.syncSignature(): String = listOf(
-    key,
-    value
-).joinToString(SIGNATURE_SEPARATOR) { it.trim() }
-
 private const val SYNC_READ_LIMIT = 100_000
-private const val SIGNATURE_SEPARATOR = "\u001F"
 
 internal fun isOrderHeaderKey(key: String): Boolean {
     return key.trim().lowercase().filter { it.isLetterOrDigit() } == "orderid"
