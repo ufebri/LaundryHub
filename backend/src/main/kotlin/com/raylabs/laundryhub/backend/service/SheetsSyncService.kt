@@ -584,7 +584,10 @@ class SheetsSyncService {
             if (updates.isNotEmpty()) {
                 val response = sheetsApiClient.batchUpdateValues(
                     spreadsheetId = spreadsheetId,
-                    request = BatchUpdateValuesRequest(data = updates.map { it.second }),
+                    request = BatchUpdateValuesRequest(
+                        valueInputOption = SHEETS_VALUE_INPUT_OPTION,
+                        data = updates.map { it.second }
+                    ),
                     accessToken = token
                 )
                 acknowledgedKeys += acknowledgedUpdateKeys(
@@ -720,3 +723,4 @@ private fun String.normalizedStatusText(): String {
 }
 
 private const val VERIFICATION_SEPARATOR = "\u001F"
+private const val SHEETS_VALUE_INPUT_OPTION = "USER_ENTERED"

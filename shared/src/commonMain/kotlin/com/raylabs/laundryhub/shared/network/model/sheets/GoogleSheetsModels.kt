@@ -39,7 +39,7 @@ data class ClearValuesRequest(
 
 @Serializable
 data class BatchUpdateValuesRequest(
-    val valueInputOption: String = "USER_ENTERED",
+    val valueInputOption: String,
     val data: List<ValueRange>
 )
 
