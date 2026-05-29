@@ -225,7 +225,7 @@ class SheetsSyncService {
         if (writtenCount == 0) return emptyList()
         val sheetRowsById = fetchOrdersFromSheet(spreadsheetId).associateBy { it.orderId.trim() }
         return candidates
-            .filter { order -> sheetRowsById[order.orderId.trim()]?.syncSignature() == order.syncSignature() }
+            .filter { order -> sheetRowsById[order.orderId.trim()]?.syncVerificationSignature() == order.syncVerificationSignature() }
             .map { it.orderId }
     }
 
@@ -246,7 +246,7 @@ class SheetsSyncService {
         if (writtenCount == 0) return emptyList()
         val sheetRowsById = fetchOutcomesFromSheet(spreadsheetId).associateBy { it.id.trim() }
         return outcomes
-            .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncSignature() == outcome.syncSignature() }
+            .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncVerificationSignature() == outcome.syncVerificationSignature() }
             .map { it.id }
     }
 
@@ -267,7 +267,7 @@ class SheetsSyncService {
         if (writtenCount == 0) return emptyList()
         val sheetRowsByName = fetchPackagesFromSheet(spreadsheetId).associateBy { it.name.trim() }
         return packages
-            .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncSignature() == pkg.syncSignature() }
+            .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncVerificationSignature() == pkg.syncVerificationSignature() }
             .map { it.name }
     }
 
@@ -597,3 +597,58 @@ private data class SheetDeleteTarget(
     val keyRange: String,
     val clearColumns: String
 )
+
+internal fun OrderData.syncVerificationSignature(): String = listOf(
+    orderId.trim(),
+    orderDate.normalizedText(),
+    name.normalizedText(),
+    weight.normalizedNumberText(),
+    priceKg.normalizedNumberText(),
+    totalPrice.normalizedNumberText(),
+    paidStatus.normalizedStatusText(),
+    packageName.normalizedText(),
+    remark.normalizedText(),
+    paymentMethod.normalizedText(),
+    phoneNumber.normalizedPhoneText(),
+    dueDate.normalizedText()
+).joinToString(VERIFICATION_SEPARATOR)
+
+internal fun OutcomeData.syncVerificationSignature(): String = listOf(
+    id.trim(),
+    date.normalizedText(),
+    purpose.normalizedText(),
+    price.normalizedNumberText(),
+    remark.normalizedText(),
+    payment.normalizedText()
+).joinToString(VERIFICATION_SEPARATOR)
+
+internal fun PackageData.syncVerificationSignature(): String = listOf(
+    name.normalizedText(),
+    price.normalizedNumberText(),
+    duration.normalizedNumberText(),
+    unit.normalizedText()
+).joinToString(VERIFICATION_SEPARATOR)
+
+private fun String.normalizedText(): String = trim().lowercase()
+
+private fun String.normalizedNumberText(): String {
+    val trimmed = trim()
+    val digits = trimmed.filter { it.isDigit() }
+    return digits.ifBlank { trimmed.lowercase() }
+}
+
+private fun String.normalizedPhoneText(): String {
+    val trimmed = trim()
+    val digits = trimmed.filter { it.isDigit() }
+    return digits.ifBlank { trimmed.lowercase() }
+}
+
+private fun String.normalizedStatusText(): String {
+    return when (trim().lowercase()) {
+        "lunas", "paid" -> "paid"
+        "belum", "unpaid", "" -> "unpaid"
+        else -> trim().lowercase()
+    }
+}
+
+private const val VERIFICATION_SEPARATOR = "\u001F"

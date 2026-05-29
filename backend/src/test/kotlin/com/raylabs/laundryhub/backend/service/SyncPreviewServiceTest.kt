@@ -52,9 +52,47 @@ class SyncPreviewServiceTest {
         assertEquals(1, preview.suspiciousRows)
         assertEquals(1, preview.totalDifferences)
     }
+
+    @Test
+    fun `order verification tolerates sheet formatting differences`() {
+        val databaseOrder = testOrder(
+            priceKg = "Rp10.000",
+            totalPrice = "50000",
+            paidStatus = "lunas",
+            paymentMethod = "Cash"
+        )
+        val sheetOrder = testOrder(
+            priceKg = "10.000",
+            totalPrice = "50.000",
+            paidStatus = "Paid",
+            paymentMethod = "cash"
+        )
+
+        assertEquals(databaseOrder.syncVerificationSignature(), sheetOrder.syncVerificationSignature())
+    }
 }
 
 private data class TestRow(
     val id: String,
     val signature: String
+)
+
+private fun testOrder(
+    priceKg: String,
+    totalPrice: String,
+    paidStatus: String,
+    paymentMethod: String
+) = com.raylabs.laundryhub.core.domain.model.sheets.OrderData(
+    orderId = "1674",
+    orderDate = "29/05/2026",
+    name = "test order baru",
+    phoneNumber = "",
+    packageName = "Express - 6H",
+    priceKg = priceKg,
+    totalPrice = totalPrice,
+    paidStatus = paidStatus,
+    paymentMethod = paymentMethod,
+    remark = "",
+    weight = "5",
+    dueDate = "29/05/2026"
 )
