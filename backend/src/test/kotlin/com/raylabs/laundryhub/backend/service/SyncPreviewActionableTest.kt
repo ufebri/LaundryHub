@@ -37,7 +37,7 @@ class SyncPreviewActionableTest {
     )
 
     @Test
-    fun `SUPABASE source of truth excludes Gross and Summary from totalDifferences`() = runTest {
+    fun `SUPABASE source of truth includes Gross and Summary in totalDifferences when sync is enabled`() = runTest {
         // Arrange
         whenever(syncDeleteEventRepository.getPending()).doReturn(emptyList())
         
@@ -45,11 +45,11 @@ class SyncPreviewActionableTest {
         whenever(syncService.fetchOrdersFromSheet(any())).doReturn(listOf(testOrder("1", "Paid")))
         whenever(orderRepository.getAll(any(), any(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())).doReturn(listOf(testOrder("1", "Unpaid")))
         
-        // Gross: 1 difference (onlyInSheets) - should be ignored in SUPABASE mode total
+        // Gross: 1 difference (onlyInSheets)
         whenever(syncService.fetchGrossFromSheet(any())).doReturn(listOf(GrossData(month = "Jan 2026", totalNominal = "100", orderCount = "1", tax = "0")))
         whenever(grossRepository.getAll(any(), any())).doReturn(emptyList())
         
-        // Summary: 1 difference (onlyInSheets) - should be ignored in SUPABASE mode total
+        // Summary: 1 difference (onlyInSheets)
         whenever(syncService.fetchSummaryFromSheet(any())).doReturn(listOf(SpreadsheetData("key1", "val1")))
         whenever(summaryRepository.getAll()).doReturn(emptyList())
 
@@ -62,8 +62,8 @@ class SyncPreviewActionableTest {
         val preview = service.createPreview(MasterSourceOfTruth.SUPABASE)
 
         // Assert
-        // Orders (1) = 1 (Gross and Summary ignored)
-        assertEquals(1, preview.totalDifferences)
+        // Orders (1) + Gross (1) + Summary (1) = 3
+        assertEquals(3, preview.totalDifferences)
         
         // Ensure Gross and Summary still have differences in their individual entity previews
         val grossEntity = preview.entities.find { it.entity == "Gross" }!!

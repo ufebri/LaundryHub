@@ -149,13 +149,27 @@ class SheetsBatchSyncJob(
     }
 
     suspend fun processUnsyncedGross(): Int {
-        logger.info("Gross DB -> Sheets push skipped because gross is Sheet-owned reporting data.")
-        return 0
+        val unsyncedGross = grossRepository.getUnsyncedGross()
+        if (unsyncedGross.isEmpty()) return 0
+        
+        logger.info("Found ${unsyncedGross.size} unsynced gross rows. Syncing...")
+        val count = syncService.syncGrossBatch(spreadsheetId, unsyncedGross)
+        if (count > 0) {
+            grossRepository.markAsSynced(unsyncedGross.map { it.month })
+        }
+        return count
     }
 
     suspend fun processUnsyncedSummaries(): Int {
-        logger.info("Summary DB -> Sheets push skipped because summary is Sheet-owned reporting data.")
-        return 0
+        val unsyncedSummaries = summaryRepository.getUnsyncedSummaries()
+        if (unsyncedSummaries.isEmpty()) return 0
+        
+        logger.info("Found ${unsyncedSummaries.size} unsynced summary rows. Syncing...")
+        val count = syncService.syncSummariesBatch(spreadsheetId, unsyncedSummaries)
+        if (count > 0) {
+            summaryRepository.markAsSynced(unsyncedSummaries.map { it.key })
+        }
+        return count
     }
 
     suspend fun processAllOrdersToSheets(): Int {
@@ -183,6 +197,16 @@ class SheetsBatchSyncJob(
             packageRepository.markAsSynced(verifiedNames)
         }
         return verifiedNames.size
+    }
+
+    suspend fun processAllGrossToSheets(): Int {
+        val grossList = grossRepository.getAll(page = 1, size = SYNC_READ_LIMIT)
+        return syncService.syncGrossBatch(spreadsheetId, grossList)
+    }
+
+    suspend fun processAllSummariesToSheets(): Int {
+        val summaries = summaryRepository.getAll()
+        return syncService.syncSummariesBatch(spreadsheetId, summaries)
     }
 
     suspend fun processPendingDeletes(): Int {

@@ -305,17 +305,29 @@ class SheetsSyncService {
     }
 
     suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int {
-        logger.info(
-            "Skipping ${grossList.size} gross rows for spreadsheet $spreadsheetId because gross is a Sheet-owned reporting tab."
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "gross",
+            keyRange = "gross!A:A",
+            updateColumnRange = "A:D",
+            rows = grossList.map { gross ->
+                SheetRow(key = gross.month, values = gross.toSheetValues().single())
+            }
         )
-        return 0
+        return acknowledgedKeys.size
     }
 
     suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int {
-        logger.info(
-            "Skipping ${summaries.size} summary rows for spreadsheet $spreadsheetId because summary is a Sheet-owned reporting tab."
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "summary",
+            keyRange = "summary!A:A",
+            updateColumnRange = "A:B",
+            rows = summaries.map { summary ->
+                SheetRow(key = summary.key, values = summary.toSheetValues().single())
+            }
         )
-        return 0
+        return acknowledgedKeys.size
     }
 
     suspend fun deleteOutcomeFromSheet(spreadsheetId: String, outcomeId: String): Boolean = withContext(Dispatchers.IO) {
