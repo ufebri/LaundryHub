@@ -38,9 +38,11 @@ fun Application.configureDatabase() {
         ?.takeIf { it.isNotBlank() }
         ?: environment.config.propertyOrNull("storage.password")?.getString()
         ?: error("DATABASE_PASSWORD or storage.password must be configured")
-    val driverClassName = environment.config.propertyOrNull("storage.driverClassName")
-        ?.getString()
-        ?: "org.postgresql.Driver"
+    val driverClassName = when {
+        jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true) -> "org.postgresql.Driver"
+        jdbcUrl.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
+        else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: "org.postgresql.Driver"
+    }
 
     val config = HikariConfig().apply {
         this.jdbcUrl = jdbcUrl
