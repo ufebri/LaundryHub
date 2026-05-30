@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncEntityPreview
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunStatusResponse
 import com.raylabs.laundryhub.ui.component.AppConfirmationSheet
@@ -156,6 +157,7 @@ fun SyncSettingsScreenContent(
                     syncStatus = state.lastSyncStatus,
                     pendingPushCount = state.pendingPushCount,
                     pendingDeleteCount = state.pendingDeleteCount,
+                    dataDifferenceCount = state.dataDifferenceCount,
                     lastSyncError = state.lastSyncError
                 )
 
@@ -185,11 +187,9 @@ fun SyncSettingsScreenContent(
                 onConfirm = onConfirmSyncNow,
                 onDismiss = onDismissPreview,
                 icon = Icons.Default.Refresh,
-                bulletPoints = preview.entities
+                bulletPoints = preview.actionableEntities()
                     .filter { it.totalDifferences > 0 }
-                    .map { entity ->
-                        "${entity.entity}: ${entity.totalDifferences} differences"
-                    }
+                    .map { entity -> entity.previewBullet() }
             )
         }
     }
@@ -234,6 +234,7 @@ private fun SyncStatusCard(
     syncStatus: String,
     pendingPushCount: Int,
     pendingDeleteCount: Int,
+    dataDifferenceCount: Int,
     lastSyncError: String?
 ) {
     Card(
@@ -270,6 +271,11 @@ private fun SyncStatusCard(
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Data Differences", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text("$dataDifferenceCount items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                 Text("Last Outcome", color = ProfileMutedText, style = MaterialTheme.typography.body2)
                 val statusColor = when (syncStatus) {
                     "SUCCESS" -> Color(0xFF4CAF50)
@@ -283,6 +289,38 @@ private fun SyncStatusCard(
                 Text(lastSyncError, color = Color(0xFFF44336), style = MaterialTheme.typography.caption)
             }
         }
+    }
+}
+
+private fun SyncPreviewResponse.actionableEntities(): List<SyncEntityPreview> {
+    return if (sourceOfTruth == MasterSourceOfTruth.SUPABASE) {
+        entities.filterNot { it.entity == "Gross" || it.entity == "Summary" }
+    } else {
+        entities
+    }
+}
+
+private fun SyncEntityPreview.previewBullet(): String {
+    val keySummary = listOfNotNull(
+        onlyInDatabaseKeys.takeIf { it.isNotEmpty() }?.let { "DB only ${it.previewKeys()}" },
+        onlyInSheetKeys.takeIf { it.isNotEmpty() }?.let { "Sheet only ${it.previewKeys()}" },
+        changedRowKeys.takeIf { it.isNotEmpty() }?.let { "changed ${it.previewKeys()}" }
+    ).joinToString("; ")
+
+    return if (keySummary.isBlank()) {
+        "$entity: $totalDifferences differences"
+    } else {
+        "$entity: $totalDifferences differences ($keySummary)"
+    }
+}
+
+private fun List<String>.previewKeys(): String {
+    val visibleKeys = take(5).joinToString(", ")
+    val remaining = size - 5
+    return if (remaining > 0) {
+        "$visibleKeys +$remaining"
+    } else {
+        visibleKeys
     }
 }
 
@@ -318,7 +356,7 @@ private fun SyncPreviewCard(preview: SyncPreviewResponse) {
     ) {
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("Latest check", color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.subtitle1)
-            Text("Data is in sync", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+            Text("App-owned data is in sync", color = ProfileMutedText, style = MaterialTheme.typography.body2)
             Text("Checked ${formatRelativeTime(preview.generatedAt)}", color = ProfileMutedText, style = MaterialTheme.typography.caption)
         }
     }

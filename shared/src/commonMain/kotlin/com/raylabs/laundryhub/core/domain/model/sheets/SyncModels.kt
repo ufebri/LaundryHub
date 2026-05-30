@@ -86,11 +86,38 @@ data class SyncEntityPreview(
     val duplicateKeys: Int,
     val pendingDeletes: Int,
     val suspiciousRows: Int = 0,
-    val unresolvedConflicts: Int = 0
+    val unresolvedConflicts: Int = 0,
+    val onlyInSheetKeys: List<String> = emptyList(),
+    val onlyInDatabaseKeys: List<String> = emptyList(),
+    val changedRowKeys: List<String> = emptyList(),
+    val duplicateKeyValues: List<String> = emptyList(),
+    val suspiciousKeyValues: List<String> = emptyList(),
+    val rowDifferences: List<SyncRowDifference> = emptyList()
 ) {
     val totalDifferences: Int
         get() = onlyInSheets + onlyInDatabase + changedRows + duplicateKeys + pendingDeletes + unresolvedConflicts
 }
+
+@Serializable
+data class SyncRowDifference(
+    val key: String,
+    val changeType: SyncRowChangeType,
+    val fieldDifferences: List<SyncFieldDifference> = emptyList()
+)
+
+@Serializable
+enum class SyncRowChangeType {
+    ONLY_IN_SHEETS,
+    ONLY_IN_DATABASE,
+    CHANGED
+}
+
+@Serializable
+data class SyncFieldDifference(
+    val fieldName: String,
+    val sheetValue: String,
+    val databaseValue: String
+)
 
 @Serializable
 data class SyncPreviewResponse(

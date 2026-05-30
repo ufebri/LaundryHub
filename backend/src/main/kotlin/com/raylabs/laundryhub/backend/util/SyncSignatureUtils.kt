@@ -8,62 +8,62 @@ import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 
 fun OrderData.syncVerificationSignature(): String = listOf(
     orderId.trim(),
-    orderDate.normalizedText(),
-    name.normalizedText(),
-    weight.normalizedNumberText(),
-    priceKg.normalizedNumberText(),
-    totalPrice.normalizedNumberText(),
-    paidStatus.normalizedStatusText(),
-    packageName.normalizedText(),
-    remark.normalizedText(),
-    paymentMethod.normalizedText(),
-    phoneNumber.normalizedPhoneText(),
-    dueDate.normalizedText()
+    orderDate.normalizedSyncText(),
+    name.normalizedSyncText(),
+    weight.normalizedSyncNumberText(),
+    priceKg.normalizedSyncNumberText(),
+    totalPrice.normalizedSyncNumberText(),
+    paidStatus.normalizedSyncStatusText(),
+    packageName.normalizedSyncText(),
+    remark.normalizedSyncText(),
+    paymentMethod.normalizedSyncText(),
+    phoneNumber.normalizedSyncPhoneText(),
+    dueDate.normalizedSyncText()
 ).joinToString(VERIFICATION_SEPARATOR)
 
 fun OutcomeData.syncVerificationSignature(): String = listOf(
     id.trim(),
-    date.normalizedText(),
-    purpose.normalizedText(),
-    price.normalizedNumberText(),
-    remark.normalizedText(),
-    payment.normalizedText()
+    date.normalizedSyncText(),
+    purpose.normalizedSyncText(),
+    price.normalizedSyncNumberText(),
+    remark.normalizedSyncText(),
+    payment.normalizedSyncText()
 ).joinToString(VERIFICATION_SEPARATOR)
 
 fun PackageData.syncVerificationSignature(): String = listOf(
-    name.normalizedText(),
-    price.normalizedNumberText(),
-    duration.normalizedNumberText(),
-    unit.normalizedText()
+    name.normalizedSyncText(),
+    price.normalizedSyncNumberText(),
+    duration.normalizedSyncNumberText(),
+    unit.normalizedSyncText()
 ).joinToString(VERIFICATION_SEPARATOR)
 
 fun GrossData.syncVerificationSignature(): String = listOf(
-    month.normalizedText(),
-    totalNominal.normalizedNumberText(),
-    orderCount.normalizedNumberText(),
-    tax.normalizedNumberText()
+    month.normalizedSyncText(),
+    totalNominal.normalizedSyncNumberText(),
+    orderCount.normalizedSyncNumberText(),
+    tax.normalizedSyncNumberText()
 ).joinToString(VERIFICATION_SEPARATOR)
 
 fun SpreadsheetData.syncVerificationSignature(): String = listOf(
-    key.normalizedText(),
-    value.normalizedNumberText() // Most summary values are numeric or formatted currency
+    key.normalizedSyncText(),
+    value.normalizedSyncNumberText() // Most summary values are numeric or formatted currency
 ).joinToString(VERIFICATION_SEPARATOR)
 
-private fun String.normalizedText(): String = trim().lowercase()
+internal fun String.normalizedSyncText(): String = trim().lowercase()
 
-private fun String.normalizedNumberText(): String {
+internal fun String.normalizedSyncNumberText(): String {
     val trimmed = trim()
     val digits = trimmed.filter { it.isDigit() }
     return digits.ifBlank { trimmed.lowercase() }
 }
 
-private fun String.normalizedPhoneText(): String {
+internal fun String.normalizedSyncPhoneText(): String {
     val trimmed = trim()
     val digits = trimmed.filter { it.isDigit() }
     return digits.ifBlank { trimmed.lowercase() }
 }
 
-private fun String.normalizedStatusText(): String {
+internal fun String.normalizedSyncStatusText(): String {
     return when (trim().lowercase()) {
         "lunas", "paid" -> "paid"
         "belum", "unpaid", "" -> "unpaid"

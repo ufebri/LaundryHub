@@ -33,6 +33,14 @@ class SyncPreviewServiceTest {
         assertEquals(1, preview.duplicateKeys)
         assertEquals(2, preview.pendingDeletes)
         assertEquals(6, preview.totalDifferences)
+        assertEquals(listOf("3"), preview.onlyInSheetKeys)
+        assertEquals(listOf("4"), preview.onlyInDatabaseKeys)
+        assertEquals(listOf("2"), preview.changedRowKeys)
+        assertEquals(listOf("2"), preview.duplicateKeyValues)
+        assertEquals(
+            listOf("3", "4", "2"),
+            preview.rowDifferences.map { it.key }
+        )
     }
 
     @Test
@@ -71,6 +79,42 @@ class SyncPreviewServiceTest {
         )
 
         assertEquals(databaseOrder.syncVerificationSignature(), sheetOrder.syncVerificationSignature())
+    }
+
+    @Test
+    fun `order preview returns changed field details with sheet and database values`() {
+        val preview = buildEntityPreview(
+            entity = "Orders",
+            sheetRows = listOf(
+                testOrder(
+                    orderId = "1674",
+                    priceKg = "Rp10.000",
+                    totalPrice = "50.000",
+                    paidStatus = "belum",
+                    paymentMethod = "Unpaid"
+                )
+            ),
+            databaseRows = listOf(
+                testOrder(
+                    orderId = "1674",
+                    priceKg = "Rp10.000",
+                    totalPrice = "50000",
+                    paidStatus = "lunas",
+                    paymentMethod = "cash"
+                )
+            ),
+            pendingDeletes = 0,
+            keySelector = OrderData::orderId,
+            signatureSelector = OrderData::syncVerificationSignature,
+            fieldDifferenceSelector = ::orderFieldDifferences,
+            suspiciousKeySelector = ::isOrderHeaderKey
+        )
+
+        assertEquals(listOf("1674"), preview.changedRowKeys)
+        assertEquals(1, preview.rowDifferences.size)
+        assertEquals(listOf("paidStatus", "paymentMethod"), preview.rowDifferences.single().fieldDifferences.map { it.fieldName })
+        assertEquals("belum", preview.rowDifferences.single().fieldDifferences.first().sheetValue)
+        assertEquals("lunas", preview.rowDifferences.single().fieldDifferences.first().databaseValue)
     }
 
     @Test
