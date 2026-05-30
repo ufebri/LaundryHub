@@ -10,13 +10,15 @@ import com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem
 import com.raylabs.laundryhub.ui.home.state.UserItem
 import com.raylabs.laundryhub.ui.theme.PurpleLaundryHub
 
+private const val DUMMY_DUE_DATE = "17 Sep 25, 16.40 PM"
+
 // Extracted UnpaidOrderItems for reusability and clarity
 val DUMMY_UNPAID_ORDER_ITEM_EMY: UnpaidOrderItem = UnpaidOrderItem(
     orderID = "1",
     customerName = "Ny Emy",
     packageType = "Express - 6H",
     nowStatus = "Unpaid",
-    dueDate = "17 Sep 25, 16.40 PM",
+    dueDate = DUMMY_DUE_DATE,
     orderDate = "15 Sep 25, 10.00 AM"
 )
 
@@ -25,7 +27,7 @@ val DUMMY_UNPAID_ORDER_ITEM_GABRIEL: UnpaidOrderItem = UnpaidOrderItem(
     customerName = "Gabriel",
     packageType = "Express - 24H",
     nowStatus = "Unpaid",
-    dueDate = "17 Sep 25, 16.40 PM",
+    dueDate = DUMMY_DUE_DATE,
     orderDate = "16 Sep 25, 11.30 AM"
 )
 
@@ -34,7 +36,7 @@ val DUMMY_UNPAID_ORDER_ITEM_ARIFIN: UnpaidOrderItem = UnpaidOrderItem(
     customerName = "Arifin",
     packageType = "Regular",
     nowStatus = "Unpaid",
-    dueDate = "17 Sep 25, 16.40 PM",
+    dueDate = DUMMY_DUE_DATE,
     orderDate = "14 Sep 25, 09.15 AM"
 )
 
