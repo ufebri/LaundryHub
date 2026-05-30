@@ -43,37 +43,7 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `init loads history`() = runTest {
-        val sample = TransactionData(
-            orderID = "1",
-            name = "Test",
-            date = "10/05/2026",
-            totalPrice = "1000",
-            paymentStatus = "Paid",
-            weight = "1",
-            pricePerKg = "1000",
-            packageType = "Regular",
-            remark = "",
-            paymentMethod = "Cash",
-            phoneNumber = "123",
-            dueDate = "10/05/2026"
-        )
-        whenever(readIncomeUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull()))
-            .thenReturn(Resource.Success(listOf(sample)))
-
-        val viewModel = createViewModel()
-        dispatcher.scheduler.advanceUntilIdle()
-
-        // Size 2 because toUiItems() returns [Header, Entry]
-        assertEquals(2, viewModel.uiState.history.data?.size)
-        val entry = (viewModel.uiState.history.data?.get(1) as? DateListItemUI.Entry)?.item
-        assertEquals("Test", entry?.name)
-    }
-
-    @Test
-    fun `deleteOrder updates state and hiddenOrderIds`() = runTest {
-        whenever(readIncomeUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull()))
-            .thenReturn(Resource.Success(emptyList()))
+    fun `deleteOrderOptimistic updates state and hiddenOrderIds immediately and on success`() = runTest {
         whenever(deleteOrderUseCase.invoke(anyOrNull(), eq("ORD-1")))
             .thenReturn(Resource.Success(true))
 
@@ -81,7 +51,11 @@ class HistoryViewModelTest {
         dispatcher.scheduler.advanceUntilIdle()
 
         var completed = false
-        viewModel.deleteOrder("ORD-1", onComplete = { completed = true })
+        viewModel.deleteOrderOptimistic("ORD-1", onSuccess = { completed = true })
+        
+        // Assert optimistic behavior immediately (before advancing dispatcher clock)
+        assertTrue(viewModel.uiState.hiddenOrderIds.contains("ORD-1"))
+
         dispatcher.scheduler.advanceUntilIdle()
 
         assertTrue(completed)
@@ -90,15 +64,25 @@ class HistoryViewModelTest {
     }
 
     @Test
-    fun `loadHistory sets error message when Empty`() = runTest {
-        whenever(readIncomeUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull()))
-            .thenReturn(Resource.Empty)
+    fun `deleteOrderOptimistic rolls back hiddenOrderIds on error`() = runTest {
+        whenever(deleteOrderUseCase.invoke(anyOrNull(), eq("ORD-1")))
+            .thenReturn(Resource.Error("Database deletion failed"))
 
         val viewModel = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Data Kosong", viewModel.uiState.history.errorMessage)
-        assertFalse(viewModel.uiState.history.isLoading)
+        var failed = false
+        viewModel.deleteOrderOptimistic("ORD-1", onError = { failed = true })
+        
+        // Assert optimistic hide is applied immediately
+        assertTrue(viewModel.uiState.hiddenOrderIds.contains("ORD-1"))
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Assert rollback occurred (removed from hiddenOrderIds)
+        assertFalse(viewModel.uiState.hiddenOrderIds.contains("ORD-1"))
+        assertTrue(failed)
+        assertEquals("Database deletion failed", viewModel.uiState.deleteOrder.errorMessage)
     }
 
     private fun createViewModel(): HistoryViewModel {

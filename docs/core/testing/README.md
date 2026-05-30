@@ -14,11 +14,14 @@ LaundryHub uses `origin/master` as the product-behavior baseline while the KMP/A
 ## Coverage Reporting
 
 - CI generates JaCoCo XML with `./gradlew clean testDebugUnitTest jacocoTestReport`.
-- SonarCloud imports the app aggregate report plus the backend report:
+- SonarCloud analyzes from the root project with explicit source, test, binary, and JaCoCo XML paths for all production modules:
   - `app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml`
   - `backend/build/reports/jacoco/test/jacocoTestReport.xml`
-- Coveralls receives the same two JaCoCo XML files through the GitHub Action `files` input.
-- The app report intentionally carries the Android app coverage and the shared module coverage currently aggregated by the app Jacoco task. Backend coverage stays separate because its Gradle report is generated under `backend/build/reports/jacoco/test/`.
+  - `shared/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml`
+- Coveralls receives the same three JaCoCo XML files through the GitHub Action `files` input.
+- Gradle subprojects are marked `skipProject` for Sonar; JaCoCo XML is imported once by the root project. The root source set intentionally lists `app/src/main/java`, `backend/src/main/kotlin`, `shared/src/commonMain/kotlin`, and `shared/src/javaMain/kotlin`; previous CI logs showed `File '<name>.kt' not found in project sources` when coverage XML was imported without those explicit root source paths.
+- The app report carries Android app coverage only. Shared coverage is published by the shared module report so `shared/src/commonMain/kotlin` is mapped through the root Sonar source set instead of leaking through the app report.
+- `PlatformDate.kt` is excluded from coverage because the shared expect/actual files share a filename and JaCoCo JVM line mappings can point to the actual implementation while Sonar resolves the expect file first.
 - Sonar tokens are expected to live in GitHub Actions secrets. Local verification should stop at generating and inspecting JaCoCo XML unless a developer intentionally provides a local token.
 - The canonical repository for coverage badges and CI secrets is `ufebri/LaundryHub`.
 

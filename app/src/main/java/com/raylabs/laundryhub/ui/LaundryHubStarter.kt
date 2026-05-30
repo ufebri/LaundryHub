@@ -473,17 +473,38 @@ fun ShowOrderBottomSheet(
             }
         },
         onUpdate = {
+            val orderData = uiState.toOrderData(uiState.orderID)
+            val updatedUiItem = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+                orderID = orderData.orderId,
+                customerName = orderData.name,
+                packageType = orderData.packageName,
+                nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(orderData.paidStatus),
+                dueDate = orderData.dueDate,
+                orderDate = orderData.orderDate,
+                syncStatus = com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED
+            )
+
+            // 1. Apply optimistic update to HomeViewModel instantly (0ms perceived lag)
+            homeViewModel.addOptimisticUpdate(orderData.orderId, updatedUiItem)
+
+            // 2. Dismiss bottom sheet immediately
+            dismissSheet()
+
+            // 3. Launch background network update
             scope.launch {
                 orderViewModel.updateOrder(
-                    uiState.toOrderData(uiState.orderID),
+                    orderData,
                     onComplete = {
-                        scope.launchOrderChangedRefresh(homeViewModel)
-                        dismissSheet()
+                        // Success: clear optimistic update and trigger silent background sync
+                        homeViewModel.removeOptimisticUpdate(orderData.orderId)
+                        homeViewModel.refreshAfterOrderChangedSilent()
                         snackBarHostState.showQuickSnackbar(
-                            context.getString(R.string.order_update_success, uiState.orderID)
+                            context.getString(R.string.order_update_success, orderData.orderId)
                         )
                     },
                     onError = { errorMessage ->
+                        // Failure: perform visual rollback (remove optimistic update) and display snackbar
+                        homeViewModel.removeOptimisticUpdate(orderData.orderId)
                         snackBarHostState.showQuickSnackbar(errorMessage.ifBlank { updateFailedMessage })
                     }
                 )

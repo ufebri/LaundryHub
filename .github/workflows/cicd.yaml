@@ -238,8 +238,10 @@ jobs:
         run: |
           test -s app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           test -s backend/build/reports/jacoco/test/jacocoTestReport.xml
+          test -s shared/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           ls -lh app/build/reports/jacoco/jacocoTestReport/
           ls -lh backend/build/reports/jacoco/test/
+          ls -lh shared/build/reports/jacoco/jacocoTestReport/
 
       - name: Upload coverage to Coveralls
         uses: coverallsapp/github-action@5cbfd81b66ca5d10c19b062c04de0199c215fb6e # v2
@@ -248,6 +250,7 @@ jobs:
           files: >
             app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
             backend/build/reports/jacoco/test/jacocoTestReport.xml
+            shared/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml
           format: jacoco
 
       - name: Cache SonarQube packages
@@ -261,6 +264,6 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
         run: |
-          ./gradlew sonar \
+          ./gradlew sonar --info \
             -Dsonar.token=$SONAR_TOKEN \
             -Dsonar.host.url=https://sonarcloud.io
