@@ -11,6 +11,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
+import com.raylabs.laundryhub.core.domain.model.sheets.selectCurrentOrLatestGross
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
@@ -162,16 +163,9 @@ class HomeViewModel @Inject constructor(
         val grossResult = grossUseCase()
         val currentSummaryData = _uiState.value.summary.data
         val grossItem = if (grossResult is Resource.Success && grossResult.data.isNotEmpty()) {
-            grossResult.data.firstOrNull()?.toUi()
+            grossResult.data.selectCurrentOrLatestGross()?.toUi()
         } else {
-            // Keep last known gross item from UI if fetch fails
-            currentSummaryData?.find { it.title == "Gross Income" }?.let { existingItem ->
-                // Reverse map from SummaryItem back to GrossItem is hard without full data,
-                // but we only need it for the UI construction later.
-                // We'll pass null and let `toUI` handle the missing grossItem,
-                // but wait, `toUI` creates a new list. We need a way to pass the old item.
-                null
-            }
+            null
         }
 
         when (val result = summaryUseCase()) {

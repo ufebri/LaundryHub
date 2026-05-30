@@ -31,6 +31,7 @@ LaundryHub uses `origin/master` as the product-behavior baseline while the KMP/A
 - Inventory unit coverage now verifies backend packages without a valid Sheets row index still open in edit mode, so the update path is not tied to `sheetRowIndex`.
 - `LaundryHubStartupE2eTest` launches the real app and verifies it reaches a known entry point: onboarding, spreadsheet setup, or the signed-in app shell.
 - The signed-in shell smoke test navigates Home, History, Order sheet, Outcome, and Profile without submitting data. It skips when the device is not signed in.
+- `LaundryHubGrossE2eTest` is a read-only signed-in E2E check for Home Gross Income. It fetches `/api/gross`, selects the current/latest month with the shared gross helper, then checks the Home card and Gross Detail first row. Pass `laundryhub.e2e.apiBaseUrl` when the app should be validated against a specific backend URL.
 - `LaundryHubGuardedMutatingE2eTest` contains guarded mutating flows for order submit/update/delete, outcome submit/update/delete, inventory package submit/update/delete, and the Home pending-order visibility transition. It is skipped unless sandbox mutation arguments are explicitly passed.
 - The guarded order flow validates the real app path far enough to catch backend duplicate-ID failures: package selection, required field entry, submit, backend-created id feedback, history edit, and history delete.
 - The guarded outcome flow validates backend-created outcome ids, required payment method selection, edit, and delete through the deployed API.
@@ -43,6 +44,13 @@ Default safe run:
 
 ```bash
 ./gradlew connectedDebugAndroidTest --no-daemon
+```
+
+Read-only gross check against a specific backend:
+
+```bash
+./gradlew connectedDebugAndroidTest --no-daemon \
+  -Pandroid.testInstrumentationRunnerArguments.laundryhub.e2e.apiBaseUrl=https://<backend-host>/api
 ```
 
 Guarded sandbox mutation run:

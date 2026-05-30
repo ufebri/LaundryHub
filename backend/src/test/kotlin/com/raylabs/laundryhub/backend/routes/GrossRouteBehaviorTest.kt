@@ -31,6 +31,24 @@ class GrossRouteBehaviorTest {
     }
 
     @Test
+    fun `gross response sorts Sheet rows newest first and applies paging`() = runTest {
+        whenever(syncService.fetchGrossFromSheet(any())).doReturn(
+            listOf(
+                GrossData(month = "Maret 2025", totalNominal = "Rp1.038.150", orderCount = "35", tax = "Rp5.191"),
+                GrossData(month = "April 2026", totalNominal = "Rp4.101.000", orderCount = "148", tax = "Rp20.505"),
+                GrossData(month = "Mei 2026", totalNominal = "Rp3.343.000", orderCount = "115", tax = "Rp16.715")
+            )
+        )
+
+        val firstPage = fetchGrossForResponse(repository, syncService, spreadsheetId = "sheet-id", page = 1, size = 2)
+        val secondPage = fetchGrossForResponse(repository, syncService, spreadsheetId = "sheet-id", page = 2, size = 2)
+
+        assertEquals(listOf("Mei 2026", "April 2026"), firstPage.map { it.month })
+        assertEquals(listOf("Maret 2025"), secondPage.map { it.month })
+        verify(repository, never()).getAll(any(), any())
+    }
+
+    @Test
     fun `gross response falls back to database cache when Sheet data is unavailable`() = runTest {
         whenever(syncService.fetchGrossFromSheet(any())).doReturn(emptyList())
         whenever(repository.getAll(any(), any())).doReturn(

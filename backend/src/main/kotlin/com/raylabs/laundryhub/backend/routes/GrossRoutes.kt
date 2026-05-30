@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.routes
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.sortedByGrossMonthDescending
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -102,5 +103,13 @@ internal suspend fun fetchGrossForResponse(
     val sheetGross = spreadsheetId
         ?.let { syncService.fetchGrossFromSheet(it) }
         .orEmpty()
-    return sheetGross.ifEmpty { repository.getAll(page, size) }
+    if (sheetGross.isEmpty()) return repository.getAll(page, size)
+
+    val safePage = page.coerceAtLeast(1)
+    val safeSize = size.coerceAtLeast(1)
+    val offset = (safePage - 1) * safeSize
+    return sheetGross
+        .sortedByGrossMonthDescending()
+        .drop(offset)
+        .take(safeSize)
 }
