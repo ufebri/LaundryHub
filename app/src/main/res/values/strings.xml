@@ -236,4 +236,6 @@
     <string name="reminder_bucket_overdue_2_weeks">overdue 2 weeks</string>
     <string name="reminder_bucket_overdue_3_weeks">overdue 3 weeks</string>
     <string name="reminder_bucket_overdue_1_month">overdue 1 month or more</string>
+    <string name="retry">Retry</string>
 </resources>
+

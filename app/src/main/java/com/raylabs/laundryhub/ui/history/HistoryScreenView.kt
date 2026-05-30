@@ -94,38 +94,48 @@ fun HistoryScreenView(
                 onDismiss = { selectedEntry = null }
             )
 
+            val performOptimisticDelete = remember(viewModel, coroutineScope, context, scaffoldState) {
+                var deleteFunc: ((String) -> Unit)? = null
+                deleteFunc = { entryId ->
+                    viewModel.deleteOrderOptimistic(
+                        orderId = entryId,
+                        onSuccess = {
+                            onOrderChanged()
+                            coroutineScope.launch {
+                                scaffoldState.snackbarHostState.showSnackbar(
+                                    context.getString(R.string.order_delete_success, entryId)
+                                )
+                            }
+                        },
+                        onError = { message ->
+                            coroutineScope.launch {
+                                val snackbarResult = scaffoldState.snackbarHostState.showSnackbar(
+                                    message = message.ifBlank { context.getString(R.string.order_delete_failed) },
+                                    actionLabel = context.getString(R.string.retry)
+                                )
+                                if (snackbarResult == androidx.compose.material.SnackbarResult.ActionPerformed) {
+                                    deleteFunc?.invoke(entryId)
+                                }
+                            }
+                        }
+                    )
+                }
+                deleteFunc
+            }
+
             TransactionDeleteConfirmationSheet(
                 visible = pendingDeleteEntry != null,
                 entry = pendingDeleteEntry,
-                isDeleting = state.deleteOrder.isLoading,
+                isDeleting = false, // Sheet is dismissed instantly, no loading inside sheet
                 onConfirm = {
                     pendingDeleteEntry?.let { entry ->
-                        coroutineScope.launch {
-                            viewModel.deleteOrder(
-                                orderId = entry.id,
-                                onComplete = {
-                                    pendingDeleteEntry = null
-                                    onOrderChanged()
-                                    scaffoldState.snackbarHostState.showSnackbar(
-                                        context.getString(R.string.order_delete_success, entry.id)
-                                    )
-                                    pagingItems.refresh()
-                                },
-                                onError = { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(
-                                        message.ifBlank {
-                                            context.getString(R.string.order_delete_failed)
-                                        }
-                                    )
-                                }
-                            )
-                        }
+                        val entryId = entry.id
+                        pendingDeleteEntry = null // Dismiss instantly for 0ms perceived lag
+                        performOptimisticDelete(entryId)
                     }
                 },
                 onDismiss = {
-                    if (!state.deleteOrder.isLoading) {
-                        pendingDeleteEntry = null
-                    }
+                    pendingDeleteEntry = null
                 }
             )
         }

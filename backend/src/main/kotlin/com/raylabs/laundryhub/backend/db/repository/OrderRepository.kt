@@ -9,12 +9,18 @@ import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidStatusValue
 import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.or
+import org.jetbrains.exposed.sql.lowerCase
 import java.util.Calendar
 import java.util.Date
 
@@ -23,6 +29,7 @@ class OrderRepository {
     suspend fun insertWithNextId(order: OrderData): OrderData? = dbQuery {
         TransactionManager.current().exec("SELECT pg_advisory_xact_lock($ORDER_ID_ALLOCATION_LOCK_KEY)")
         val nextId = OrdersTable
+            .slice(OrdersTable.id)
             .selectAll()
             .mapNotNull { it[OrdersTable.id].toIntOrNull() }
             .maxOrNull()
@@ -190,6 +197,7 @@ class OrderRepository {
 
     suspend fun getLatestId(): String = dbQuery {
         OrdersTable
+            .slice(OrdersTable.id)
             .selectAll()
             .map { it[OrdersTable.id] }
             .maxByOrNull { it.toIntOrNull() ?: Int.MIN_VALUE }
@@ -198,6 +206,7 @@ class OrderRepository {
 
     suspend fun getNextId(): String = dbQuery {
         OrdersTable
+            .slice(OrdersTable.id)
             .selectAll()
             .mapNotNull { it[OrdersTable.id].toIntOrNull() }
             .maxOrNull()
@@ -217,18 +226,80 @@ class OrderRepository {
     ): List<OrderData> = dbQuery {
         val offset = ((page - 1) * size).coerceAtLeast(0)
 
-        OrdersTable
-            .selectAll()
-            .orderBy(OrdersTable.id to SortOrder.DESC)
-            .map { it.toOrderData() }
-            .asSequence()
-            .filter { it.matchesFilter(filter) }
-            .filter { it.matchesDateRange(startDate, endDate) }
-            .filter { it.matchesSearch(searchQuery) }
-            .sortedWith(orderComparator(sort))
-            .drop(offset)
-            .take(size)
-            .toList()
+        // Date filtering and TODAY filter requires parsing multiple custom string formats,
+        // so we use standard Kotlin JVM filtering as a fallback for accuracy.
+        val isDateFiltering = !startDate.isNullOrBlank() || !endDate.isNullOrBlank() || filter?.uppercase() == "TODAY"
+
+        val conditions = mutableListOf<org.jetbrains.exposed.sql.Op<Boolean>>()
+
+        // Apply simple payment/status filter in SQL
+        when (filter?.uppercase()) {
+            "UNPAID" -> {
+                conditions.add((OrdersTable.paidStatus.lowerCase() inList listOf("unpaid", "belum", "")) or (OrdersTable.paidStatus.isNull()))
+            }
+            "PAID" -> {
+                conditions.add(OrdersTable.paidStatus.lowerCase() inList listOf("lunas", "paid", "paid by cash", "paid by qris"))
+            }
+            "QRIS" -> {
+                conditions.add(OrdersTable.paymentMethod.lowerCase() inList listOf("qris", "paid by qris"))
+            }
+            "CASH" -> {
+                conditions.add(OrdersTable.paymentMethod.lowerCase() inList listOf("cash", "paid by cash"))
+            }
+        }
+
+        // Apply simple text search filter in SQL
+        if (!searchQuery.isNullOrBlank()) {
+            val q = searchQuery.trim().lowercase()
+            conditions.add(
+                (OrdersTable.name.lowerCase() like "%$q%") or
+                (OrdersTable.id.lowerCase() like "%$q%") or
+                (OrdersTable.phoneNumber.lowerCase() like "%$q%")
+            )
+        }
+
+        var queryExpression: org.jetbrains.exposed.sql.Op<Boolean>? = null
+        for (cond in conditions) {
+            queryExpression = if (queryExpression == null) cond else queryExpression and cond
+        }
+
+        if (!isDateFiltering) {
+            // Ultra-fast SQL level paging & sorting (O(page size) database query)
+            val query = if (queryExpression != null) {
+                OrdersTable.select { queryExpression }
+            } else {
+                OrdersTable.selectAll()
+            }
+
+            val sortOrder = when (sort) {
+                "ORDER_DATE_ASC" -> OrdersTable.id to SortOrder.ASC
+                "ORDER_DATE_DESC" -> OrdersTable.id to SortOrder.DESC
+                "DUE_DATE_ASC" -> OrdersTable.dueDate to SortOrder.ASC
+                "DUE_DATE_DESC" -> OrdersTable.dueDate to SortOrder.DESC
+                else -> OrdersTable.id to SortOrder.DESC
+            }
+
+            query.orderBy(sortOrder)
+                .limit(size, offset.toLong())
+                .map { it.toOrderData() }
+        } else {
+            // Safe fallback with date range filtering and TODAY filtering in JVM memory
+            val query = if (queryExpression != null) {
+                OrdersTable.select { queryExpression }
+            } else {
+                OrdersTable.selectAll()
+            }
+
+            query.orderBy(OrdersTable.id to SortOrder.DESC)
+                .map { it.toOrderData() }
+                .asSequence()
+                .filter { it.matchesFilter(filter) }
+                .filter { it.matchesDateRange(startDate, endDate) }
+                .sortedWith(orderComparator(sort))
+                .drop(offset)
+                .take(size)
+                .toList()
+        }
     }
 
     private fun ResultRow.toOrderData(): OrderData {

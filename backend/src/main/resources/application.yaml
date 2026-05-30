@@ -6,7 +6,7 @@ ktor:
             - com.raylabs.laundryhub.backend.ApplicationKt.module
 
 storage:
-    jdbcUrl: "jdbc:postgresql://localhost:5432/laundryhub"
-    driverClassName: "org.postgresql.Driver"
-    username: "postgres"
-    password: "password"
+    jdbcUrl: "jdbc:h2:mem:laundryhub;DB_CLOSE_DELAY=-1;MODE=PostgreSQL"
+    driverClassName: "org.h2.Driver"
+    username: "sa"
+    password: ""

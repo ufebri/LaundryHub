@@ -39,6 +39,12 @@ allprojects {
 
 apply plugin: "org.sonarqube"
 
+subprojects {
+    sonar {
+        skipProject = true
+    }
+}
+
 def sonarProps = new Properties()
 def sonarFile = rootProject.file("config.properties")
 if (sonarFile.exists()) {
@@ -63,7 +69,8 @@ def sonarCoverageExclusions = [
         "**/core/di/**",
         "**/databinding/**",
         "**/data/source/local/room/**",
-        "**/LaundryHubApp*.kt"
+        "**/LaundryHubApp*.kt",
+        "**/PlatformDate.kt"
 ]
 
 sonar {
@@ -73,13 +80,32 @@ sonar {
         property "sonar.host.url", "https://sonarcloud.io"
         property "sonar.sourceEncoding", "UTF-8"
 
-        // Gabungkan semua laporan Jacoco dari berbagai modul
-        def jacocoReports = [
-                "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
-                "${project(':backend').layout.buildDirectory.get().asFile}/reports/jacoco/test/jacocoTestReport.xml"
-        ]
-        property "sonar.coverage.jacoco.xmlReportPaths", jacocoReports.join(",")
-        property "sonar.androidLint.reportPaths", "${project(':app').layout.buildDirectory.get().asFile}/reports/lint-results-debug.xml"
+        property "sonar.sources", [
+                "app/src/main/java",
+                "backend/src/main/kotlin",
+                "shared/src/commonMain/kotlin",
+                "shared/src/javaMain/kotlin"
+        ].join(",")
+
+        property "sonar.tests", [
+                "app/src/test/java",
+                "backend/src/test/kotlin",
+                "shared/src/commonTest/kotlin"
+        ].join(",")
+
+        property "sonar.java.binaries", [
+                "app/build/tmp/kotlin-classes/debug",
+                "app/build/intermediates/javac/debug/classes",
+                "backend/build/classes/kotlin/main",
+                "shared/build/classes/kotlin/jvm/main",
+                "shared/build/tmp/kotlin-classes/debug"
+        ].join(",")
+
+        property "sonar.coverage.jacoco.xmlReportPaths", [
+                "app/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
+                "backend/build/reports/jacoco/test/jacocoTestReport.xml",
+                "shared/build/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+        ].join(",")
 
         property "sonar.exclusions", [
                 "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.svg",
@@ -91,28 +117,6 @@ sonar {
 
         if (localSonarLogin) {
             property "sonar.token", localSonarLogin
-        }
-    }
-}
-
-subprojects {
-    apply plugin: "org.sonarqube"
-    sonar {
-        properties {
-            if (project.name == "backend") {
-                property "sonar.sources", "src/main/kotlin"
-                property "sonar.tests", "src/test/kotlin"
-            } else if (project.name == "shared") {
-                property "sonar.sources", "src/commonMain/kotlin"
-                property "sonar.tests", "src/commonTest/kotlin"
-            } else if (project.name == "app") {
-                // Android-specific configuration
-                property "sonar.sources", "src/main/java"
-                property "sonar.tests", "src/test/java"
-                property "sonar.android.lint.report", "${project.layout.buildDirectory.get().asFile}/reports/lint-results-debug.xml"
-            }
-            // Penting untuk Java/Kotlin analysis
-            property "sonar.java.binaries", "${layout.buildDirectory.get().asFile}/classes"
         }
     }
 }

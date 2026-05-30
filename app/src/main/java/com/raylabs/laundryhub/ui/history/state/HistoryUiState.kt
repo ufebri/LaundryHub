@@ -4,7 +4,6 @@ import com.raylabs.laundryhub.ui.common.util.SectionState
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 
 data class HistoryUiState(
-    val history: SectionState<List<DateListItemUI>> = SectionState(),
     val deleteOrder: SectionState<Boolean> = SectionState(),
     val hiddenOrderIds: Set<String> = emptySet(),
     val isRefreshing: Boolean = false
