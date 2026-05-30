@@ -11,10 +11,14 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicBoolean
 
+interface SheetsPushJob {
+    suspend fun processUnsyncedAll(): Int
+}
+
 class SheetsPushScheduler(
-    private val batchSyncJob: SheetsBatchSyncJob?,
+    private val batchSyncJob: SheetsPushJob?,
     private val syncStateManager: SyncStateManager,
-    private val debounceMillis: Long = DEFAULT_DEBOUNCE_MILLIS,
+    private val debounceMillis: Long = configuredDefaultDebounceMillis(),
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.IO)
 ) {
     private val logger = LoggerFactory.getLogger(SheetsPushScheduler::class.java)
@@ -81,6 +85,19 @@ class SheetsPushScheduler(
     }
 
     companion object {
-        const val DEFAULT_DEBOUNCE_MILLIS: Long = 45_000
+        const val DEFAULT_DEBOUNCE_MILLIS: Long = 3_000
+        const val DEBOUNCE_ENV = "SHEETS_PUSH_DEBOUNCE_MILLIS"
+
+        internal fun configuredDefaultDebounceMillis(): Long {
+            return parseDebounceMillis(System.getenv(DEBOUNCE_ENV))
+        }
+
+        internal fun parseDebounceMillis(rawValue: String?): Long {
+            return rawValue
+                ?.trim()
+                ?.toLongOrNull()
+                ?.takeIf { it >= 0L }
+                ?: DEFAULT_DEBOUNCE_MILLIS
+        }
     }
 }

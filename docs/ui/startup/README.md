@@ -8,6 +8,7 @@ LaundryHub now checks the backend connection once during app startup before it r
 
 - App startup begins in a quiet checking state.
 - If Remote Config resolves a usable backend URL and `/api/health` responds successfully, the user continues into the normal auth route.
+- Startup checks backend candidates in this order: `api_base_url`, each comma/newline-separated `api_fallback_base_urls` entry, then the build-time fallback URL.
 - If Remote Config sets maintenance on, the startup screen shows a calm service-unavailable state with the configured message when available.
 - If every candidate backend URL fails the health check, the same service-unavailable state appears.
 - The screen includes a **Check again** action. Manual retry forces a fresh Remote Config fetch before checking health again.

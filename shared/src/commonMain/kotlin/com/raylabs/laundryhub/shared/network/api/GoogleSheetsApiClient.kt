@@ -17,6 +17,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.contentType
@@ -27,9 +28,10 @@ class GoogleSheetsApiClient(
     private val baseUrl = "https://sheets.googleapis.com/v4/spreadsheets"
 
     suspend fun getSpreadsheet(spreadsheetId: String, accessToken: String): String {
-        return httpClient.get("$baseUrl/$spreadsheetId") {
+        val response = httpClient.get("$baseUrl/$spreadsheetId") {
             bearerAuth(accessToken)
-        }.bodyAsText()
+        }
+        return response.ensureGoogleSheetsSuccess().bodyAsText()
     }
 
     suspend fun getValues(
@@ -39,7 +41,7 @@ class GoogleSheetsApiClient(
     ): ValueRange {
         return httpClient.get("$baseUrl/$spreadsheetId/values/$range") {
             bearerAuth(accessToken)
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun updateValues(
@@ -52,7 +54,7 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(valueRange)
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun appendValues(
@@ -65,7 +67,7 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(valueRange)
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun clearValues(
@@ -77,7 +79,7 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(mapOf<String, String>())
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun batchUpdateValues(
@@ -89,7 +91,7 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun batchClearValues(
@@ -101,7 +103,7 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }.googleSheetsBody()
     }
 
     suspend fun batchUpdate(
@@ -113,6 +115,20 @@ class GoogleSheetsApiClient(
             bearerAuth(accessToken)
             contentType(ContentType.Application.Json)
             setBody(request)
-        }.body()
+        }.googleSheetsBody()
     }
 }
+
+private suspend inline fun <reified T> HttpResponse.googleSheetsBody(): T {
+    ensureGoogleSheetsSuccess()
+    return body()
+}
+
+private suspend fun HttpResponse.ensureGoogleSheetsSuccess(): HttpResponse {
+    if (status.value in 200..299) return this
+
+    val responseBody = bodyAsText().take(MAX_ERROR_BODY_LENGTH)
+    error("Google Sheets API error ${status.value} ${status.description}: $responseBody")
+}
+
+private const val MAX_ERROR_BODY_LENGTH = 2_000

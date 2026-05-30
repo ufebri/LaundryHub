@@ -1,9 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
-import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
-import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
-import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -20,20 +18,22 @@ import io.ktor.server.routing.route
 fun Route.summaryRoutes(
     repository: SummaryRepository,
     sheetsApiClient: GoogleSheetsApiClient,
-    migrationRoutesEnabled: Boolean = false,
-    syncDeleteEventRepository: SyncDeleteEventRepository? = null,
-    sheetsPushScheduler: SheetsPushScheduler? = null
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/summary") {
         get {
-            call.respond(HttpStatusCode.OK, repository.getAll())
+            val sheetSummary = spreadsheetId
+                ?.let { syncService.fetchSummaryFromSheet(it) }
+                .orEmpty()
+            call.respond(HttpStatusCode.OK, sheetSummary.ifEmpty { repository.getAll() })
         }
         post {
             try {
                 val summary = call.receive<SpreadsheetData>()
                 val inserted = repository.insert(summary)
                 if (inserted) {
-                    sheetsPushScheduler?.requestPush("summary created")
                     call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
                 }
                 else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
@@ -47,7 +47,6 @@ fun Route.summaryRoutes(
                 val summary = call.receive<SpreadsheetData>()
                 val updated = repository.update(key, summary)
                 if (updated) {
-                    sheetsPushScheduler?.requestPush("summary updated")
                     call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
                 }
                 else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
@@ -58,9 +57,7 @@ fun Route.summaryRoutes(
         delete("/{key}") {
             val key = call.parameters["key"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
             if (repository.delete(key)) {
-                syncDeleteEventRepository?.record(SyncEntityType.SUMMARY, key)
-                sheetsPushScheduler?.requestPush("summary deleted")
-                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "queued"))
+                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "sheet-owned"))
             } else {
                 call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
             }
@@ -68,14 +65,14 @@ fun Route.summaryRoutes(
         
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
-                if (spreadsheetId == null || accessToken == null) {
+                if (migrationSpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing params")
                     return@post
                 }
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, "summary", accessToken)
+                    val response = sheetsApiClient.getValues(migrationSpreadsheetId, "summary", accessToken)
                     val rows = response.values ?: emptyList()
                     val summaries = rows.drop(1).mapNotNull { row ->
                         if (row.isEmpty()) return@mapNotNull null

@@ -6,6 +6,7 @@ import com.raylabs.laundryhub.backend.service.SyncRunManager
 import com.raylabs.laundryhub.backend.service.SyncStateManager
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncConfigUpdateRequest
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewRequest
+import com.raylabs.laundryhub.core.domain.model.sheets.SyncQueueState
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncRunRequest
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncStatusResponse
 import io.ktor.http.HttpStatusCode
@@ -27,6 +28,15 @@ fun Route.syncRoutes(
     route("/api/sync") {
         get("/status") {
             val config = syncStateManager.config.value
+            val pendingPushCount = batchSyncJob?.pendingPushCount() ?: 0
+            val pendingDeleteCount = batchSyncJob?.pendingDeleteCount() ?: 0
+            val differenceCounts = syncRunManager
+                ?.currentDifferenceCounts(config.masterSourceOfTruth)
+            val dataDifferenceCount = differenceCounts?.appOwned ?: 0
+            val reportingDifferenceCount = differenceCounts?.reporting ?: 0
+            val hasPendingPush = pendingPushCount + pendingDeleteCount > 0
+            val hasDataDifferences = dataDifferenceCount > 0
+            val hasReportingDifferences = reportingDifferenceCount > 0
             call.respond(
                 HttpStatusCode.OK,
                 SyncStatusResponse(
@@ -38,9 +48,20 @@ fun Route.syncRoutes(
                     isSyncing = syncStateManager.isSyncing,
                     lastSyncStatus = syncStateManager.lastSyncStatus,
                     lastSyncError = syncStateManager.lastSyncError,
-                    pendingPushCount = batchSyncJob?.pendingPushCount() ?: 0,
-                    pendingDeleteCount = batchSyncJob?.pendingDeleteCount() ?: 0,
-                    nextScheduledPushTime = sheetsPushScheduler?.nextScheduledPushTime
+                    pendingPushCount = pendingPushCount,
+                    pendingDeleteCount = pendingDeleteCount,
+                    nextScheduledPushTime = sheetsPushScheduler?.nextScheduledPushTime,
+                    dataDifferenceCount = dataDifferenceCount,
+                    hasDataDifferences = hasDataDifferences,
+                    reportingDifferenceCount = reportingDifferenceCount,
+                    hasReportingDifferences = hasReportingDifferences,
+                    syncQueueState = when {
+                        syncRunManager == null -> SyncQueueState.UNAVAILABLE
+                        hasPendingPush && hasDataDifferences -> SyncQueueState.PENDING_PUSH_AND_DATA_DIFFERENCES
+                        hasPendingPush -> SyncQueueState.PENDING_PUSH
+                        hasDataDifferences -> SyncQueueState.DATA_DIFFERENCES
+                        else -> SyncQueueState.IDLE
+                    }
                 )
             )
         }

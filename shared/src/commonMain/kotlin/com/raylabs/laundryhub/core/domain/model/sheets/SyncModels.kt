@@ -50,8 +50,22 @@ data class SyncStatusResponse(
     val lastSyncError: String? = null,
     val pendingPushCount: Int = 0,
     val pendingDeleteCount: Int = 0,
-    val nextScheduledPushTime: String? = null
+    val nextScheduledPushTime: String? = null,
+    val dataDifferenceCount: Int = 0,
+    val hasDataDifferences: Boolean = false,
+    val reportingDifferenceCount: Int = 0,
+    val hasReportingDifferences: Boolean = false,
+    val syncQueueState: SyncQueueState = SyncQueueState.IDLE
 )
+
+@Serializable
+enum class SyncQueueState {
+    IDLE,
+    PENDING_PUSH,
+    DATA_DIFFERENCES,
+    PENDING_PUSH_AND_DATA_DIFFERENCES,
+    UNAVAILABLE
+}
 
 @Serializable
 data class SyncConfigUpdateRequest(
@@ -73,11 +87,39 @@ data class SyncEntityPreview(
     val changedRows: Int,
     val duplicateKeys: Int,
     val pendingDeletes: Int,
-    val unresolvedConflicts: Int = 0
+    val suspiciousRows: Int = 0,
+    val unresolvedConflicts: Int = 0,
+    val onlyInSheetKeys: List<String> = emptyList(),
+    val onlyInDatabaseKeys: List<String> = emptyList(),
+    val changedRowKeys: List<String> = emptyList(),
+    val duplicateKeyValues: List<String> = emptyList(),
+    val suspiciousKeyValues: List<String> = emptyList(),
+    val rowDifferences: List<SyncRowDifference> = emptyList()
 ) {
     val totalDifferences: Int
         get() = onlyInSheets + onlyInDatabase + changedRows + duplicateKeys + pendingDeletes + unresolvedConflicts
 }
+
+@Serializable
+data class SyncRowDifference(
+    val key: String,
+    val changeType: SyncRowChangeType,
+    val fieldDifferences: List<SyncFieldDifference> = emptyList()
+)
+
+@Serializable
+enum class SyncRowChangeType {
+    ONLY_IN_SHEETS,
+    ONLY_IN_DATABASE,
+    CHANGED
+}
+
+@Serializable
+data class SyncFieldDifference(
+    val fieldName: String,
+    val sheetValue: String,
+    val databaseValue: String
+)
 
 @Serializable
 data class SyncPreviewResponse(
@@ -87,7 +129,9 @@ data class SyncPreviewResponse(
     val entities: List<SyncEntityPreview>,
     val totalDifferences: Int,
     val hasBlockingConflicts: Boolean,
-    val recommendedAction: String
+    val recommendedAction: String,
+    val appOwnedDifferenceCount: Int = 0,
+    val reportingDifferenceCount: Int = 0
 )
 
 @Serializable

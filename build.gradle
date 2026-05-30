@@ -76,8 +76,7 @@ sonar {
         // Gabungkan semua laporan Jacoco dari berbagai modul
         def jacocoReports = [
                 "${project(':app').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml",
-                "${project(':backend').layout.buildDirectory.get().asFile}/reports/jacoco/test/jacocoTestReport.xml",
-                "${project(':shared').layout.buildDirectory.get().asFile}/reports/jacoco/jacocoTestReport/jacocoTestReport.xml"
+                "${project(':backend').layout.buildDirectory.get().asFile}/reports/jacoco/test/jacocoTestReport.xml"
         ]
         property "sonar.coverage.jacoco.xmlReportPaths", jacocoReports.join(",")
         property "sonar.androidLint.reportPaths", "${project(':app').layout.buildDirectory.get().asFile}/reports/lint-results-debug.xml"
@@ -85,7 +84,7 @@ sonar {
         property "sonar.exclusions", [
                 "**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.gif", "**/*.webp", "**/*.svg",
                 "**/*.json", "**/*.xml", "**/*.jks", "**/*.bin", "**/*.apk", "**/*.jar",
-                "build/**", "app/build/**", "backend/build/**", "shared/build/**", "macrobenchmark/build/**"
+                "**/build/**", ".github/**"
         ].join(",")
 
         property "sonar.coverage.exclusions", sonarCoverageExclusions.join(",")
@@ -97,10 +96,21 @@ sonar {
 }
 
 subprojects {
-    sonarqube {
+    apply plugin: "org.sonarqube"
+    sonar {
         properties {
-            property "sonar.sources", "src/main"
-            property "sonar.tests", "src/test"
+            if (project.name == "backend") {
+                property "sonar.sources", "src/main/kotlin"
+                property "sonar.tests", "src/test/kotlin"
+            } else if (project.name == "shared") {
+                property "sonar.sources", "src/commonMain/kotlin"
+                property "sonar.tests", "src/commonTest/kotlin"
+            } else if (project.name == "app") {
+                // Android-specific configuration
+                property "sonar.sources", "src/main/java"
+                property "sonar.tests", "src/test/java"
+                property "sonar.android.lint.report", "${project.layout.buildDirectory.get().asFile}/reports/lint-results-debug.xml"
+            }
             // Penting untuk Java/Kotlin analysis
             property "sonar.java.binaries", "${layout.buildDirectory.get().asFile}/classes"
         }

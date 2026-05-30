@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.core.data.repository
 
 import com.raylabs.laundryhub.core.domain.config.BackendConfig
 import com.raylabs.laundryhub.core.domain.config.BackendConfigProvider
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.shared.util.Resource
@@ -107,6 +108,29 @@ class LaundryRepositoryImplTest {
 
         assertTrue(result is Resource.Success)
         assertEquals("https://example.test/api/packages/Express%206H", requestedUrl)
+    }
+
+    @Test
+    fun `readGrossData uses backend gross endpoint for live reporting data`() = runTest {
+        var requestedUrl = ""
+        val repository = LaundryRepositoryImpl(
+            client = mockClient { url ->
+                requestedUrl = url
+                mockResponse(
+                    content = """[{"month":"Mei 2026","totalNominal":"Rp3.343.000","orderCount":"115 order","tax":"Rp16.715"}]"""
+                )
+            },
+            baseUrl = "https://example.test/api"
+        )
+
+        val result = repository.readGrossData(page = 1, size = 1)
+
+        assertTrue(result is Resource.Success)
+        assertEquals("https://example.test/api/gross?page=1&size=1", requestedUrl)
+        assertEquals(
+            GrossData(month = "Mei 2026", totalNominal = "Rp3.343.000", orderCount = "115 order", tax = "Rp16.715"),
+            (result as Resource.Success).data.single()
+        )
     }
 
     @Test
