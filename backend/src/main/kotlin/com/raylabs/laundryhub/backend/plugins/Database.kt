@@ -104,6 +104,8 @@ private fun buildJdbcUrlFromEnv(): String? {
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
     newSuspendedTransaction(Dispatchers.IO) {
-        addLogger(StdOutSqlLogger)
+        if (System.getenv("ENABLE_SQL_LOGGING") == "true") {
+            addLogger(StdOutSqlLogger)
+        }
         block()
     }
