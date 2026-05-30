@@ -44,14 +44,24 @@ fun Application.configureDatabase() {
         else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: "org.postgresql.Driver"
     }
 
+    var finalJdbcUrl = jdbcUrl
+    if (finalJdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) {
+        if (!finalJdbcUrl.contains("prepareThreshold=")) {
+            finalJdbcUrl += if (finalJdbcUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
+        }
+    }
+
     val config = HikariConfig().apply {
-        this.jdbcUrl = jdbcUrl
+        this.jdbcUrl = finalJdbcUrl
         this.driverClassName = driverClassName
         this.username = user
         this.password = password
         maximumPoolSize = 3
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        if (driverClassName == "org.postgresql.Driver") {
+            addDataSourceProperty("prepareThreshold", "0")
+        }
         validate()
     }
 
