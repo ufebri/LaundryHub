@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.max
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
@@ -16,16 +17,17 @@ class OutcomeRepository {
 
     suspend fun insertWithNextId(outcome: OutcomeData): OutcomeData? = dbQuery {
         TransactionManager.current().exec("SELECT pg_advisory_xact_lock($OUTCOME_ID_ALLOCATION_LOCK_KEY)")
-        val nextId = OutcomesTable
+        val nextIdInt = OutcomesTable
+            .slice(OutcomesTable.id.max())
             .selectAll()
-            .mapNotNull { it[OutcomesTable.id].toIntOrNull() }
-            .maxOrNull()
+            .map { it[OutcomesTable.id.max()] }
+            .firstOrNull()
             ?.plus(1)
-            ?.toString()
-            ?: "0"
-        val createdOutcome = outcome.copy(id = nextId)
+            ?: 1
+            
+        val createdOutcome = outcome.copy(id = nextIdInt.toString())
         val statement = OutcomesTable.insertIgnore {
-            it[id] = createdOutcome.id
+            it[id] = nextIdInt
             it[date] = createdOutcome.date
             it[purpose] = createdOutcome.purpose
             it[price] = createdOutcome.price
@@ -38,7 +40,7 @@ class OutcomeRepository {
 
     suspend fun insert(outcome: OutcomeData): Boolean = dbQuery {
         val statement = OutcomesTable.insertIgnore {
-            it[id] = outcome.id
+            it[id] = outcome.id.toIntOrNull() ?: 0
             it[date] = outcome.date
             it[purpose] = outcome.purpose
             it[price] = outcome.price
@@ -50,7 +52,7 @@ class OutcomeRepository {
     }
 
     suspend fun update(outcomeId: String, outcome: OutcomeData): Boolean = dbQuery {
-        val updatedCount = OutcomesTable.update({ OutcomesTable.id eq outcomeId }) {
+        val updatedCount = OutcomesTable.update({ OutcomesTable.id eq (outcomeId.toIntOrNull() ?: 0) }) {
             it[date] = outcome.date
             it[purpose] = outcome.purpose
             it[price] = outcome.price
@@ -62,9 +64,10 @@ class OutcomeRepository {
     }
 
     suspend fun upsert(outcome: OutcomeData): Boolean = dbQuery {
-        val existing = OutcomesTable.select { OutcomesTable.id eq outcome.id }.singleOrNull()
+        val idInt = outcome.id.toIntOrNull() ?: 0
+        val existing = OutcomesTable.select { OutcomesTable.id eq idInt }.singleOrNull()
         if (existing != null) {
-            val updatedCount = OutcomesTable.update({ OutcomesTable.id eq outcome.id }) {
+            val updatedCount = OutcomesTable.update({ OutcomesTable.id eq idInt }) {
                 it[date] = outcome.date
                 it[purpose] = outcome.purpose
                 it[price] = outcome.price
@@ -75,7 +78,7 @@ class OutcomeRepository {
             updatedCount > 0
         } else {
             val statement = OutcomesTable.insertIgnore {
-                it[id] = outcome.id
+                it[id] = idInt
                 it[date] = outcome.date
                 it[purpose] = outcome.purpose
                 it[price] = outcome.price
@@ -88,40 +91,43 @@ class OutcomeRepository {
     }
 
     suspend fun delete(outcomeId: String): Boolean = dbQuery {
-        val deletedCount = OutcomesTable.deleteWhere { id eq outcomeId }
+        val deletedCount = OutcomesTable.deleteWhere { id eq (outcomeId.toIntOrNull() ?: 0) }
         deletedCount > 0
     }
 
     suspend fun getById(outcomeId: String): OutcomeData? = dbQuery {
         OutcomesTable
-            .select { OutcomesTable.id eq outcomeId }
+            .select { OutcomesTable.id eq (outcomeId.toIntOrNull() ?: 0) }
             .singleOrNull()
             ?.toOutcomeData()
     }
 
     suspend fun getLatestId(): String = dbQuery {
         OutcomesTable
+            .slice(OutcomesTable.id.max())
             .selectAll()
-            .map { it[OutcomesTable.id] }
-            .maxByOrNull { it.toIntOrNull() ?: Int.MIN_VALUE }
+            .map { it[OutcomesTable.id.max()] }
+            .firstOrNull()
+            ?.toString()
             ?: "0"
     }
 
     suspend fun getNextId(): String = dbQuery {
         OutcomesTable
+            .slice(OutcomesTable.id.max())
             .selectAll()
-            .mapNotNull { it[OutcomesTable.id].toIntOrNull() }
-            .maxOrNull()
+            .map { it[OutcomesTable.id.max()] }
+            .firstOrNull()
             ?.plus(1)
             ?.toString()
-            ?: "0"
+            ?: "1"
     }
 
     suspend fun insertAll(outcomes: List<OutcomeData>): Int = dbQuery {
         var insertedCount = 0
         for (outcome in outcomes) {
             val statement = OutcomesTable.insertIgnore {
-                it[id] = outcome.id
+                it[id] = outcome.id.toIntOrNull() ?: 0
                 it[date] = outcome.date
                 it[purpose] = outcome.purpose
                 it[price] = outcome.price
@@ -137,16 +143,15 @@ class OutcomeRepository {
     suspend fun getAll(page: Int = 1, size: Int = 50): List<OutcomeData> = dbQuery {
         val offset = ((page - 1) * size).coerceAtLeast(0)
         OutcomesTable.selectAll()
+            .limit(size, offset.toLong())
             .map { it.toOutcomeData() }
             .sortedWith(outcomeDateComparator())
-            .drop(offset)
-            .take(size)
     }
 
     suspend fun getUnsyncedOutcomes(): List<OutcomeData> = dbQuery {
         OutcomesTable.select { OutcomesTable.isSynced eq false }.map {
             OutcomeData(
-                id = it[OutcomesTable.id],
+                id = it[OutcomesTable.id].toString(),
                 date = it[OutcomesTable.date],
                 purpose = it[OutcomesTable.purpose],
                 price = it[OutcomesTable.price],
@@ -158,7 +163,10 @@ class OutcomeRepository {
 
     suspend fun markAsSynced(outcomeIds: List<String>): Boolean = dbQuery {
         if (outcomeIds.isEmpty()) return@dbQuery true
-        val updatedCount = OutcomesTable.update({ OutcomesTable.id inList outcomeIds }) {
+        val idInts = outcomeIds.mapNotNull { it.toIntOrNull() }
+        if (idInts.isEmpty()) return@dbQuery true
+        
+        val updatedCount = OutcomesTable.update({ OutcomesTable.id inList idInts }) {
             it[isSynced] = true
         }
         updatedCount > 0
@@ -166,7 +174,7 @@ class OutcomeRepository {
 
     private fun org.jetbrains.exposed.sql.ResultRow.toOutcomeData(): OutcomeData {
         return OutcomeData(
-            id = this[OutcomesTable.id],
+            id = this[OutcomesTable.id].toString(),
             date = this[OutcomesTable.date],
             purpose = this[OutcomesTable.purpose],
             price = this[OutcomesTable.price],

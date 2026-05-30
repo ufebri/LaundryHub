@@ -3,7 +3,7 @@ package com.raylabs.laundryhub.backend.db.schema
 import org.jetbrains.exposed.sql.Table
 
 object OrdersTable : Table("orders") {
-    val id = varchar("id", 100)
+    val id = integer("id")
     val name = varchar("name", 255)
     val phoneNumber = varchar("phone_number", 50)
     val packageName = varchar("package_name", 100)

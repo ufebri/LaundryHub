@@ -39,6 +39,10 @@ class OrderViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(OrderUiState())
     val uiState: StateFlow<OrderUiState> = _uiState
 
+    companion object {
+        private const val DATE_FORMAT = "dd/MM/yyyy"
+    }
+
     init {
         getPackageList()
         observeSettings()
@@ -262,13 +266,13 @@ class OrderViewModel @Inject constructor(
 
     private fun recalculateDueDate(orderDate: String, packageItem: PackageItem?): String {
         val duration = packageItem?.work ?: return _uiState.value.dueDate ?: ""
-        val baseDate = orderDate.ifBlank { DateUtil.getTodayDate("dd/MM/yyyy") }
+        val baseDate = orderDate.ifBlank { DateUtil.getTodayDate(DATE_FORMAT) }
         return DateUtil.getDueDate(duration, "${baseDate.replace('/', '-')} 08:00")
     }
 
     private fun normalizeOrderDate(raw: String): String {
         val sanitized = raw.trim()
-        if (sanitized.isEmpty()) return DateUtil.getTodayDate("dd/MM/yyyy")
+        if (sanitized.isEmpty()) return DateUtil.getTodayDate(DATE_FORMAT)
 
         DateUtil.parseSupportedAppDate(sanitized)?.let { parsed ->
             return DateUtil.formatDate(parsed)
@@ -285,7 +289,7 @@ class OrderViewModel @Inject constructor(
             price = "",
             note = "",
             weight = "",
-            orderDate = DateUtil.getTodayDate("dd/MM/yyyy"),
+            orderDate = DateUtil.getTodayDate(DATE_FORMAT),
             dueDate = ""
         )
     }

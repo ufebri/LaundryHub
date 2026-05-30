@@ -10,17 +10,20 @@ import org.jetbrains.exposed.sql.ResultRow
 import org.jetbrains.exposed.sql.SortOrder
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.inList
-import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.isNull
+import org.jetbrains.exposed.sql.SqlExpressionBuilder.like
+import org.jetbrains.exposed.sql.VarCharColumnType
+import org.jetbrains.exposed.sql.and
+import org.jetbrains.exposed.sql.castTo
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.lowerCase
+import org.jetbrains.exposed.sql.max
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
-import org.jetbrains.exposed.sql.and
-import org.jetbrains.exposed.sql.or
-import org.jetbrains.exposed.sql.lowerCase
 import java.util.Calendar
 import java.util.Date
 
@@ -28,17 +31,17 @@ class OrderRepository {
 
     suspend fun insertWithNextId(order: OrderData): OrderData? = dbQuery {
         TransactionManager.current().exec("SELECT pg_advisory_xact_lock($ORDER_ID_ALLOCATION_LOCK_KEY)")
-        val nextId = OrdersTable
-            .slice(OrdersTable.id)
+        val nextIdInt = OrdersTable
+            .slice(OrdersTable.id.max())
             .selectAll()
-            .mapNotNull { it[OrdersTable.id].toIntOrNull() }
-            .maxOrNull()
+            .map { it[OrdersTable.id.max()] }
+            .firstOrNull()
             ?.plus(1)
-            ?.toString()
-            ?: "0"
-        val createdOrder = order.copy(orderId = nextId)
+            ?: 1
+            
+        val createdOrder = order.copy(orderId = nextIdInt.toString())
         val statement = OrdersTable.insertIgnore {
-            it[id] = createdOrder.orderId
+            it[id] = nextIdInt
             it[name] = createdOrder.name
             it[phoneNumber] = createdOrder.phoneNumber
             it[packageName] = createdOrder.packageName
@@ -57,7 +60,7 @@ class OrderRepository {
 
     suspend fun insert(order: OrderData): Boolean = dbQuery {
         val statement = OrdersTable.insertIgnore {
-            it[id] = order.orderId
+            it[id] = order.orderId.toIntOrNull() ?: 0
             it[name] = order.name
             it[phoneNumber] = order.phoneNumber
             it[packageName] = order.packageName
@@ -75,7 +78,7 @@ class OrderRepository {
     }
 
     suspend fun update(orderId: String, order: OrderData): Boolean = dbQuery {
-        val updatedCount = OrdersTable.update({ OrdersTable.id eq orderId }) {
+        val updatedCount = OrdersTable.update({ OrdersTable.id eq (orderId.toIntOrNull() ?: 0) }) {
             it[name] = order.name
             it[phoneNumber] = order.phoneNumber
             it[packageName] = order.packageName
@@ -93,11 +96,12 @@ class OrderRepository {
     }
 
     suspend fun upsert(order: OrderData): Boolean = dbQuery {
+        val idInt = order.orderId.toIntOrNull() ?: 0
         // Cek apakah order sudah ada
-        val existing = OrdersTable.select { OrdersTable.id eq order.orderId }.singleOrNull()
+        val existing = OrdersTable.select { OrdersTable.id eq idInt }.singleOrNull()
         if (existing != null) {
             // Update
-            val updatedCount = OrdersTable.update({ OrdersTable.id eq order.orderId }) {
+            val updatedCount = OrdersTable.update({ OrdersTable.id eq idInt }) {
                 it[name] = order.name
                 it[phoneNumber] = order.phoneNumber
                 it[packageName] = order.packageName
@@ -115,7 +119,7 @@ class OrderRepository {
         } else {
             // Insert
             val statement = OrdersTable.insertIgnore {
-                it[id] = order.orderId
+                it[id] = idInt
                 it[name] = order.name
                 it[phoneNumber] = order.phoneNumber
                 it[packageName] = order.packageName
@@ -136,7 +140,7 @@ class OrderRepository {
     suspend fun getUnsyncedOrders(): List<OrderData> = dbQuery {
         OrdersTable.select { OrdersTable.isSynced eq false }.map {
             OrderData(
-                orderId = it[OrdersTable.id],
+                orderId = it[OrdersTable.id].toString(),
                 name = it[OrdersTable.name],
                 phoneNumber = it[OrdersTable.phoneNumber],
                 packageName = it[OrdersTable.packageName],
@@ -154,14 +158,17 @@ class OrderRepository {
 
     suspend fun markAsSynced(orderIds: List<String>): Boolean = dbQuery {
         if (orderIds.isEmpty()) return@dbQuery true
-        val updatedCount = OrdersTable.update({ OrdersTable.id inList orderIds }) {
+        val idInts = orderIds.mapNotNull { it.toIntOrNull() }
+        if (idInts.isEmpty()) return@dbQuery true
+        
+        val updatedCount = OrdersTable.update({ OrdersTable.id inList idInts }) {
             it[isSynced] = true
         }
         updatedCount > 0
     }
 
     suspend fun delete(orderId: String): Boolean = dbQuery {
-        val deletedCount = OrdersTable.deleteWhere { id eq orderId }
+        val deletedCount = OrdersTable.deleteWhere { id eq (orderId.toIntOrNull() ?: 0) }
         deletedCount > 0
     }
 
@@ -169,7 +176,7 @@ class OrderRepository {
         var insertedCount = 0
         for (order in orders) {
             val statement = OrdersTable.insertIgnore {
-                it[id] = order.orderId
+                it[id] = order.orderId.toIntOrNull() ?: 0
                 it[name] = order.name
                 it[phoneNumber] = order.phoneNumber
                 it[packageName] = order.packageName
@@ -190,29 +197,30 @@ class OrderRepository {
 
     suspend fun getById(orderId: String): OrderData? = dbQuery {
         OrdersTable
-            .select { OrdersTable.id eq orderId }
+            .select { OrdersTable.id eq (orderId.toIntOrNull() ?: 0) }
             .singleOrNull()
             ?.toOrderData()
     }
 
     suspend fun getLatestId(): String = dbQuery {
         OrdersTable
-            .slice(OrdersTable.id)
+            .slice(OrdersTable.id.max())
             .selectAll()
-            .map { it[OrdersTable.id] }
-            .maxByOrNull { it.toIntOrNull() ?: Int.MIN_VALUE }
+            .map { it[OrdersTable.id.max()] }
+            .firstOrNull()
+            ?.toString()
             ?: "0"
     }
 
     suspend fun getNextId(): String = dbQuery {
         OrdersTable
-            .slice(OrdersTable.id)
+            .slice(OrdersTable.id.max())
             .selectAll()
-            .mapNotNull { it[OrdersTable.id].toIntOrNull() }
-            .maxOrNull()
+            .map { it[OrdersTable.id.max()] }
+            .firstOrNull()
             ?.plus(1)
             ?.toString()
-            ?: "0"
+            ?: "1"
     }
 
     suspend fun getAll(
@@ -253,7 +261,7 @@ class OrderRepository {
             val q = searchQuery.trim().lowercase()
             conditions.add(
                 (OrdersTable.name.lowerCase() like "%$q%") or
-                (OrdersTable.id.lowerCase() like "%$q%") or
+                (OrdersTable.id.castTo<String>(VarCharColumnType(100)) like "%$q%") or
                 (OrdersTable.phoneNumber.lowerCase() like "%$q%")
             )
         }
@@ -304,7 +312,7 @@ class OrderRepository {
 
     private fun ResultRow.toOrderData(): OrderData {
         return OrderData(
-            orderId = this[OrdersTable.id],
+            orderId = this[OrdersTable.id].toString(),
             name = this[OrdersTable.name],
             phoneNumber = this[OrdersTable.phoneNumber],
             packageName = this[OrdersTable.packageName],
