@@ -158,6 +158,7 @@ fun SyncSettingsScreenContent(
                     pendingPushCount = state.pendingPushCount,
                     pendingDeleteCount = state.pendingDeleteCount,
                     dataDifferenceCount = state.dataDifferenceCount,
+                    reportingDifferenceCount = state.reportingDifferenceCount,
                     lastSyncError = state.lastSyncError
                 )
 
@@ -179,10 +180,23 @@ fun SyncSettingsScreenContent(
         }
 
         state.syncPreview?.takeIf { it.totalDifferences > 0 }?.let { preview ->
+            val isReportingRefresh = preview.isReportingRefreshOnly()
             AppConfirmationSheet(
-                title = "Sync ${preview.totalDifferences} differences?",
-                message = preview.recommendedAction,
-                confirmLabel = "Sync now",
+                title = if (isReportingRefresh) {
+                    "Refresh reporting cache?"
+                } else {
+                    "Sync ${preview.totalDifferences} differences?"
+                },
+                message = if (isReportingRefresh) {
+                    "Refresh reporting cache from Sheet"
+                } else {
+                    preview.recommendedAction
+                },
+                confirmLabel = if (isReportingRefresh) {
+                    "Refresh cache"
+                } else {
+                    "Sync now"
+                },
                 dismissLabel = "Not now",
                 onConfirm = onConfirmSyncNow,
                 onDismiss = onDismissPreview,
@@ -235,6 +249,7 @@ private fun SyncStatusCard(
     pendingPushCount: Int,
     pendingDeleteCount: Int,
     dataDifferenceCount: Int,
+    reportingDifferenceCount: Int,
     lastSyncError: String?
 ) {
     Card(
@@ -271,8 +286,13 @@ private fun SyncStatusCard(
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text("Data Differences", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text("App Data Differences", color = ProfileMutedText, style = MaterialTheme.typography.body2)
                 Text("$dataDifferenceCount items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text("Reporting Cache", color = ProfileMutedText, style = MaterialTheme.typography.body2)
+                Text("$reportingDifferenceCount items", color = Color.White, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.body2)
             }
             Spacer(Modifier.height(8.dp))
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -294,10 +314,20 @@ private fun SyncStatusCard(
 
 private fun SyncPreviewResponse.actionableEntities(): List<SyncEntityPreview> {
     return if (sourceOfTruth == MasterSourceOfTruth.SUPABASE) {
-        entities.filterNot { it.entity == "Gross" || it.entity == "Summary" }
+        entities.filterNot { it.isReportingEntity() }
     } else {
         entities
     }
+}
+
+private fun SyncPreviewResponse.isReportingRefreshOnly(): Boolean {
+    return sourceOfTruth == MasterSourceOfTruth.SHEETS &&
+        appOwnedDifferenceCount == 0 &&
+        reportingDifferenceCount > 0
+}
+
+private fun SyncEntityPreview.isReportingEntity(): Boolean {
+    return entity == "Gross" || entity == "Summary"
 }
 
 private fun SyncEntityPreview.previewBullet(): String {

@@ -48,7 +48,9 @@ class SyncSettingsViewModelTest {
             lastSyncTime = "2026-05-11T12:00:00",
             changesCount = 5,
             autoSyncIntervalMinutes = 30,
-            reverseSyncSchedule = ReverseSyncSchedule.TWICE_DAILY
+            reverseSyncSchedule = ReverseSyncSchedule.TWICE_DAILY,
+            dataDifferenceCount = 2,
+            reportingDifferenceCount = 3
         )
         whenever(repository.getSyncStatus()).thenReturn(Resource.Success(fakeResponse))
 
@@ -60,6 +62,8 @@ class SyncSettingsViewModelTest {
         assertEquals(5, state.changesCount)
         assertEquals(30, state.autoSyncIntervalMinutes)
         assertEquals(ReverseSyncSchedule.TWICE_DAILY, state.reverseSyncSchedule)
+        assertEquals(2, state.dataDifferenceCount)
+        assertEquals(3, state.reportingDifferenceCount)
         assertEquals(false, state.isLoading)
         assertEquals(null, state.errorMessage)
     }

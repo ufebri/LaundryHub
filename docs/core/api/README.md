@@ -21,7 +21,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - `POST /api/sync/preview` compares Google Sheets and the app database without writing data.
 - `POST /api/sync/runs` starts a confirmed manual sync from a preview id.
 - `GET /api/sync/runs/{runId}` returns sync stage, progress counts, final difference count, and any error.
-- `GET /api/sync/status` now reports both queued push work and cross-store data differences. `syncQueueState` distinguishes idle, pending push work, data drift, combined drift/push work, and unavailable sync configuration.
+- `GET /api/sync/status` now reports queued push work, app-owned cross-store data differences, and reporting-cache differences separately. `syncQueueState` is based on app-owned drift only so Sheet-owned `gross`/`summary` cache drift does not look like failed Supabase data.
 - `POST /api/sync/trigger` is deprecated for Android because manual sync now requires preview and confirmation first.
 
 ## Backend Decisions
@@ -33,7 +33,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Rows imported from Sheets migrations should be marked already synced. Rows created or updated through app writes remain unsynced until the relevant push job confirms them.
 - App database writes are the success boundary. Google Sheets is a mirror/reporting surface, so create/update/delete responses should not wait for Sheets API completion.
 - App Database is the default sync master for app-owned write tabs. This keeps app-created rows moving to Google Sheets automatically after service restarts, including on Render free instances.
-- Summary reads prefer live Google Sheets data when `SPREADSHEET_ID` and the service account are configured, then fall back to the database cache. This keeps formula-driven summary cards fresh while the backend still owns order/outcome writes.
+- Summary and gross reads prefer live Google Sheets data when `SPREADSHEET_ID` and the service account are configured, then fall back to the database cache. This keeps formula-driven reporting cards fresh while the backend still owns order/outcome writes.
 - Sheets push is near-real-time for all mutation routes. `SHEETS_PUSH_DEBOUNCE_MILLIS` defaults to `3000`, so rapid writes coalesce into one batch push instead of one Sheets request per API call.
 - After a successful order, outcome, or package mutation, the backend schedules a debounced DB -> Sheets push only when App Database is the configured master source. This prevents the temporary Sheets-master recovery mode from pushing stale database rows back into Sheets.
 - `gross` and `summary` are Sheet-owned reporting tabs. Backend reads can cache or fall back to database rows, and Sheet-source manual sync may refresh the database cache, but DB -> Sheets push/delete intentionally skips those tabs.
@@ -48,6 +48,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Reverse sync from Sheets to the database is no longer started as a scheduled background job. Pulling from Sheets now belongs to a confirmed sync run after preview, because unsupervised pull can overwrite app-owned data.
 - Manual sync is now preview-confirm-progress: preview counts only-in-Sheets, only-in-database, changed rows, duplicate keys, suspicious header-like rows, and pending deletes; confirmed runs expose entity-stage progress; two-way sync is blocked until conflict resolution exists.
 - Sync preview now includes row-level drift details for each entity: keys only in Sheets, keys only in the database, changed keys, duplicate key values, suspicious key values, and changed-field values. This keeps live drift repair reviewable without guessing from aggregate counts.
+- If a Sheet-source preview has only Gross/Summary differences and Orders, Outcomes, and Packages are already clean, the confirmed run refreshes only the reporting cache from Sheets. It does not replay app-owned rows unnecessarily.
 - DB -> Sheets sync now marks app-owned rows as synced when Google Sheets acknowledges the update/append for that row key. Supabase remains the source of truth, so read-back signature mismatches are logged as warnings instead of leaving confirmed Sheets writes stuck as pending.
 - Read-back verification still normalizes common Sheet formatting differences for app-owned tabs, including currency/grouping text, payment-status casing/language (`lunas`/`Paid`), payment method casing, and numeric strings. It is a drift signal, not the success boundary for app-owned pushes.
 - Google Sheets batch update requests explicitly send `valueInputOption=USER_ENTERED` in the request body, and Google Sheets API non-2xx responses now surface the response body in backend logs. This keeps update failures from collapsing into vague zero-acknowledgement errors.
@@ -76,7 +77,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Home pending orders pass server-side search and sort options into paging. Search input stays local while the user types; backend search is debounced and only starts once the query has at least two characters, so one-letter edits do not trigger repeated loading states.
 - Home pending orders now rely on the same normalized paid/unpaid status semantics used by shared transaction mapping, so display values from the app and canonical values from Sheets are treated consistently.
 - Device token registration waits until startup has resolved a healthy active backend root, then posts to the active API root's `notifications/token` route. This avoids sending FCM tokens to the wrong fallback URL or to a doubled `/api/api/...` path.
-- Sync Settings now presents a manual `Check differences` workflow. The screen keeps only `Google Sheets` and `App Database` as source choices, removes user-facing interval/pull schedule/two-way controls, and requires `Sync now` confirmation before any write.
+- Sync Settings now presents a manual `Check differences` workflow. The screen keeps only `Google Sheets` and `App Database` as source choices, separates app-owned drift from reporting-cache freshness, removes user-facing interval/pull schedule/two-way controls, and requires confirmation before any write or reporting-cache refresh.
 - Home refresh and post-write refresh no longer call manual sync. They refresh visible backend data only; cross-store reconciliation belongs to Sync Settings.
 - Inventory update/delete no longer depends on `sheetRowIndex`. The ViewModel uses the package name contract and treats package writes as successful as soon as the backend write succeeds, then refreshes silently.
 - Outcome, History, and Inventory keep write success feedback separate from follow-up refresh work. A slow refresh should not make a confirmed write feel failed.

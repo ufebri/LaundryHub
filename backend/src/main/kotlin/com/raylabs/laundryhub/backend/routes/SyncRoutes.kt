@@ -30,11 +30,13 @@ fun Route.syncRoutes(
             val config = syncStateManager.config.value
             val pendingPushCount = batchSyncJob?.pendingPushCount() ?: 0
             val pendingDeleteCount = batchSyncJob?.pendingDeleteCount() ?: 0
-            val dataDifferenceCount = syncRunManager
-                ?.currentDifferenceCount(config.masterSourceOfTruth)
-                ?: 0
+            val differenceCounts = syncRunManager
+                ?.currentDifferenceCounts(config.masterSourceOfTruth)
+            val dataDifferenceCount = differenceCounts?.appOwned ?: 0
+            val reportingDifferenceCount = differenceCounts?.reporting ?: 0
             val hasPendingPush = pendingPushCount + pendingDeleteCount > 0
             val hasDataDifferences = dataDifferenceCount > 0
+            val hasReportingDifferences = reportingDifferenceCount > 0
             call.respond(
                 HttpStatusCode.OK,
                 SyncStatusResponse(
@@ -51,6 +53,8 @@ fun Route.syncRoutes(
                     nextScheduledPushTime = sheetsPushScheduler?.nextScheduledPushTime,
                     dataDifferenceCount = dataDifferenceCount,
                     hasDataDifferences = hasDataDifferences,
+                    reportingDifferenceCount = reportingDifferenceCount,
+                    hasReportingDifferences = hasReportingDifferences,
                     syncQueueState = when {
                         syncRunManager == null -> SyncQueueState.UNAVAILABLE
                         hasPendingPush && hasDataDifferences -> SyncQueueState.PENDING_PUSH_AND_DATA_DIFFERENCES

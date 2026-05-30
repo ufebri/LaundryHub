@@ -7,6 +7,11 @@ import com.raylabs.laundryhub.backend.db.repository.PackageRepository
 import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
 import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.util.normalizedSyncNumberText
+import com.raylabs.laundryhub.backend.util.normalizedSyncPhoneText
+import com.raylabs.laundryhub.backend.util.normalizedSyncStatusText
+import com.raylabs.laundryhub.backend.util.normalizedSyncText
+import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -18,11 +23,6 @@ import com.raylabs.laundryhub.core.domain.model.sheets.SyncFieldDifference
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncPreviewResponse
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncRowChangeType
 import com.raylabs.laundryhub.core.domain.model.sheets.SyncRowDifference
-import com.raylabs.laundryhub.backend.util.syncVerificationSignature
-import com.raylabs.laundryhub.backend.util.normalizedSyncNumberText
-import com.raylabs.laundryhub.backend.util.normalizedSyncPhoneText
-import com.raylabs.laundryhub.backend.util.normalizedSyncStatusText
-import com.raylabs.laundryhub.backend.util.normalizedSyncText
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
@@ -97,10 +97,16 @@ class SyncPreviewService(
             )
         )
 
+        val appOwnedDifferenceCount = entities
+            .filterNot { it.isReportingEntity() }
+            .sumOf { it.totalDifferences }
+        val reportingDifferenceCount = entities
+            .filter { it.isReportingEntity() }
+            .sumOf { it.totalDifferences }
         val totalDifferences = if (sourceOfTruth == MasterSourceOfTruth.SUPABASE) {
-            entities.filter { it.entity != "Gross" && it.entity != "Summary" }.sumOf { it.totalDifferences }
+            appOwnedDifferenceCount
         } else {
-            entities.sumOf { it.totalDifferences }
+            appOwnedDifferenceCount + reportingDifferenceCount
         }
         val hasDuplicateKeys = entities.any { it.duplicateKeys > 0 }
         val hasTwoWayConflicts = sourceOfTruth == MasterSourceOfTruth.BOTH && entities.any { it.changedRows > 0 }
@@ -112,7 +118,9 @@ class SyncPreviewService(
             entities = entities,
             totalDifferences = totalDifferences,
             hasBlockingConflicts = hasDuplicateKeys || hasTwoWayConflicts,
-            recommendedAction = sourceOfTruth.recommendedAction()
+            recommendedAction = sourceOfTruth.recommendedAction(),
+            appOwnedDifferenceCount = appOwnedDifferenceCount,
+            reportingDifferenceCount = reportingDifferenceCount
         )
     }
 
@@ -123,6 +131,10 @@ class SyncPreviewService(
             MasterSourceOfTruth.BOTH -> "Review conflicts before enabling two-way sync"
         }
     }
+}
+
+internal fun SyncEntityPreview.isReportingEntity(): Boolean {
+    return entity == "Gross" || entity == "Summary"
 }
 
 internal fun <T> buildEntityPreview(

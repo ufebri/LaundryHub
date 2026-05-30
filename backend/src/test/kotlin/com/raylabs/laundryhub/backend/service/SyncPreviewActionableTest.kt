@@ -1,6 +1,11 @@
 package com.raylabs.laundryhub.backend.service
 
-import com.raylabs.laundryhub.backend.db.repository.*
+import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.db.repository.OrderRepository
+import com.raylabs.laundryhub.backend.db.repository.OutcomeRepository
+import com.raylabs.laundryhub.backend.db.repository.PackageRepository
+import com.raylabs.laundryhub.backend.db.repository.SummaryRepository
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.MasterSourceOfTruth
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -64,6 +69,8 @@ class SyncPreviewActionableTest {
         // Assert
         // Orders (1), but Gross (1) and Summary (1) are excluded under SUPABASE
         assertEquals(1, preview.totalDifferences)
+        assertEquals(1, preview.appOwnedDifferenceCount)
+        assertEquals(2, preview.reportingDifferenceCount)
         
         // Ensure Gross and Summary still have differences in their individual entity previews
         val grossEntity = preview.entities.find { it.entity == "Gross" }!!
@@ -101,6 +108,8 @@ class SyncPreviewActionableTest {
         // Assert
         // Orders (1) + Gross (1) + Summary (1) = 3
         assertEquals(3, preview.totalDifferences)
+        assertEquals(1, preview.appOwnedDifferenceCount)
+        assertEquals(2, preview.reportingDifferenceCount)
     }
 
     private fun testOrder(id: String, paidStatus: String) = OrderData(

@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -17,13 +18,15 @@ import io.ktor.server.routing.route
 fun Route.grossRoutes(
     repository: GrossRepository,
     sheetsApiClient: GoogleSheetsApiClient,
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
     migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/gross") {
         get {
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
             val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
-            call.respond(HttpStatusCode.OK, repository.getAll(page, size))
+            call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size))
         }
         post {
             try {
@@ -61,14 +64,14 @@ fun Route.grossRoutes(
         
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
-                if (spreadsheetId == null || accessToken == null) {
+                if (migrationSpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing params")
                     return@post
                 }
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, "gross", accessToken)
+                    val response = sheetsApiClient.getValues(migrationSpreadsheetId, "gross", accessToken)
                     val rows = response.values ?: emptyList()
                     val grossList = rows.drop(1).mapNotNull { row ->
                         if (row.isEmpty()) return@mapNotNull null
@@ -87,4 +90,17 @@ fun Route.grossRoutes(
             }
         }
     }
+}
+
+internal suspend fun fetchGrossForResponse(
+    repository: GrossRepository,
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
+    page: Int,
+    size: Int
+): List<GrossData> {
+    val sheetGross = spreadsheetId
+        ?.let { syncService.fetchGrossFromSheet(it) }
+        .orEmpty()
+    return sheetGross.ifEmpty { repository.getAll(page, size) }
 }

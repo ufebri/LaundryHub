@@ -53,6 +53,8 @@ data class SyncStatusResponse(
     val nextScheduledPushTime: String? = null,
     val dataDifferenceCount: Int = 0,
     val hasDataDifferences: Boolean = false,
+    val reportingDifferenceCount: Int = 0,
+    val hasReportingDifferences: Boolean = false,
     val syncQueueState: SyncQueueState = SyncQueueState.IDLE
 )
 
@@ -127,7 +129,9 @@ data class SyncPreviewResponse(
     val entities: List<SyncEntityPreview>,
     val totalDifferences: Int,
     val hasBlockingConflicts: Boolean,
-    val recommendedAction: String
+    val recommendedAction: String,
+    val appOwnedDifferenceCount: Int = 0,
+    val reportingDifferenceCount: Int = 0
 )
 
 @Serializable

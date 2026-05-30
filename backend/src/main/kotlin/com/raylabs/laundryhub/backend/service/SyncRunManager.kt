@@ -33,6 +33,14 @@ class SyncRunManager(
         return previewService.createPreview(sourceOfTruth).totalDifferences
     }
 
+    suspend fun currentDifferenceCounts(sourceOfTruth: MasterSourceOfTruth): SyncDifferenceCounts {
+        val preview = previewService.createPreview(sourceOfTruth)
+        return SyncDifferenceCounts(
+            appOwned = preview.appOwnedDifferenceCount,
+            reporting = preview.reportingDifferenceCount
+        )
+    }
+
     fun startRun(previewId: String, requestedSource: MasterSourceOfTruth?): SyncRunStatusResponse {
         val preview = previews[previewId] ?: error("Preview expired. Check differences again.")
         val sourceOfTruth = requestedSource ?: preview.sourceOfTruth
@@ -72,7 +80,7 @@ class SyncRunManager(
 
         try {
             val appliedCount = when (sourceOfTruth) {
-                MasterSourceOfTruth.SHEETS -> applySheetsToDatabase(run)
+                MasterSourceOfTruth.SHEETS -> applySheetsToDatabase(run, previews[run.previewId])
                 MasterSourceOfTruth.SUPABASE -> applyDatabaseToSheets(run)
                 MasterSourceOfTruth.BOTH -> error("Two-way sync is disabled until conflict resolution is available.")
             }
@@ -114,7 +122,11 @@ class SyncRunManager(
         }
     }
 
-    private suspend fun applySheetsToDatabase(run: MutableSyncRun): Int {
+    private suspend fun applySheetsToDatabase(run: MutableSyncRun, preview: SyncPreviewResponse?): Int {
+        if (preview?.isReportingRefreshOnly() == true) {
+            return applyReportingSheetsToDatabase(run)
+        }
+
         var processed = 0
         processed += runStage(run, SyncRunStage.APPLYING_ORDERS, "Applying orders from Google Sheets", "Orders") {
             reverseSyncJob.pullOrdersFromSheets()
@@ -129,6 +141,17 @@ class SyncRunManager(
             reverseSyncJob.pullGrossFromSheets()
         }
         processed += runStage(run, SyncRunStage.APPLYING_SUMMARY, "Applying summary rows from Google Sheets", "Summary") {
+            reverseSyncJob.pullSummaryFromSheets()
+        }
+        return processed
+    }
+
+    private suspend fun applyReportingSheetsToDatabase(run: MutableSyncRun): Int {
+        var processed = 0
+        processed += runStage(run, SyncRunStage.APPLYING_GROSS, "Refreshing gross cache from Google Sheets", "Gross") {
+            reverseSyncJob.pullGrossFromSheets()
+        }
+        processed += runStage(run, SyncRunStage.APPLYING_SUMMARY, "Refreshing summary cache from Google Sheets", "Summary") {
             reverseSyncJob.pullSummaryFromSheets()
         }
         return processed
@@ -170,6 +193,15 @@ class SyncRunManager(
         return count
     }
 }
+
+private fun SyncPreviewResponse.isReportingRefreshOnly(): Boolean {
+    return appOwnedDifferenceCount == 0 && reportingDifferenceCount > 0
+}
+
+data class SyncDifferenceCounts(
+    val appOwned: Int,
+    val reporting: Int
+)
 
 private class MutableSyncRun(
     val runId: String,
