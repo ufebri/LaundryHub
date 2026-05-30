@@ -34,6 +34,8 @@ data class SyncSettingsUiState(
     val lastSyncError: String? = null,
     val pendingPushCount: Int = 0,
     val pendingDeleteCount: Int = 0,
+    val dataDifferenceCount: Int = 0,
+    val reportingDifferenceCount: Int = 0,
     val nextScheduledPushTime: String? = null,
     val syncPreview: SyncPreviewResponse? = null,
     val activeRun: SyncRunStatusResponse? = null,
@@ -81,6 +83,8 @@ class SyncSettingsViewModel @Inject constructor(
                             lastSyncError = data.lastSyncError,
                             pendingPushCount = data.pendingPushCount,
                             pendingDeleteCount = data.pendingDeleteCount,
+                            dataDifferenceCount = data.dataDifferenceCount,
+                            reportingDifferenceCount = data.reportingDifferenceCount,
                             nextScheduledPushTime = data.nextScheduledPushTime
                         )
                     }

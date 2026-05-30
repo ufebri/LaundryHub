@@ -19,6 +19,7 @@ import com.raylabs.laundryhub.backend.service.SheetsBatchSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.backend.service.SheetsReverseSyncJob
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
+import com.raylabs.laundryhub.backend.service.SyncDriftAuditJob
 import com.raylabs.laundryhub.backend.service.SyncPreviewService
 import com.raylabs.laundryhub.backend.service.SyncRunManager
 import com.raylabs.laundryhub.backend.service.SyncStateManager
@@ -96,21 +97,27 @@ fun Application.configureRouting() {
                 deviceTokenRepository = deviceTokenRepository,
                 fcmNotificationService = fcmNotificationService
             )
+            val previewService = SyncPreviewService(
+                orderRepository = orderRepository,
+                outcomeRepository = outcomeRepository,
+                packageRepository = packageRepository,
+                grossRepository = grossRepository,
+                summaryRepository = summaryRepository,
+                syncDeleteEventRepository = syncDeleteEventRepository,
+                syncService = syncService,
+                spreadsheetId = spreadsheetId
+            )
             syncRunManager = SyncRunManager(
-                previewService = SyncPreviewService(
-                    orderRepository = orderRepository,
-                    outcomeRepository = outcomeRepository,
-                    packageRepository = packageRepository,
-                    grossRepository = grossRepository,
-                    summaryRepository = summaryRepository,
-                    syncDeleteEventRepository = syncDeleteEventRepository,
-                    syncService = syncService,
-                    spreadsheetId = spreadsheetId
-                ),
+                previewService = previewService,
                 batchSyncJob = createdBatchSyncJob,
                 reverseSyncJob = createdReverseSyncJob,
                 syncStateManager = syncStateManager
             )
+            SyncDriftAuditJob(
+                previewService = previewService,
+                syncStateManager = syncStateManager,
+                intervalMinutes = syncDriftAuditIntervalMinutes()
+            ).start()
         }
     }
 
@@ -133,16 +140,16 @@ fun Application.configureRouting() {
         grossRoutes(
             repository = grossRepository,
             sheetsApiClient = sheetsApiClient,
-            migrationRoutesEnabled = migrationRoutesEnabled,
-            syncDeleteEventRepository = syncDeleteEventRepository,
-            sheetsPushScheduler = sheetsPushScheduler
+            syncService = syncService,
+            spreadsheetId = spreadsheetId,
+            migrationRoutesEnabled = migrationRoutesEnabled
         )
         summaryRoutes(
             repository = summaryRepository,
             sheetsApiClient = sheetsApiClient,
-            migrationRoutesEnabled = migrationRoutesEnabled,
-            syncDeleteEventRepository = syncDeleteEventRepository,
-            sheetsPushScheduler = sheetsPushScheduler
+            syncService = syncService,
+            spreadsheetId = spreadsheetId,
+            migrationRoutesEnabled = migrationRoutesEnabled
         )
         
         syncRoutes(syncStateManager, batchSyncJob, sheetsPushScheduler, syncRunManager)
@@ -369,6 +376,12 @@ fun Application.configureRouting() {
 
 private fun configuredSpreadsheetId(): String? {
     return System.getenv("SPREADSHEET_ID")?.takeIf { it.isNotBlank() }
+}
+
+private fun syncDriftAuditIntervalMinutes(): Int {
+    return System.getenv("SYNC_DRIFT_AUDIT_INTERVAL_MINUTES")
+        ?.toIntOrNull()
+        ?: SyncDriftAuditJob.DEFAULT_INTERVAL_MINUTES
 }
 
 private fun isMigrationRoutesEnabled(): Boolean {

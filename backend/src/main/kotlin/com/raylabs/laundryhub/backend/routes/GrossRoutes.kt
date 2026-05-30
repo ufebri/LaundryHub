@@ -1,10 +1,9 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
-import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEventRepository
-import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
-import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
+import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.sortedByGrossMonthDescending
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.application.call
@@ -20,22 +19,21 @@ import io.ktor.server.routing.route
 fun Route.grossRoutes(
     repository: GrossRepository,
     sheetsApiClient: GoogleSheetsApiClient,
-    migrationRoutesEnabled: Boolean = false,
-    syncDeleteEventRepository: SyncDeleteEventRepository? = null,
-    sheetsPushScheduler: SheetsPushScheduler? = null
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
+    migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/gross") {
         get {
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
             val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
-            call.respond(HttpStatusCode.OK, repository.getAll(page, size))
+            call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size))
         }
         post {
             try {
                 val gross = call.receive<GrossData>()
                 val inserted = repository.insert(gross)
                 if (inserted) {
-                    sheetsPushScheduler?.requestPush("gross created")
                     call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
                 }
                 else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
@@ -49,7 +47,6 @@ fun Route.grossRoutes(
                 val gross = call.receive<GrossData>()
                 val updated = repository.update(month, gross)
                 if (updated) {
-                    sheetsPushScheduler?.requestPush("gross updated")
                     call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
                 }
                 else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
@@ -60,9 +57,7 @@ fun Route.grossRoutes(
         delete("/{month}") {
             val month = call.parameters["month"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
             if (repository.delete(month)) {
-                syncDeleteEventRepository?.record(SyncEntityType.GROSS, month)
-                sheetsPushScheduler?.requestPush("gross deleted")
-                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "queued"))
+                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "sheet-owned"))
             } else {
                 call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
             }
@@ -70,14 +65,14 @@ fun Route.grossRoutes(
         
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+                val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
                 val accessToken = call.request.queryParameters["accessToken"]
-                if (spreadsheetId == null || accessToken == null) {
+                if (migrationSpreadsheetId == null || accessToken == null) {
                     call.respond(HttpStatusCode.BadRequest, "Missing params")
                     return@post
                 }
                 try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, "gross", accessToken)
+                    val response = sheetsApiClient.getValues(migrationSpreadsheetId, "gross", accessToken)
                     val rows = response.values ?: emptyList()
                     val grossList = rows.drop(1).mapNotNull { row ->
                         if (row.isEmpty()) return@mapNotNull null
@@ -96,4 +91,25 @@ fun Route.grossRoutes(
             }
         }
     }
+}
+
+internal suspend fun fetchGrossForResponse(
+    repository: GrossRepository,
+    syncService: SheetsSyncService,
+    spreadsheetId: String?,
+    page: Int,
+    size: Int
+): List<GrossData> {
+    val sheetGross = spreadsheetId
+        ?.let { syncService.fetchGrossFromSheet(it) }
+        .orEmpty()
+    if (sheetGross.isEmpty()) return repository.getAll(page, size)
+
+    val safePage = page.coerceAtLeast(1)
+    val safeSize = size.coerceAtLeast(1)
+    val offset = (safePage - 1) * safeSize
+    return sheetGross
+        .sortedByGrossMonthDescending()
+        .drop(offset)
+        .take(safeSize)
 }

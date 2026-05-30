@@ -2,6 +2,7 @@ package com.raylabs.laundryhub.ui.home
 
 import androidx.paging.PagingData
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
@@ -127,6 +128,35 @@ class HomeViewModelTest {
         
         assertEquals(false, viewModel.uiState.value.isRefreshing)
         assertEquals(false, viewModel.uiState.value.isSummaryRefreshing)
+    }
+
+    @Test
+    fun `summary uses current gross row when endpoint returns oldest first`() = runTest {
+        whenever(grossUseCase.invoke(anyOrNull())).thenReturn(
+            Resource.Success(
+                listOf(
+                    GrossData(month = "Maret 2025", totalNominal = "1038150", orderCount = "35", tax = "5191"),
+                    GrossData(month = "Mei 2026", totalNominal = "3343000", orderCount = "115", tax = "16715"),
+                    GrossData(month = "Desember 2999", totalNominal = "9999", orderCount = "9", tax = "99")
+                )
+            )
+        )
+        whenever(grossUseCase.invoke()).thenReturn(
+            Resource.Success(
+                listOf(
+                    GrossData(month = "Maret 2025", totalNominal = "1038150", orderCount = "35", tax = "5191"),
+                    GrossData(month = "Mei 2026", totalNominal = "3343000", orderCount = "115", tax = "16715"),
+                    GrossData(month = "Desember 2999", totalNominal = "9999", orderCount = "9", tax = "99")
+                )
+            )
+        )
+
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val grossSummary = viewModel.uiState.value.summary.data?.single { it.title == "Gross Income" }
+        assertEquals("Rp 3.343.000", grossSummary?.body)
+        assertEquals("115 order", grossSummary?.footer)
     }
 
     private fun createViewModel(): HomeViewModel {

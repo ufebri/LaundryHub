@@ -119,6 +119,33 @@ internal class LaundryHubAppRobot(
         }
     }
 
+    fun assertGrossSummary(totalNominal: String, orderCountLabel: String) {
+        tapNav(HOME_NAV_DESCRIPTION)
+        ensureObjectVisible(listOf(By.text(GROSS_INCOME_TEXT)), GROSS_INCOME_TEXT, DATA_TIMEOUT_MS)
+        waitForObject(By.text(totalNominal), DATA_TIMEOUT_MS)
+        if (orderCountLabel.isNotBlank()) {
+            waitForObject(By.text(orderCountLabel), DATA_TIMEOUT_MS)
+        }
+    }
+
+    fun openGrossDetailAndAssertFirstRow(
+        month: String,
+        totalNominal: String,
+        orderCount: String,
+        tax: String
+    ) {
+        tapNav(HOME_NAV_DESCRIPTION)
+        tapObjectCenter(By.text(GROSS_INCOME_TEXT), GROSS_INCOME_TEXT, DATA_TIMEOUT_MS)
+        waitForObject(By.text(month), DATA_TIMEOUT_MS)
+        waitForObject(By.text(totalNominal), DATA_TIMEOUT_MS)
+        if (orderCount.isNotBlank()) {
+            waitForObject(By.text(orderCount), DATA_TIMEOUT_MS)
+        }
+        if (tax.isNotBlank()) {
+            waitForObject(By.text(tax), DATA_TIMEOUT_MS)
+        }
+    }
+
     fun dumpWindowHierarchy(): String {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val hierarchyFile = File(context.cacheDir, "laundryhub-e2e-window.xml")
@@ -744,6 +771,7 @@ internal class LaundryHubAppRobot(
         private const val NAME_LABEL = "Name"
         private const val PRICE_LABEL = "Price"
         private const val PAID_BY_CASH_TEXT = "Paid by Cash"
+        private const val GROSS_INCOME_TEXT = "Gross Income"
         private val PACKAGE_OPTION_FALLBACK_TEXTS = setOf(
             "Reguler",
             "Regular",

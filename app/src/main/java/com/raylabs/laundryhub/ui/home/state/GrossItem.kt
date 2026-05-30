@@ -27,7 +27,7 @@ fun GrossData.stableGrossDetailKey(index: Int): String {
 }
 
 fun GrossItem.toSummaryItem(): SummaryItem {
-    val orderLabel = if (orderCount.isBlank()) "" else "$orderCount order"
+    val orderLabel = orderCount.toOrderCountLabel()
     return SummaryItem(
         title = "Gross Income",
         body = totalNominal,
@@ -36,4 +36,11 @@ fun GrossItem.toSummaryItem(): SummaryItem {
         textColor = Color.Black,
         isInteractive = true
     )
+}
+
+private fun String.toOrderCountLabel(): String {
+    val count = trim()
+        .replace(Regex("""\s*orders?\s*$""", RegexOption.IGNORE_CASE), "")
+        .trim()
+    return if (count.isBlank()) "" else "$count order"
 }

@@ -9,13 +9,13 @@ import kotlin.test.assertNull
 class SyncStateManagerTest {
 
     @Test
-    fun `default config keeps sheets as temporary master with manual pull`() {
+    fun `default config keeps app database as master with manual pull`() {
         val manager = SyncStateManager()
         val config = manager.config.value
 
         assertEquals(5, config.intervalMinutes)
         assertEquals(ReverseSyncSchedule.MANUAL, config.reverseSyncSchedule)
-        assertEquals(MasterSourceOfTruth.SHEETS, config.masterSourceOfTruth)
+        assertEquals(MasterSourceOfTruth.SUPABASE, config.masterSourceOfTruth)
     }
 
     @Test

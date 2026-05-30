@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.service
 import com.google.auth.oauth2.GoogleCredentials
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
 import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
@@ -11,8 +12,10 @@ import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
 import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
+import com.raylabs.laundryhub.shared.network.model.sheets.AppendValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesRequest
 import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesRequest
+import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -191,71 +194,142 @@ class SheetsSyncService {
         )
     }
 
-    suspend fun syncOrdersBatch(spreadsheetId: String, orders: List<OrderData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "income",
-        keyRange = "income!A:A",
-        updateColumnRange = "A:L",
-        rows = orders.map { order ->
-            SheetRow(
-                key = order.orderId,
-                values = listOf(
-                    order.orderId,
-                    order.orderDate,
-                    order.name,
-                    order.weight,
-                    order.priceKg,
-                    order.totalPrice,
-                    order.paidStatus,
-                    order.packageName,
-                    order.remark,
-                    order.paymentMethod,
-                    order.phoneNumber,
-                    order.dueDate
+    suspend fun syncOrdersBatch(spreadsheetId: String, orders: List<OrderData>): Int {
+        return syncAndVerifyOrdersBatch(spreadsheetId, orders).size
+    }
+
+    suspend fun syncAndVerifyOrdersBatch(spreadsheetId: String, orders: List<OrderData>): List<String> {
+        val candidates = orders.filterNot { isOrderHeaderKey(it.orderId) }
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "income",
+            keyRange = "income!A:A",
+            updateColumnRange = "A:L",
+            ignoredKeySelector = ::isOrderHeaderKey,
+            rows = candidates.map { order ->
+                SheetRow(
+                    key = order.orderId,
+                    values = listOf(
+                        order.orderId,
+                        order.orderDate,
+                        order.name,
+                        order.weight,
+                        order.priceKg,
+                        order.totalPrice,
+                        order.paidStatus,
+                        order.packageName,
+                        order.remark,
+                        order.paymentMethod,
+                        order.phoneNumber,
+                        order.dueDate
+                    )
                 )
-            )
-        }
-    )
+            }
+        )
+        if (acknowledgedKeys.isEmpty()) return emptyList()
+        val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
+        val sheetRowsById = fetchOrdersFromSheet(spreadsheetId).associateBy { it.orderId.trim() }
+        candidates
+            .filter { it.orderId.trim() in acknowledgedKeySet }
+            .filter { order -> sheetRowsById[order.orderId.trim()]?.syncVerificationSignature() != order.syncVerificationSignature() }
+            .forEach { order ->
+                logger.warn(
+                    "Order ${order.orderId} was acknowledged by Google Sheets but read-back verification did not match. " +
+                        "Marking it synced because Sheets accepted the write."
+                )
+            }
+        return candidates
+            .filter { it.orderId.trim() in acknowledgedKeySet }
+            .map { it.orderId }
+    }
 
-    suspend fun syncOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "outcome",
-        keyRange = "outcome!A:A",
-        updateColumnRange = "A:F",
-        rows = outcomes.map { outcome ->
-            SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
-        }
-    )
+    suspend fun syncOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): Int {
+        return syncAndVerifyOutcomesBatch(spreadsheetId, outcomes).size
+    }
 
-    suspend fun syncPackagesBatch(spreadsheetId: String, packages: List<PackageData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "notes",
-        keyRange = "notes!B:B",
-        updateColumnRange = "A:D",
-        rows = packages.map { pkg ->
-            SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
-        }
-    )
+    suspend fun syncAndVerifyOutcomesBatch(spreadsheetId: String, outcomes: List<OutcomeData>): List<String> {
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "outcome",
+            keyRange = "outcome!A:A",
+            updateColumnRange = "A:F",
+            rows = outcomes.map { outcome ->
+                SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
+            }
+        )
+        if (acknowledgedKeys.isEmpty()) return emptyList()
+        val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
+        val sheetRowsById = fetchOutcomesFromSheet(spreadsheetId).associateBy { it.id.trim() }
+        outcomes
+            .filter { it.id.trim() in acknowledgedKeySet }
+            .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncVerificationSignature() != outcome.syncVerificationSignature() }
+            .forEach { outcome ->
+                logger.warn(
+                    "Outcome ${outcome.id} was acknowledged by Google Sheets but read-back verification did not match. " +
+                        "Marking it synced because Sheets accepted the write."
+                )
+            }
+        return outcomes
+            .filter { it.id.trim() in acknowledgedKeySet }
+            .map { it.id }
+    }
 
-    suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "gross",
-        keyRange = "gross!A:A",
-        updateColumnRange = "A:D",
-        rows = grossList.map { gross ->
-            SheetRow(key = gross.month, values = gross.toSheetValues().single())
-        }
-    )
+    suspend fun syncPackagesBatch(spreadsheetId: String, packages: List<PackageData>): Int {
+        return syncAndVerifyPackagesBatch(spreadsheetId, packages).size
+    }
 
-    suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int = syncBatch(
-        spreadsheetId = spreadsheetId,
-        sheetName = "summary",
-        keyRange = "summary!A:A",
-        updateColumnRange = "A:B",
-        rows = summaries.map { summary ->
-            SheetRow(key = summary.key, values = summary.toSheetValues().single())
-        }
-    )
+    suspend fun syncAndVerifyPackagesBatch(spreadsheetId: String, packages: List<PackageData>): List<String> {
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "notes",
+            keyRange = "notes!B:B",
+            updateColumnRange = "A:D",
+            rows = packages.map { pkg ->
+                SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
+            }
+        )
+        if (acknowledgedKeys.isEmpty()) return emptyList()
+        val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
+        val sheetRowsByName = fetchPackagesFromSheet(spreadsheetId).associateBy { it.name.trim() }
+        packages
+            .filter { it.name.trim() in acknowledgedKeySet }
+            .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncVerificationSignature() != pkg.syncVerificationSignature() }
+            .forEach { pkg ->
+                logger.warn(
+                    "Package ${pkg.name} was acknowledged by Google Sheets but read-back verification did not match. " +
+                        "Marking it synced because Sheets accepted the write."
+                )
+            }
+        return packages
+            .filter { it.name.trim() in acknowledgedKeySet }
+            .map { it.name }
+    }
+
+    suspend fun syncGrossBatch(spreadsheetId: String, grossList: List<GrossData>): Int {
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "gross",
+            keyRange = "gross!A:A",
+            updateColumnRange = "A:D",
+            rows = grossList.map { gross ->
+                SheetRow(key = gross.month, values = gross.toSheetValues().single())
+            }
+        )
+        return acknowledgedKeys.size
+    }
+
+    suspend fun syncSummariesBatch(spreadsheetId: String, summaries: List<SpreadsheetData>): Int {
+        val acknowledgedKeys = syncBatch(
+            spreadsheetId = spreadsheetId,
+            sheetName = "summary",
+            keyRange = "summary!A:A",
+            updateColumnRange = "A:B",
+            rows = summaries.map { summary ->
+                SheetRow(key = summary.key, values = summary.toSheetValues().single())
+            }
+        )
+        return acknowledgedKeys.size
+    }
 
     suspend fun deleteOutcomeFromSheet(spreadsheetId: String, outcomeId: String): Boolean = withContext(Dispatchers.IO) {
         try {
@@ -350,7 +424,7 @@ class SheetsSyncService {
                         paymentMethod = row.getOrNull(9) ?: "",
                         phoneNumber = row.getOrNull(10) ?: "",
                         dueDate = row.getOrNull(11) ?: ""
-                    ).takeIf { it.orderId.isNotBlank() }
+                    ).takeIf { it.orderId.isNotBlank() && !isOrderHeaderKey(it.orderId) }
                 } catch (e: Exception) {
                     logger.warn("Skipping invalid row: $row")
                     null
@@ -483,7 +557,7 @@ class SheetsSyncService {
             keyRange = keyRange,
             updateColumnRange = updateColumnRange,
             rows = values.map { SheetRow(key = key, values = it) }
-        ) == values.size
+        ).size == values.size
     }
 
     private suspend fun syncBatch(
@@ -491,52 +565,71 @@ class SheetsSyncService {
         sheetName: String,
         keyRange: String,
         updateColumnRange: String,
+        ignoredKeySelector: (String) -> Boolean = { false },
         rows: List<SheetRow>
-    ): Int = withContext(Dispatchers.IO) {
-        if (rows.isEmpty()) return@withContext 0
+    ): List<String> = withContext(Dispatchers.IO) {
+        if (rows.isEmpty()) return@withContext emptyList()
 
         try {
             val token = getServiceAccountToken()
             val existingRows = sheetsApiClient.getValues(spreadsheetId, keyRange, token).values ?: emptyList()
             val rowsByKey = existingRows
-                .mapIndexedNotNull { index, row -> row.getOrNull(0)?.takeIf { it.isNotBlank() }?.let { it to index + 1 } }
+                .mapIndexedNotNull { index, row ->
+                    row.getOrNull(0)
+                        ?.trim()
+                        ?.takeIf { it.isNotBlank() && !ignoredKeySelector(it) }
+                        ?.let { it to index + 1 }
+                }
                 .toMap()
 
             val updates = rows.mapNotNull { row ->
-                val rowIndex = rowsByKey[row.key] ?: return@mapNotNull null
-                ValueRange(
+                val rowIndex = rowsByKey[row.key.trim()] ?: return@mapNotNull null
+                row to ValueRange(
                     range = buildRowRange(sheetName, updateColumnRange, rowIndex),
                     majorDimension = "ROWS",
                     values = listOf(row.values)
                 )
             }
-            val appends = rows.filter { it.key !in rowsByKey }.map { it.values }
+            val appends = rows.filter { it.key.trim() !in rowsByKey }
+
+            val acknowledgedKeys = mutableListOf<String>()
 
             if (updates.isNotEmpty()) {
-                sheetsApiClient.batchUpdateValues(
+                val response = sheetsApiClient.batchUpdateValues(
                     spreadsheetId = spreadsheetId,
-                    request = BatchUpdateValuesRequest(data = updates),
+                    request = BatchUpdateValuesRequest(
+                        valueInputOption = SHEETS_VALUE_INPUT_OPTION,
+                        data = updates.map { it.second }
+                    ),
                     accessToken = token
+                )
+                acknowledgedKeys += acknowledgedUpdateKeys(
+                    keys = updates.map { it.first.key },
+                    response = response
                 )
             }
 
             if (appends.isNotEmpty()) {
-                sheetsApiClient.appendValues(
+                val response = sheetsApiClient.appendValues(
                     spreadsheetId = spreadsheetId,
                     range = sheetName,
                     valueRange = ValueRange(
                         range = sheetName,
                         majorDimension = "ROWS",
-                        values = appends
+                        values = appends.map { it.values }
                     ),
                     accessToken = token
                 )
+                acknowledgedKeys += acknowledgedAppendKeys(
+                    keys = appends.map { it.key },
+                    response = response
+                )
             }
 
-            rows.size
+            acknowledgedKeys.distinct()
         } catch (e: Exception) {
             logger.error("Error syncing $sheetName batch: ${e.message}")
-            0
+            emptyList()
         }
     }
 
@@ -545,8 +638,8 @@ class SheetsSyncService {
             SyncEntityType.ORDER -> SheetDeleteTarget("income", "income!A:A", "A:L")
             SyncEntityType.OUTCOME -> SheetDeleteTarget("outcome", "outcome!A:A", "A:F")
             SyncEntityType.PACKAGE -> SheetDeleteTarget("notes", "notes!B:B", "A:D")
-            SyncEntityType.GROSS -> SheetDeleteTarget("gross", "gross!A:A", "A:D")
-            SyncEntityType.SUMMARY -> SheetDeleteTarget("summary", "summary!A:A", "A:B")
+            SyncEntityType.GROSS,
+            SyncEntityType.SUMMARY -> null
             else -> null
         }
     }
@@ -569,3 +662,24 @@ private data class SheetDeleteTarget(
     val keyRange: String,
     val clearColumns: String
 )
+
+internal fun acknowledgedUpdateKeys(
+    keys: List<String>,
+    response: BatchUpdateValuesResponse
+): List<String> {
+    return keys.zip(response.responses.orEmpty())
+        .filter { (_, updateResponse) ->
+            (updateResponse.updatedRows ?: 0) > 0 || (updateResponse.updatedCells ?: 0) > 0
+        }
+        .map { (key, _) -> key }
+}
+
+internal fun acknowledgedAppendKeys(
+    keys: List<String>,
+    response: AppendValuesResponse
+): List<String> {
+    val appendedRows = response.updates?.updatedRows ?: 0
+    return if (appendedRows >= keys.size) keys else emptyList()
+}
+
+private const val SHEETS_VALUE_INPUT_OPTION = "USER_ENTERED"
