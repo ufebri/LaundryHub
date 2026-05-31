@@ -98,8 +98,7 @@ class HomeViewModel @Inject constructor(
     init {
         fetchUser()
         observeReminderInputs()
-        fetchTodayIncomeFromInit()
-        fetchSummaryFromInit()
+        initHomeData()
         fetchReminderDiscoveryFromInit()
     }
 
@@ -110,8 +109,21 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun fetchTodayIncomeFromInit() {
-        viewModelScope.launch { fetchTodayIncome() }
+    private fun initHomeData() {
+        viewModelScope.launch {
+            _uiState.update {
+                it.copy(
+                    isSummaryRefreshing = true
+                )
+            }
+            coroutineScope {
+                listOf(
+                    async { fetchTodayIncome(isSilent = false) },
+                    async { fetchSummary(isSilent = false) }
+                ).awaitAll()
+            }
+            _uiState.update { it.copy(isSummaryRefreshing = false) }
+        }
     }
 
     suspend fun fetchTodayIncome(isSilent: Boolean = false) {
@@ -149,9 +161,7 @@ class HomeViewModel @Inject constructor(
         }
     }
 
-    private fun fetchSummaryFromInit() {
-        viewModelScope.launch { fetchSummary() }
-    }
+
 
     suspend fun fetchSummary(isSilent: Boolean = false) {
         if (!isSilent) {
@@ -359,6 +369,24 @@ class HomeViewModel @Inject constructor(
                     onError(errorMessage)
                 }
             )
+        }
+    }
+
+    fun addOptimisticUpdate(orderId: String, updatedItem: UnpaidOrderItem) {
+        _uiState.update { state ->
+            state.copy(optimisticUpdates = state.optimisticUpdates + (orderId to updatedItem))
+        }
+    }
+
+    fun removeOptimisticUpdate(orderId: String) {
+        _uiState.update { state ->
+            state.copy(optimisticUpdates = state.optimisticUpdates - orderId)
+        }
+    }
+
+    fun clearOptimisticUpdates() {
+        _uiState.update { state ->
+            state.copy(optimisticUpdates = emptyMap())
         }
     }
 }

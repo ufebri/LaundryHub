@@ -63,7 +63,7 @@ dependencies {
     testImplementation "io.ktor:ktor-server-tests-jvm:2.3.9"
     testImplementation "org.jetbrains.kotlin:kotlin-test-junit:1.9.23"
     testImplementation "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1"
-    testImplementation "com.h2database:h2:2.2.224"
+    implementation "com.h2database:h2:2.2.224"
     testImplementation 'org.mockito:mockito-core:5.2.0'
     testImplementation 'org.mockito.kotlin:mockito-kotlin:5.2.0'
 }

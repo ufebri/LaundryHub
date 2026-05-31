@@ -4,6 +4,8 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 
+import com.raylabs.laundryhub.ui.home.state.SyncStatus
+
 data class EntryItem(
     val id: String,
     val name: String,
@@ -11,7 +13,9 @@ data class EntryItem(
     val price: String,
     val remark: String,
     val paymentStatus: String,
-    val typeCard: TypeCard
+    val typeCard: TypeCard,
+    val syncStatus: SyncStatus = SyncStatus.SYNCED,
+    val rawPayload: OutcomeData? = null
 )
 
 sealed interface DateListItemUI {
@@ -31,7 +35,8 @@ fun OutcomeData.toEntryItemUI(): EntryItem = EntryItem(
     price = price,
     remark = remark,
     paymentStatus = paidDescription(),
-    typeCard = TypeCard.OUTCOME
+    typeCard = TypeCard.OUTCOME,
+    rawPayload = this
 )
 
 fun List<OutcomeData>.toDateListUiItems(): List<DateListItemUI> {

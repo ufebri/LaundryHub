@@ -25,71 +25,111 @@ fun Route.grossRoutes(
 ) {
     route("/api/gross") {
         get {
-            val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
-            val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
-            call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size))
+            handleGetGross(call, repository, syncService, spreadsheetId)
         }
         post {
-            try {
-                val gross = call.receive<GrossData>()
-                val inserted = repository.insert(gross)
-                if (inserted) {
-                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
-                }
-                else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
-            }
+            handlePostGross(call, repository)
         }
         put("/{month}") {
-            val month = call.parameters["month"] ?: return@put call.respond(HttpStatusCode.BadRequest)
-            try {
-                val gross = call.receive<GrossData>()
-                val updated = repository.update(month, gross)
-                if (updated) {
-                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
-                }
-                else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
-            }
+            handlePutGross(call, repository)
         }
         delete("/{month}") {
-            val month = call.parameters["month"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            if (repository.delete(month)) {
-                call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "sheet-owned"))
-            } else {
-                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
-            }
+            handleDeleteGross(call, repository)
         }
         
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
-                val accessToken = call.request.queryParameters["accessToken"]
-                if (migrationSpreadsheetId == null || accessToken == null) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing params")
-                    return@post
-                }
-                try {
-                    val response = sheetsApiClient.getValues(migrationSpreadsheetId, "gross", accessToken)
-                    val rows = response.values ?: emptyList()
-                    val grossList = rows.drop(1).mapNotNull { row ->
-                        if (row.isEmpty()) return@mapNotNull null
-                        GrossData(
-                            month = row.getOrNull(0) ?: "",
-                            totalNominal = row.getOrNull(1) ?: "",
-                            orderCount = row.getOrNull(2) ?: "",
-                            tax = row.getOrNull(3) ?: ""
-                        )
-                    }
-                    val inserted = repository.insertAll(grossList)
-                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
-                }
+                handleMigrateGross(call, repository, sheetsApiClient)
             }
         }
+    }
+}
+
+private suspend fun handleGetGross(
+    call: io.ktor.server.application.ApplicationCall,
+    repository: GrossRepository,
+    syncService: SheetsSyncService,
+    spreadsheetId: String?
+) {
+    val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
+    val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
+    call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size))
+}
+
+private suspend fun handlePostGross(
+    call: io.ktor.server.application.ApplicationCall,
+    repository: GrossRepository
+) {
+    try {
+        val gross = call.receive<GrossData>()
+        val inserted = repository.insert(gross)
+        if (inserted) {
+            call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+        } else {
+            call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
+        }
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
+    }
+}
+
+private suspend fun handlePutGross(
+    call: io.ktor.server.application.ApplicationCall,
+    repository: GrossRepository
+) {
+    val month = call.parameters["month"] ?: return call.respond(HttpStatusCode.BadRequest)
+    try {
+        val gross = call.receive<GrossData>()
+        val updated = repository.update(month, gross)
+        if (updated) {
+            call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+        } else {
+            call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+        }
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
+    }
+}
+
+private suspend fun handleDeleteGross(
+    call: io.ktor.server.application.ApplicationCall,
+    repository: GrossRepository
+) {
+    val month = call.parameters["month"] ?: return call.respond(HttpStatusCode.BadRequest)
+    if (repository.delete(month)) {
+        call.respond(HttpStatusCode.OK, mapOf("status" to "Success", "sheetSynced" to "sheet-owned"))
+    } else {
+        call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+    }
+}
+
+private suspend fun handleMigrateGross(
+    call: io.ktor.server.application.ApplicationCall,
+    repository: GrossRepository,
+    sheetsApiClient: GoogleSheetsApiClient
+) {
+    val migrationSpreadsheetId = call.request.queryParameters["spreadsheetId"]
+    val accessToken = call.request.queryParameters["accessToken"]
+    if (migrationSpreadsheetId == null || accessToken == null) {
+        call.respond(HttpStatusCode.BadRequest, "Missing params")
+        return
+    }
+    try {
+        val response = sheetsApiClient.getValues(migrationSpreadsheetId, "gross", accessToken)
+        val rows = response.values ?: emptyList()
+        val grossList = rows.drop(1).mapNotNull { row ->
+            if (row.isEmpty()) return@mapNotNull null
+            GrossData(
+                month = row.getOrNull(0) ?: "",
+                totalNominal = row.getOrNull(1) ?: "",
+                orderCount = row.getOrNull(2) ?: "",
+                tax = row.getOrNull(3) ?: ""
+            )
+        }
+        val inserted = repository.insertAll(grossList)
+        call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
     }
 }
 

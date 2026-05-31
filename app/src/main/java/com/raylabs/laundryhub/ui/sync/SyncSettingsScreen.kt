@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -88,16 +89,12 @@ fun SyncSettingsScreenContent(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(state.errorMessage, state.successMessage) {
-        state.errorMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            onClearMessages()
-        }
-        state.successMessage?.let {
-            snackbarHostState.showSnackbar(it)
-            onClearMessages()
-        }
-    }
+    SyncSnackbarEffect(
+        errorMessage = state.errorMessage,
+        successMessage = state.successMessage,
+        snackbarHostState = snackbarHostState,
+        onClearMessages = onClearMessages
+    )
 
     Box(modifier = Modifier.fillMaxSize()) {
         Scaffold(
@@ -109,103 +106,161 @@ fun SyncSettingsScreenContent(
             },
             snackbarHost = { SnackbarHost(snackbarHostState) },
             bottomBar = {
-                Box(modifier = Modifier.padding(16.dp)) {
-                    Button(
-                        onClick = onCheckDifferencesClick,
-                        enabled = !state.isCheckingDifferences && !state.isSyncing,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            backgroundColor = MaterialTheme.colors.primary,
-                            contentColor = Color.White
-                        )
-                    ) {
-                        if (state.isCheckingDifferences || state.isSyncing) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(Modifier.width(8.dp))
-                            Text(
-                                text = if (state.isCheckingDifferences) "Checking differences..." else "Syncing...",
-                                style = MaterialTheme.typography.button
-                            )
-                        } else {
-                            Icon(Icons.Default.Refresh, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text("Check differences", style = MaterialTheme.typography.button)
-                        }
-                    }
-                }
+                SyncBottomBar(
+                    isChecking = state.isCheckingDifferences,
+                    isSyncing = state.isSyncing,
+                    onClick = onCheckDifferencesClick
+                )
             }
         ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colors.background)
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                SyncStatusCard(
-                    lastSyncTime = state.lastSyncTime,
-                    changesCount = state.changesCount,
-                    syncStatus = state.lastSyncStatus,
-                    pendingPushCount = state.pendingPushCount,
-                    pendingDeleteCount = state.pendingDeleteCount,
-                    dataDifferenceCount = state.dataDifferenceCount,
-                    reportingDifferenceCount = state.reportingDifferenceCount,
-                    lastSyncError = state.lastSyncError
-                )
-
-                MasterSourceOfTruthSection(
-                    selectedSource = state.selectedSourceOfTruth,
-                    onSourceSelected = onMasterSourceSelected
-                )
-
-                state.syncPreview?.takeIf { it.totalDifferences == 0 }?.let { preview ->
-                    SyncPreviewCard(preview = preview)
-                }
-
-                state.activeRun?.let { run ->
-                    SyncRunProgressCard(run = run)
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-            }
-        }
-
-        state.syncPreview?.takeIf { it.totalDifferences > 0 }?.let { preview ->
-            val isReportingRefresh = preview.isReportingRefreshOnly()
-            AppConfirmationSheet(
-                title = if (isReportingRefresh) {
-                    "Refresh reporting cache?"
-                } else {
-                    "Sync ${preview.totalDifferences} differences?"
-                },
-                message = if (isReportingRefresh) {
-                    "Refresh reporting cache from Sheet"
-                } else {
-                    preview.recommendedAction
-                },
-                confirmLabel = if (isReportingRefresh) {
-                    "Refresh cache"
-                } else {
-                    "Sync now"
-                },
-                dismissLabel = "Not now",
-                onConfirm = onConfirmSyncNow,
-                onDismiss = onDismissPreview,
-                icon = Icons.Default.Refresh,
-                bulletPoints = preview.actionableEntities()
-                    .filter { it.totalDifferences > 0 }
-                    .map { entity -> entity.previewBullet() }
+            SyncSettingsScrollableContent(
+                state = state,
+                padding = padding,
+                onMasterSourceSelected = onMasterSourceSelected
             )
         }
+
+        SyncConfirmationOverlay(
+            preview = state.syncPreview,
+            onConfirm = onConfirmSyncNow,
+            onDismiss = onDismissPreview
+        )
+    }
+}
+
+@Composable
+private fun SyncSettingsScrollableContent(
+    state: SyncSettingsUiState,
+    padding: PaddingValues,
+    onMasterSourceSelected: (MasterSourceOfTruth) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background)
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        SyncStatusCard(
+            lastSyncTime = state.lastSyncTime,
+            changesCount = state.changesCount,
+            syncStatus = state.lastSyncStatus,
+            pendingPushCount = state.pendingPushCount,
+            pendingDeleteCount = state.pendingDeleteCount,
+            dataDifferenceCount = state.dataDifferenceCount,
+            reportingDifferenceCount = state.reportingDifferenceCount,
+            lastSyncError = state.lastSyncError
+        )
+
+        MasterSourceOfTruthSection(
+            selectedSource = state.selectedSourceOfTruth,
+            onSourceSelected = onMasterSourceSelected
+        )
+
+        state.syncPreview?.takeIf { it.totalDifferences == 0 }?.let { preview ->
+            SyncPreviewCard(preview = preview)
+        }
+
+        state.activeRun?.let { run ->
+            SyncRunProgressCard(run = run)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+private fun SyncSnackbarEffect(
+    errorMessage: String?,
+    successMessage: String?,
+    snackbarHostState: SnackbarHostState,
+    onClearMessages: () -> Unit
+) {
+    LaunchedEffect(errorMessage, successMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onClearMessages()
+        }
+        successMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            onClearMessages()
+        }
+    }
+}
+
+@Composable
+private fun SyncBottomBar(
+    isChecking: Boolean,
+    isSyncing: Boolean,
+    onClick: () -> Unit
+) {
+    Box(modifier = Modifier.padding(16.dp)) {
+        Button(
+            onClick = onClick,
+            enabled = !isChecking && !isSyncing,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(
+                backgroundColor = MaterialTheme.colors.primary,
+                contentColor = Color.White
+            )
+        ) {
+            if (isChecking || isSyncing) {
+                CircularProgressIndicator(
+                    color = Color.White,
+                    modifier = Modifier.size(24.dp),
+                    strokeWidth = 2.dp
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    text = if (isChecking) "Checking differences..." else "Syncing...",
+                    style = MaterialTheme.typography.button
+                )
+            } else {
+                Icon(Icons.Default.Refresh, contentDescription = null)
+                Spacer(Modifier.width(8.dp))
+                Text("Check differences", style = MaterialTheme.typography.button)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SyncConfirmationOverlay(
+    preview: SyncPreviewResponse?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    preview?.takeIf { it.totalDifferences > 0 }?.let { syncPreview ->
+        val isReportingRefresh = syncPreview.isReportingRefreshOnly()
+        AppConfirmationSheet(
+            title = if (isReportingRefresh) {
+                "Refresh reporting cache?"
+            } else {
+                "Sync ${syncPreview.totalDifferences} differences?"
+            },
+            message = if (isReportingRefresh) {
+                "Refresh reporting cache from Sheet"
+            } else {
+                syncPreview.recommendedAction
+            },
+            confirmLabel = if (isReportingRefresh) {
+                "Refresh cache"
+            } else {
+                "Sync now"
+            },
+            dismissLabel = "Not now",
+            onConfirm = onConfirm,
+            onDismiss = onDismiss,
+            icon = Icons.Default.Refresh,
+            bulletPoints = syncPreview.actionableEntities()
+                .filter { it.totalDifferences > 0 }
+                .map { entity -> entity.previewBullet() }
+        )
     }
 }
 

@@ -53,81 +53,45 @@ class HistoryViewModel @Inject constructor(
     private val _uiState = mutableStateOf(HistoryUiState())
     val uiState: HistoryUiState get() = _uiState.value
 
-    init {
-        refreshHistory(isManual = false)
-    }
-
-    fun refreshHistory(isManual: Boolean = true) {
-        if (isManual) {
-            _uiState.value = _uiState.value.copy(isRefreshing = true)
-        }
-        viewModelScope.launch {
-            try {
-                loadHistory()
-            } finally {
-                if (isManual) {
-                    _uiState.value = _uiState.value.copy(isRefreshing = false)
-                }
-            }
-        }
-    }
-
-    suspend fun deleteOrder(
+    fun deleteOrderOptimistic(
         orderId: String,
-        onComplete: suspend () -> Unit,
-        onError: suspend (String) -> Unit = {}
+        onSuccess: () -> Unit = {},
+        onError: (String) -> Unit = {}
     ) {
+        // 1. Instantly hide the item visually for 0ms perceived latency
         _uiState.value = _uiState.value.copy(
-            deleteOrder = _uiState.value.deleteOrder.loading()
+            hiddenOrderIds = _uiState.value.hiddenOrderIds + orderId
         )
 
-        when (val result = deleteOrderUseCase(orderId = orderId)) {
-            is Resource.Success -> {
-                // For Paging 3, we usually refresh the list or use a list of deleted IDs to filter
-                _uiState.value = _uiState.value.copy(
-                    deleteOrder = _uiState.value.deleteOrder.success(result.data),
-                    hiddenOrderIds = _uiState.value.hiddenOrderIds + orderId
-                )
-                onComplete()
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                deleteOrder = _uiState.value.deleteOrder.loading()
+            )
+
+            when (val result = deleteOrderUseCase(orderId = orderId)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        deleteOrder = _uiState.value.deleteOrder.success(result.data)
+                    )
+                    onSuccess()
+                }
+
+                is Resource.Error -> {
+                    // 2. Perform visual rollback: make the item reappear if background deletion fails
+                    _uiState.value = _uiState.value.copy(
+                        deleteOrder = _uiState.value.deleteOrder.error(result.message),
+                        hiddenOrderIds = _uiState.value.hiddenOrderIds - orderId
+                    )
+                    onError(result.message)
+                }
+
+                else -> {
+                    // Rollback for safety in empty or other unexpected states
+                    _uiState.value = _uiState.value.copy(
+                        hiddenOrderIds = _uiState.value.hiddenOrderIds - orderId
+                    )
+                }
             }
-
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    deleteOrder = _uiState.value.deleteOrder.error(result.message)
-                )
-                onError(result.message)
-            }
-
-            else -> Unit
-        }
-    }
-
-    private suspend fun loadHistory() {
-        _uiState.value = _uiState.value.copy(history = SectionState(isLoading = true))
-
-        when (val result = readIncomeUseCase(filter = FILTER.SHOW_ALL_DATA)) {
-            is Resource.Success -> {
-                val mapped = result.data.toUiItems()
-                val loadedIds = result.data.map { it.orderID }.toSet()
-                _uiState.value = _uiState.value.copy(
-                    history = SectionState(data = mapped),
-                    hiddenOrderIds = _uiState.value.hiddenOrderIds - loadedIds
-                )
-            }
-
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    history = SectionState(errorMessage = result.message)
-                )
-            }
-
-            is Resource.Empty -> {
-                _uiState.value = _uiState.value.copy(
-                    history = SectionState(errorMessage = "Data Kosong")
-                )
-            }
-
-            else -> Unit
         }
     }
 }

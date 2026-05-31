@@ -11,6 +11,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
+import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.shared.util.Resource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -157,6 +158,89 @@ class HomeViewModelTest {
         val grossSummary = viewModel.uiState.value.summary.data?.single { it.title == "Gross Income" }
         assertEquals("Rp 3.343.000", grossSummary?.body)
         assertEquals("115 order", grossSummary?.footer)
+    }
+
+    @Test
+    fun `verify dummyHomeUiState variables are initialized`() {
+        assertNotNull(com.raylabs.laundryhub.ui.common.dummy.home.dummyState)
+        assertNotNull(com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_EMY)
+        assertNotNull(com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_GABRIEL)
+        assertNotNull(com.raylabs.laundryhub.ui.common.dummy.home.DUMMY_UNPAID_ORDER_ITEM_ARIFIN)
+    }
+
+    @Test
+    fun `toggleSearch updates search active state`() = runTest {
+        val viewModel = createViewModel()
+        assertEquals(false, viewModel.uiState.value.isSearchActive)
+        
+        viewModel.toggleSearch()
+        assertEquals(true, viewModel.uiState.value.isSearchActive)
+        
+        viewModel.toggleSearch()
+        assertEquals(false, viewModel.uiState.value.isSearchActive)
+    }
+
+    @Test
+    fun `changeSortOrder updates state`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.changeSortOrder(SortOption.DUE_DATE_ASC)
+        assertEquals(SortOption.DUE_DATE_ASC, viewModel.uiState.value.currentSortOption)
+    }
+
+    @Test
+    fun `refresh methods do not crash`() = runTest {
+        val viewModel = createViewModel()
+        viewModel.refreshAfterOrderChanged()
+        viewModel.refreshAfterOrderChangedSilent()
+        viewModel.refreshAfterOutcomeChanged()
+        dispatcher.scheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `optimistic order operations update state`() = runTest {
+        val viewModel = createViewModel()
+        val dummyOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+            orderID = "fake-1",
+            customerName = "Test customer",
+            packageType = "Regular",
+            nowStatus = "Unpaid",
+            dueDate = "",
+            orderDate = ""
+        )
+        
+        viewModel.addOptimisticOrder(dummyOrder)
+        assertEquals(1, viewModel.uiState.value.optimisticOrders.size)
+        assertEquals("fake-1", viewModel.uiState.value.optimisticOrders.first().orderID)
+        
+        viewModel.updateOptimisticOrderStatus("fake-1", com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, "real-1")
+        assertEquals("real-1", viewModel.uiState.value.optimisticOrders.first().orderID)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, viewModel.uiState.value.optimisticOrders.first().syncStatus)
+        
+        viewModel.removeOptimisticOrder("real-1")
+        assertEquals(0, viewModel.uiState.value.optimisticOrders.size)
+    }
+
+    @Test
+    fun `optimistic update operations update state`() = runTest {
+        val viewModel = createViewModel()
+        val dummyOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+            orderID = "1",
+            customerName = "Test customer",
+            packageType = "Regular",
+            nowStatus = "Unpaid",
+            dueDate = "",
+            orderDate = ""
+        )
+        
+        viewModel.addOptimisticUpdate("1", dummyOrder)
+        assertEquals(1, viewModel.uiState.value.optimisticUpdates.size)
+        
+        viewModel.removeOptimisticUpdate("1")
+        assertEquals(0, viewModel.uiState.value.optimisticUpdates.size)
+        
+        viewModel.addOptimisticUpdate("2", dummyOrder)
+        viewModel.clearOptimisticUpdates()
+        assertEquals(0, viewModel.uiState.value.optimisticUpdates.size)
     }
 
     private fun createViewModel(): HomeViewModel {

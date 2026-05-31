@@ -146,7 +146,7 @@ tasks.withType(Test).configureEach {
 }
 
 tasks.register("jacocoTestReport", JacocoReport) {
-    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac", ":shared:jacocoTestReport"
+    dependsOn "testDebugUnitTest", "compileDebugKotlin", "compileDebugJavaWithJavac"
 
     reports {
         xml.required = true
@@ -169,21 +169,17 @@ tasks.register("jacocoTestReport", JacocoReport) {
     ]
 
     def b = layout.buildDirectory.get().asFile
-    def sharedB = project(':shared').layout.buildDirectory.get().asFile
 
     classDirectories.from(files([
-            fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes),
-            fileTree(dir: new File(sharedB, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes)
+            fileTree(dir: new File(b, 'tmp/kotlin-classes/debug'), include: includes, exclude: excludes)
     ]))
 
     sourceDirectories.from(files([
-            "${project.projectDir}/src/main/java",
-            "${project(':shared').projectDir}/src/commonMain/kotlin"
+            "${project.projectDir}/src/main/java"
     ]))
 
     executionData.from(files([
-            fileTree(dir: new File(b, 'jacoco'), include: ['testDebugUnitTest.exec']),
-            fileTree(dir: new File(sharedB, 'jacoco'), include: ['*.exec'])
+            fileTree(dir: new File(b, 'jacoco'), include: ['testDebugUnitTest.exec'])
     ]))
 }
 

@@ -374,8 +374,9 @@ fun HomeScreenContent(
                 count = pagingItems.itemCount,
                 key = { index -> pagingItems.peek(index)?.orderID ?: "paging_$index" }
             ) { index ->
-                val item = pagingItems[index]
-                if (item != null) {
+                val pagingItem = pagingItems[index]
+                if (pagingItem != null) {
+                    val item = state.optimisticUpdates[pagingItem.orderID] ?: pagingItem
                     val globalIndex = filteredOptimistic.size + index
                     Box(Modifier.padding(start = if (globalIndex % 2 == 0) 16.dp else 0.dp, end = if (globalIndex % 2 == 0) 0.dp else 16.dp, bottom = 12.dp)) {
                         OrderStatusCard(

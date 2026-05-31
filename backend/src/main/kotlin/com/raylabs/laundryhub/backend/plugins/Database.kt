@@ -14,11 +14,16 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.jetbrains.exposed.sql.Database
 import org.jetbrains.exposed.sql.SchemaUtils
+import org.jetbrains.exposed.sql.StdOutSqlLogger
+import org.jetbrains.exposed.sql.addLogger
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.transactions.experimental.newSuspendedTransaction
 import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("Database")
+
+private const val JDBC_POSTGRESQL_PREFIX = "jdbc:postgresql:"
+private const val POSTGRESQL_DRIVER_CLASS = "org.postgresql.Driver"
 
 fun Application.configureDatabase() {
     if (System.getProperty("isTest") == "true") return
@@ -36,20 +41,13 @@ fun Application.configureDatabase() {
         ?.takeIf { it.isNotBlank() }
         ?: environment.config.propertyOrNull("storage.password")?.getString()
         ?: error("DATABASE_PASSWORD or storage.password must be configured")
-    val driverClassName = environment.config.propertyOrNull("storage.driverClassName")
-        ?.getString()
-        ?: "org.postgresql.Driver"
-
-    val config = HikariConfig().apply {
-        this.jdbcUrl = jdbcUrl
-        this.driverClassName = driverClassName
-        this.username = user
-        this.password = password
-        maximumPoolSize = 3
-        isAutoCommit = false
-        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-        validate()
-    }
+    
+    val driverClassName = selectDriverClassName(
+        jdbcUrl,
+        environment.config.propertyOrNull("storage.driverClassName")?.getString()
+    )
+    val finalJdbcUrl = formatPostgresUrl(jdbcUrl)
+    val config = prepareHikariConfig(finalJdbcUrl, user, password, driverClassName)
 
     try {
         val dataSource = HikariDataSource(config)
@@ -77,19 +75,66 @@ fun Application.configureDatabase() {
     }
 }
 
+internal fun selectDriverClassName(jdbcUrl: String, configuredDriver: String?): String {
+    return when {
+        jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true) -> POSTGRESQL_DRIVER_CLASS
+        jdbcUrl.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
+        else -> configuredDriver ?: POSTGRESQL_DRIVER_CLASS
+    }
+}
+
+internal fun formatPostgresUrl(jdbcUrl: String): String {
+    var finalUrl = jdbcUrl
+    if (finalUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) {
+        if (!finalUrl.contains("prepareThreshold=")) {
+            finalUrl += if (finalUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
+        }
+        if (!finalUrl.contains("connectTimeout=")) {
+            finalUrl += "&connectTimeout=10"
+        }
+        if (!finalUrl.contains("socketTimeout=")) {
+            finalUrl += "&socketTimeout=10"
+        }
+    }
+    return finalUrl
+}
+
+internal fun prepareHikariConfig(
+    jdbcUrl: String,
+    user: String,
+    pass: String,
+    driverClassName: String
+): HikariConfig {
+    return HikariConfig().apply {
+        this.jdbcUrl = jdbcUrl
+        this.driverClassName = driverClassName
+        this.username = user
+        this.password = pass
+        maximumPoolSize = 3
+        isAutoCommit = false
+        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        if (driverClassName == POSTGRESQL_DRIVER_CLASS) {
+            addDataSourceProperty("prepareThreshold", "0")
+            addDataSourceProperty("connectTimeout", "10")
+            addDataSourceProperty("socketTimeout", "10")
+        }
+        validate()
+    }
+}
+
 private fun ensureDeviceTokenColumnCapacity(jdbcUrl: String) {
-    if (!jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) return
+    if (!jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) return
 
     TransactionManager.current().exec(
         "ALTER TABLE device_tokens ALTER COLUMN token TYPE VARCHAR(512)"
     )
 }
 
-private fun buildJdbcUrlFromEnv(): String? {
-    val host = System.getenv("DATABASE_HOST")?.takeIf { it.isNotBlank() } ?: return null
-    val port = System.getenv("DATABASE_PORT")?.takeIf { it.isNotBlank() } ?: "5432"
-    val database = System.getenv("DATABASE_NAME")?.takeIf { it.isNotBlank() } ?: "postgres"
-    val sslMode = System.getenv("DATABASE_SSL_MODE")?.takeIf { it.isNotBlank() } ?: "require"
+private fun buildJdbcUrlFromEnv(env: Map<String, String> = System.getenv()): String? {
+    val host = env["DATABASE_HOST"]?.takeIf { it.isNotBlank() } ?: return null
+    val port = env["DATABASE_PORT"]?.takeIf { it.isNotBlank() } ?: "5432"
+    val database = env["DATABASE_NAME"]?.takeIf { it.isNotBlank() } ?: "postgres"
+    val sslMode = env["DATABASE_SSL_MODE"]?.takeIf { it.isNotBlank() } ?: "require"
     val sslParams = if (sslMode.equals("disable", ignoreCase = true)) {
         "ssl=false"
     } else {
@@ -98,5 +143,11 @@ private fun buildJdbcUrlFromEnv(): String? {
     return "jdbc:postgresql://$host:$port/$database?$sslParams"
 }
 
+
 suspend fun <T> dbQuery(block: suspend () -> T): T =
-    newSuspendedTransaction(Dispatchers.IO) { block() }
+    newSuspendedTransaction(Dispatchers.IO) {
+        if (System.getenv("ENABLE_SQL_LOGGING") == "true") {
+            addLogger(StdOutSqlLogger)
+        }
+        block()
+    }

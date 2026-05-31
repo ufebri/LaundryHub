@@ -10,8 +10,10 @@ import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import com.raylabs.laundryhub.R
 
 @Composable
 fun CardItem() {
@@ -22,11 +24,11 @@ fun CardItem() {
     ) {
         Column(modifier = Modifier.padding(8.dp)) {
             Row {
-                Text(text = "Order Date", style = MaterialTheme.typography.subtitle1)
-                Text(text = "Order Date")
+                Text(text = stringResource(R.string.order_date), style = MaterialTheme.typography.subtitle1)
+                Text(text = stringResource(R.string.order_date))
             }
-            Text(text = "Order Date", style = MaterialTheme.typography.subtitle1)
-            Text(text = "Order Date")
+            Text(text = stringResource(R.string.order_date), style = MaterialTheme.typography.subtitle1)
+            Text(text = stringResource(R.string.order_date))
         }
     }
 }
