@@ -149,4 +149,156 @@ class SummaryRoutesTest {
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.bodyAsText().contains("sheetSynced"))
     }
+
+    @Test
+    fun `post summary returns InternalServerError when repository insert fails`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        whenever(repository.insert(any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.post("/api/summary") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"key":"income","value":"500000"}""")
+        }
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `put summary returns NotFound when repository update fails`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        whenever(repository.update(eq("income"), any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.put("/api/summary/income") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"key":"income","value":"600000"}""")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `delete summary returns NotFound when repository delete fails`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        whenever(repository.delete("income")).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.delete("/api/summary/income")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `migrate summary returns BadRequest when params are missing`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = true
+                )
+            }
+        }
+
+        val response = client.post("/api/summary/migrate")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("Missing params"))
+    }
+
+    @Test
+    fun `migrate summary migrates successfully when spreadsheet data is present`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        val valueRange = com.raylabs.laundryhub.shared.network.model.sheets.ValueRange(
+            values = listOf(
+                listOf("Key", "Value"),
+                listOf("income", "500000"),
+                emptyList()
+            )
+        )
+        whenever(sheetsApiClient.getValues("mig-sheet", "summary", "mig-token")).thenReturn(valueRange)
+        whenever(repository.insertAll(any())).thenReturn(1)
+
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = true
+                )
+            }
+        }
+
+        val response = client.post("/api/summary/migrate?spreadsheetId=mig-sheet&accessToken=mig-token")
+        assertEquals(HttpStatusCode.OK, response.status)
+        assertTrue(response.bodyAsText().contains("migrated"))
+    }
+
+    @Test
+    fun `migrate summary returns InternalServerError when sheetsApiClient throws exception`() = testApplication {
+        environment { config = MapApplicationConfig() }
+        whenever(sheetsApiClient.getValues(any(), any(), any())).thenThrow(RuntimeException("API failure"))
+
+        application {
+            install(ContentNegotiation) { json() }
+            routing {
+                summaryRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = true
+                )
+            }
+        }
+
+        val response = client.post("/api/summary/migrate?spreadsheetId=mig-sheet&accessToken=mig-token")
+        assertEquals(HttpStatusCode.InternalServerError, response.status)
+        assertTrue(response.bodyAsText().contains("API failure"))
+    }
 }

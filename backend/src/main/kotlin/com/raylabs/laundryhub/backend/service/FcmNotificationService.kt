@@ -10,7 +10,7 @@ import com.google.firebase.messaging.Notification
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 
-class FcmNotificationService {
+class FcmNotificationService(private val env: Map<String, String> = System.getenv()) {
 
     private val logger = LoggerFactory.getLogger(FcmNotificationService::class.java)
     private var isInitialized = false
@@ -26,7 +26,7 @@ class FcmNotificationService {
         }
 
         try {
-            val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+            val rawJson = env["GOOGLE_SERVICE_ACCOUNT_JSON"]
             if (rawJson.isNullOrBlank()) {
                 logger.warn("GOOGLE_SERVICE_ACCOUNT_JSON not found. FCM Push Notifications will be disabled.")
                 return

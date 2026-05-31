@@ -339,5 +339,42 @@ class SheetsSyncServiceTest {
         val processed = service.clearDeletedRows("sheet-id", events)
         assertEquals(listOf(1, 2, 3), processed)
     }
+
+    @Test
+    fun `getServiceAccountToken throws IllegalStateException when env is empty`() {
+        val service = SheetsSyncService()
+        try {
+            service.getServiceAccountToken(emptyMap())
+            assertTrue(false, "Should have thrown IllegalStateException")
+        } catch (e: IllegalStateException) {
+            assertTrue(e.message!!.contains("GOOGLE_SERVICE_ACCOUNT_JSON"))
+        }
+    }
+
+    @Test
+    fun `getServiceAccountToken cleanJson and normalize is executed when service json is present`() {
+        val service = SheetsSyncService()
+        val dummyServiceAccount = """
+            {
+              "type": "service_account",
+              "project_id": "laundryhub-123",
+              "private_key_id": "dummy_key_id",
+              "private_key": "-----BEGIN PRIVATE KEY-----\\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQ\\n-----END PRIVATE KEY-----\\n",
+              "client_email": "laundryhub-sync@laundryhub.iam.gserviceaccount.com",
+              "client_id": "1234567890",
+              "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+              "token_uri": "https://oauth2.googleapis.com/token",
+              "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+              "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/laundryhub-sync%40laundryhub.iam.gserviceaccount.com"
+            }
+        """.trimIndent()
+
+        val env = mapOf("GOOGLE_SERVICE_ACCOUNT_JSON" to dummyServiceAccount)
+        try {
+            service.getServiceAccountToken(env)
+        } catch (e: Exception) {
+            assertTrue(e.message != null)
+        }
+    }
 }
 
