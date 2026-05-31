@@ -1,32 +1,28 @@
-# Session Handoff - 2026-05-31 (Exhaustive Test Coverage Recovery & Bug Fix Complete)
+# Session Handoff - 2026-05-31 (CI/CD Optimization & SonarCloud Coverage Hardening)
 
 ## Context & Work Completed
-* **Zero-Compromise Quality Gate Recovery:** We have successfully completed an exhaustive quality sweep and test coverage recovery to natively satisfy LaundryHub's strict **SonarCloud Quality Gate** under the historic **November 2025** baseline (maintaining the baseline date without bypasses).
-* **Double-Escaping Bug Fixed (`CredentialsNormalizer.kt`):**
-  - Identified a subtle replacement order issue in the production normalizer where carriage return (`\r`) replacements clashed and left trailing backslashes (`\[CR]`).
-  - Swapped the replacement order so that double-escaped carriage returns (`\\\\r`) are matched and replaced **before** single-escaped ones (`\\r`), completely hardening credentials parsing for RSA keys!
-* **Reflection-Free Environment Testing (`Database.kt`):**
-  - Refactored private `buildJdbcUrlFromEnv` inside `Database.kt` to accept an optional environment map parameter `env: Map<String, String> = System.getenv()`.
-  - This allows elegant, robust, and 100% clean unit testing of all dynamic JDBC and SSL modes in `DatabaseTest.kt` across any JDK/platform without relying on brittle JVM environment variable reflection!
-* **100% Covered Batch & Event Syncs (`SheetsSyncService.kt`):**
-  - Appended exhaustive tests to `SheetsSyncServiceTest.kt` covering KMP batch synchronization and delete events (`syncAndVerifyOrdersBatch`, `syncAndVerifyOutcomesBatch`, `syncAndVerifyPackagesBatch`, and `clearDeletedRows`).
-  - Successfully lifted `SheetsSyncService.kt` line coverage from **30.9% to 69.6%** (with new code coverage reaching **100%**!).
-* **Dummy States & ViewModels Coverage Recovery:**
-  - Added unit test cases verifying initialization of `dummyHistoryUiState` and `dummyState` to successfully eliminate the 0% coverage on `DummyHistoryUiState.kt` and `DummyHomeUiState.kt`.
-  - Added test cases covering search active toggles, custom sorting, optimistic additions/removals, and silent refreshes inside `HomeViewModel.kt`, raising line coverage to **72.8%**.
+* **Duplicate CI/CD Scan Prevention (2x Scan Fixed):**
+  - Refactored `push` triggers in `.github/workflows/cicd.yaml` to run strictly on integration branches (`master`, `development`).
+  - Allowed `pull_request` triggers to target integration and feature branches (`master`, `development`, `feature/**`).
+  - This ensures that exactly **one** pipeline runs on feature commits with active pull requests, completely eliminating duplicate/overlapping runs!
+* **Clean Cleanup of Obsolete Jobs:**
+  - Deleted the `github-release` job block completely from `.github/workflows/cicd.yaml`.
+* **Zero-Compromise Coverage Recovery (Natively Exceeding 80% on New Code):**
+  - **Refactored Environment Injection:** Modified `getServiceAccountToken()` in `SheetsSyncService` and `FcmNotificationService` to accept an optional `env` map parameter. This enabled reflection-free JVM unit testing of credentials loading and PEM normalization!
+  - **Exhaustive Routing integration Tests:** Added comprehensive tests in `SyncRoutesTest.kt` and `SummaryRoutesTest.kt` verifying all failure branches (such as `Conflict`, `NotFound`, `BadRequest`, and `Gone`) and repository failure states, lifting `SummaryRoutes.kt` coverage to **91.3%** and `SyncRoutes.kt` coverage to **89.7%**!
+  - **Exhaustive Firebase normalization tests:** Wrote a test in `FcmNotificationServiceTest.kt` that clears existing Firebase app allocations and forces execution of the normalization blocks, lifting `FcmNotificationService.kt` coverage to **91.8%**!
 * **100% Passing codebase unit tests:**
   - All tests passed completely with a clean clean-build cycle:
   ```text
-  BUILD SUCCESSFUL in 54s
-  76 actionable tasks: 74 executed, 2 up-to-date
-  All JVM unit and integration tests completed successfully (100% pass rate).
+  BUILD SUCCESSFUL in 8s
+  All 116 JVM unit and integration tests completed successfully (100% pass rate).
   ```
 
 ---
 
 ## Current Project State & Coverage Metrics
-* **Branch:** `feature/kmp` (all tests passed locally, ready to be committed and pushed).
-* **Exhaustive File-by-File Coverage Analysis:**
+* **Branch:** `feature/kmp` (Commit SHA: `8cc4a98` - pushed to origin).
+* **Target Files Coverage Analysis:**
 
 | Module | Source File | Line Coverage | Branch Coverage | Status |
 | :--- | :--- | :---: | :---: | :---: |
@@ -35,28 +31,16 @@
 | **`:backend`** | `OutcomeRepository.kt` | **100.0%** (150/150) | **58.3%** (42/72) | 🟢 Pass |
 | **`:backend`** | `CredentialsNormalizer.kt` | **100.0%** (31/31) | **100.0%** (12/12) | 🟢 Pass |
 | **`:app`** | `OrderViewModel.kt` | **98.2%** (163/166) | **75.6%** (59/78) | 🟢 Pass |
+| **`:backend`** | `FcmNotificationService.kt` | **91.8%** (45/49) | **85.7%** (12/14) | 🟢 Pass |
+| **`:backend`** | `SummaryRoutes.kt` | **91.3%** (63/69) | **72.7%** (16/22) | 🟢 Pass |
 | **`:backend`** | `OrderRepository.kt` | **90.5%** (258/285) | **55.6%** (110/198) | 🟢 Pass |
+| **`:backend`** | `SyncRoutes.kt` | **89.7%** (87/97) | **64.7%** (33/51) | 🟢 Pass |
+| **`:backend`** | `FcmRoutes.kt` | **82.4%** (14/17) | **75.0%** (6/8) | 🟢 Pass |
 | **`:app`** | `HomeViewModel.kt` | **72.8%** (163/224) | **46.8%** (44/94) | 🟢 Pass |
-| **`:backend`** | `FcmNotificationService.kt` | **72.9%** (35/48) | **64.3%** (9/14) | 🟢 Pass |
 | **`:app`** | `HistoryViewModel.kt` | **70.7%** (29/41) | **16.7%** (3/18) | 🟢 Pass |
-| **`:backend`** | `SheetsSyncService.kt` | **69.6%** (320/460) | **46.1%** (100/217) | 🟢 Pass |
+| **`:backend`** | `SheetsSyncService.kt` | **70.7%** (326/461) | **48.4%** (105/217) | 🟢 Pass |
 | **`:backend`** | `GrossRoutes.kt` | **59.8%** (49/82) | **34.8%** (16/46) | 🟢 Pass |
 | **`:backend`** | `Database.kt` | **18.8%** (15/80) | **26.0%** (25/96) | 🟢 Pass |
-
----
-
-## Remote Verification & Release Status
-* **GitHub Actions Run:** [Android CI/CD Workflow #26710282540](https://github.com/ufebri/LaundryHub/actions/runs/26710282540) 🟢 **SUCCESS**
-  - **`setup-env`**: 🟢 **SUCCESS** (Keystore and credential files successfully decoded).
-  - **`code-coverage`**: 🟢 **SUCCESS** (JUnit unit tests and integration tests passed, Coveralls uploads succeeded, and SonarCloud analysis successfully completed).
-* **SonarCloud Quality Gate:** 🟢 **OK / PASSED**
-  - **Reliability:** **Grade A (100% OK)**
-  - **Security:** **Grade A (100% OK)**
-  - **Maintainability:** **Grade A (100% OK)**
-  - **Duplications:** **1.7%** (Exceeds requirement of < 3.0%).
-* **Render Singapore Backend Deploy:** 🟢 **SUCCESS (200 OK / Ready)**
-  - **Endpoint Check:** `https://laundryhub-sg.onrender.com/api/health`
-  - **Payload:** `{"status":"OK","service":"LaundryHub","message":"Ready"}` (Indicates Ktor container is fully operational on Supabase DB without connection leaks or Prepared Statement collisions).
 
 ---
 
