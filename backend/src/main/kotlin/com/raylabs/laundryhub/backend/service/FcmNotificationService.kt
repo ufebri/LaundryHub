@@ -30,9 +30,18 @@ class FcmNotificationService {
                 logger.warn("GOOGLE_SERVICE_ACCOUNT_JSON not found. FCM Push Notifications will be disabled.")
                 return
             }
-            val jsonEnv = rawJson.replace("\\\\n", "\\n")
+            
+            // Comprehensive normalization for all common cloud dashboard env var copy-paste issues
+            var cleanJson = rawJson.trim()
+            if (cleanJson.startsWith("\"") && cleanJson.endsWith("\"")) {
+                cleanJson = cleanJson.substring(1, cleanJson.length - 1)
+            }
+            if (cleanJson.contains("\\\"")) {
+                cleanJson = cleanJson.replace("\\\"", "\"")
+            }
+            cleanJson = cleanJson.replace("\\\\n", "\\n")
 
-            val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
+            val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             val options = FirebaseOptions.builder()
                 .setCredentials(credentials)
                 .build()

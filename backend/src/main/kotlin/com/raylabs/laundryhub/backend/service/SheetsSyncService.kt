@@ -34,9 +34,18 @@ class SheetsSyncService {
         if (rawJson.isNullOrBlank()) {
             throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
         }
-        val jsonEnv = rawJson.replace("\\\\n", "\\n")
         
-        val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
+        // Comprehensive normalization for all common cloud dashboard env var copy-paste issues
+        var cleanJson = rawJson.trim()
+        if (cleanJson.startsWith("\"") && cleanJson.endsWith("\"")) {
+            cleanJson = cleanJson.substring(1, cleanJson.length - 1)
+        }
+        if (cleanJson.contains("\\\"")) {
+            cleanJson = cleanJson.replace("\\\"", "\"")
+        }
+        cleanJson = cleanJson.replace("\\\\n", "\\n")
+        
+        val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             .createScoped(listOf("https://www.googleapis.com/auth/spreadsheets"))
         
         credentials.refreshIfExpired()
