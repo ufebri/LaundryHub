@@ -44,14 +44,32 @@ fun Application.configureDatabase() {
         else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: "org.postgresql.Driver"
     }
 
+    var finalJdbcUrl = jdbcUrl
+    if (finalJdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) {
+        if (!finalJdbcUrl.contains("prepareThreshold=")) {
+            finalJdbcUrl += if (finalJdbcUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
+        }
+        if (!finalJdbcUrl.contains("connectTimeout=")) {
+            finalJdbcUrl += "&connectTimeout=10"
+        }
+        if (!finalJdbcUrl.contains("socketTimeout=")) {
+            finalJdbcUrl += "&socketTimeout=10"
+        }
+    }
+
     val config = HikariConfig().apply {
-        this.jdbcUrl = jdbcUrl
+        this.jdbcUrl = finalJdbcUrl
         this.driverClassName = driverClassName
         this.username = user
         this.password = password
         maximumPoolSize = 3
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        if (driverClassName == "org.postgresql.Driver") {
+            addDataSourceProperty("prepareThreshold", "0")
+            addDataSourceProperty("connectTimeout", "10")
+            addDataSourceProperty("socketTimeout", "10")
+        }
         validate()
     }
 
@@ -104,6 +122,8 @@ private fun buildJdbcUrlFromEnv(): String? {
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
     newSuspendedTransaction(Dispatchers.IO) {
-        addLogger(StdOutSqlLogger)
+        if (System.getenv("ENABLE_SQL_LOGGING") == "true") {
+            addLogger(StdOutSqlLogger)
+        }
         block()
     }

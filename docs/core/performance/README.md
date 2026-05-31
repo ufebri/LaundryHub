@@ -114,6 +114,19 @@ Pengujian E2E Macrobenchmark berhasil dijalankan secara mandiri pada perangkat S
 | **Add Order Flow** | `open_add_order_ms=1872`<br>`submit_to_success_ms=3075`<br>`success_to_pending_ms=2063`<br>`total_flow_ms=12119` | `open_add_order_ms=1215`<br>`submit_to_success_ms=2907`<br>`success_to_pending_ms=1913`<br>`total_flow_ms=10943` | **~35% lebih cepat** membuka form.<br>Background network sync terpangkas.<br>Total flow lebih snappy (**~10% drop**). |
 | **Delete Order Flow** | `open_history_ms=1900`<br>`delete_to_success_ms=2512`<br>`total_flow_ms=5984` | `open_history_ms=1840`<br>`delete_to_success_ms=2309`<br>`total_flow_ms=5749` | **~38% lebih cepat** membuka History dibanding baseline awal (2987ms).<br>Background delete RTT terpangkas.<br>Total flow **~16% lebih cepat**. |
 
+### 5. Hasil Pengukuran Pasca Migrasi Singapura (31 Mei 2026 - Live)
+
+Setelah backend (Render) dan database (Supabase) berhasil dimigrasikan sepenuhnya ke region **Singapura (ap-southeast-1)**, pengujian makrobenchmark penuh dijalankan ulang pada perangkat fisik Samsung SM-S931B yang sama.
+
+Hasil pengukuran membuktikan pemangkasan latensi jaringan E2E yang sangat drastis:
+
+| Flow | Metrik Baseline (Lokal/Ohio) | Hasil Pasca Migrasi Singapura (Live) | Perubahan Kecepatan / Dampak |
+| :--- | :--- | :--- | :--- |
+| **Add Order Flow** | `open_add_order_ms=1215`<br>`submit_to_success_ms=2907`<br>`success_to_pending_ms=1913`<br>`total_flow_ms=10943` | `open_add_order_ms=1403`<br>`submit_to_success_ms=1751`<br>`success_to_pending_ms=1806`<br>`total_flow_ms=10000` | **~40% lebih cepat** pada proses network submit (Rincian: dari 2.9 detik menjadi **1.7 detik**). RTT terpangkas drastis.<br>Total flow drop **~10%** menjadi genap **10.0 detik**. |
+| **Delete Order Flow** | `open_history_ms=1840`<br>`delete_to_success_ms=2309`<br>`total_flow_ms=5749` | `open_history_ms=1011`<br>`delete_to_success_ms=737`<br>`total_flow_ms=3330` | **~45% lebih cepat** membuka halaman History (hanya 1.0 detik).<br>Proses delete di latar belakang terpangkas **~68%** menjadi hanya **737 ms** (dari sebelumnya 2.3 detik!).<br>Total flow **~42% lebih cepat** secara keseluruhan. |
+
+---
+
 ---
 
 ## Verification

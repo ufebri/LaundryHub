@@ -143,6 +143,7 @@ class OutcomeRepository {
     suspend fun getAll(page: Int = 1, size: Int = 50): List<OutcomeData> = dbQuery {
         val offset = ((page - 1) * size).coerceAtLeast(0)
         OutcomesTable.selectAll()
+            .orderBy(OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC)
             .limit(size, offset.toLong())
             .map { it.toOutcomeData() }
             .sortedWith(outcomeDateComparator())

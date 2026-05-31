@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.service
 import com.google.auth.oauth2.GoogleCredentials
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
 import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.util.CredentialsNormalizer
 import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -30,12 +31,14 @@ class SheetsSyncService {
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
 
     private fun getServiceAccountToken(): String {
-        val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-        if (jsonEnv.isNullOrBlank()) {
+        val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if (rawJson.isNullOrBlank()) {
             throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
         }
         
-        val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
+        val cleanJson = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(rawJson)
+        
+        val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             .createScoped(listOf("https://www.googleapis.com/auth/spreadsheets"))
         
         credentials.refreshIfExpired()

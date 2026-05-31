@@ -58,9 +58,7 @@ internal fun String.normalizedSyncNumberText(): String {
 }
 
 internal fun String.normalizedSyncPhoneText(): String {
-    val trimmed = trim()
-    val digits = trimmed.filter { it.isDigit() }
-    return digits.ifBlank { trimmed.lowercase() }
+    return this.normalizedSyncNumberText()
 }
 
 internal fun String.normalizedSyncStatusText(): String {

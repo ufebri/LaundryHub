@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.service
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.raylabs.laundryhub.backend.util.CredentialsNormalizer
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.Notification
@@ -25,13 +26,15 @@ class FcmNotificationService {
         }
 
         try {
-            val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-            if (jsonEnv.isNullOrBlank()) {
+            val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+            if (rawJson.isNullOrBlank()) {
                 logger.warn("GOOGLE_SERVICE_ACCOUNT_JSON not found. FCM Push Notifications will be disabled.")
                 return
             }
+            
+            val cleanJson = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(rawJson)
 
-            val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
+            val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             val options = FirebaseOptions.builder()
                 .setCredentials(credentials)
                 .build()
