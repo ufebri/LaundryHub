@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.service
 import com.google.auth.oauth2.GoogleCredentials
 import com.google.firebase.FirebaseApp
 import com.google.firebase.FirebaseOptions
+import com.raylabs.laundryhub.backend.util.CredentialsNormalizer
 import com.google.firebase.messaging.FirebaseMessaging
 import com.google.firebase.messaging.Message
 import com.google.firebase.messaging.Notification
@@ -31,15 +32,7 @@ class FcmNotificationService {
                 return
             }
             
-            // Comprehensive normalization for all common cloud dashboard env var copy-paste issues
-            var cleanJson = rawJson.trim()
-            if (cleanJson.startsWith("\"") && cleanJson.endsWith("\"")) {
-                cleanJson = cleanJson.substring(1, cleanJson.length - 1)
-            }
-            if (cleanJson.contains("\\\"")) {
-                cleanJson = cleanJson.replace("\\\"", "\"")
-            }
-            cleanJson = cleanJson.replace("\\\\n", "\\n")
+            val cleanJson = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(rawJson)
 
             val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             val options = FirebaseOptions.builder()

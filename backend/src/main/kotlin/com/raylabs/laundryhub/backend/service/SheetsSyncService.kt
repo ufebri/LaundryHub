@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.service
 import com.google.auth.oauth2.GoogleCredentials
 import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
 import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.backend.util.CredentialsNormalizer
 import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
@@ -35,15 +36,7 @@ class SheetsSyncService {
             throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
         }
         
-        // Comprehensive normalization for all common cloud dashboard env var copy-paste issues
-        var cleanJson = rawJson.trim()
-        if (cleanJson.startsWith("\"") && cleanJson.endsWith("\"")) {
-            cleanJson = cleanJson.substring(1, cleanJson.length - 1)
-        }
-        if (cleanJson.contains("\\\"")) {
-            cleanJson = cleanJson.replace("\\\"", "\"")
-        }
-        cleanJson = cleanJson.replace("\\\\n", "\\n")
+        val cleanJson = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(rawJson)
         
         val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(cleanJson.toByteArray()))
             .createScoped(listOf("https://www.googleapis.com/auth/spreadsheets"))
