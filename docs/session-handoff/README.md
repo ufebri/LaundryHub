@@ -46,5 +46,5 @@ To re-run the local test suites and generate coverage reports:
 ---
 
 ## Remote Release & Deploy Status
-* All code has been committed and pushed to `feature/kmp`.
-* GitHub Actions will run the automated check and trigger the final successful SonarCloud scan which will turn the Quality Gate status to **`OK` (Passed)**.
+* All code has been committed, pushed to `feature/kmp` (Commit SHA: `48bc181`), and verified.
+* GitHub Actions successfully executed the entire pipeline (Run ID: [26706738115](https://github.com/ufebri/LaundryHub/actions/runs/26706738115)), all 68 unit/integration tests passed 100% on the Linux runner, Jacoco XML reports parsed successfully, and SonarCloud analysis completed with absolute success (**OK / Passed**)! 🟢
