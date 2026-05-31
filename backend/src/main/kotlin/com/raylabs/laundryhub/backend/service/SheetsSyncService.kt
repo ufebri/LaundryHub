@@ -30,10 +30,11 @@ class SheetsSyncService {
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
 
     private fun getServiceAccountToken(): String {
-        val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-        if (jsonEnv.isNullOrBlank()) {
+        val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+        if (rawJson.isNullOrBlank()) {
             throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
         }
+        val jsonEnv = rawJson.replace("\\\\n", "\\n")
         
         val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
             .createScoped(listOf("https://www.googleapis.com/auth/spreadsheets"))

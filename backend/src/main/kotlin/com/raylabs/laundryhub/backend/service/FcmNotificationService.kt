@@ -25,11 +25,12 @@ class FcmNotificationService {
         }
 
         try {
-            val jsonEnv = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
-            if (jsonEnv.isNullOrBlank()) {
+            val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
+            if (rawJson.isNullOrBlank()) {
                 logger.warn("GOOGLE_SERVICE_ACCOUNT_JSON not found. FCM Push Notifications will be disabled.")
                 return
             }
+            val jsonEnv = rawJson.replace("\\\\n", "\\n")
 
             val credentials = GoogleCredentials.fromStream(ByteArrayInputStream(jsonEnv.toByteArray()))
             val options = FirebaseOptions.builder()
