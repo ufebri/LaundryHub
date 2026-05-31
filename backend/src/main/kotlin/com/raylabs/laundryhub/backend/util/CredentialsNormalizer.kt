@@ -50,8 +50,8 @@ object CredentialsNormalizer {
                         val cleanKey = rawKey
                             .replace("\\\\n", "\n")
                             .replace("\\n", "\n")
-                            .replace("\\r", "\r")
                             .replace("\\\\r", "\r")
+                            .replace("\\r", "\r")
                         put(key, cleanKey)
                     } else {
                         put(key, value)

@@ -110,11 +110,11 @@ private fun ensureDeviceTokenColumnCapacity(jdbcUrl: String) {
     )
 }
 
-private fun buildJdbcUrlFromEnv(): String? {
-    val host = System.getenv("DATABASE_HOST")?.takeIf { it.isNotBlank() } ?: return null
-    val port = System.getenv("DATABASE_PORT")?.takeIf { it.isNotBlank() } ?: "5432"
-    val database = System.getenv("DATABASE_NAME")?.takeIf { it.isNotBlank() } ?: "postgres"
-    val sslMode = System.getenv("DATABASE_SSL_MODE")?.takeIf { it.isNotBlank() } ?: "require"
+private fun buildJdbcUrlFromEnv(env: Map<String, String> = System.getenv()): String? {
+    val host = env["DATABASE_HOST"]?.takeIf { it.isNotBlank() } ?: return null
+    val port = env["DATABASE_PORT"]?.takeIf { it.isNotBlank() } ?: "5432"
+    val database = env["DATABASE_NAME"]?.takeIf { it.isNotBlank() } ?: "postgres"
+    val sslMode = env["DATABASE_SSL_MODE"]?.takeIf { it.isNotBlank() } ?: "require"
     val sslParams = if (sslMode.equals("disable", ignoreCase = true)) {
         "ssl=false"
     } else {
@@ -122,6 +122,7 @@ private fun buildJdbcUrlFromEnv(): String? {
     }
     return "jdbc:postgresql://$host:$port/$database?$sslParams"
 }
+
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
     newSuspendedTransaction(Dispatchers.IO) {

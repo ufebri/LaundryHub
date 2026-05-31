@@ -20,6 +20,9 @@ class OrderRepositoryTest {
     fun setup() {
         Database.connect("jdbc:h2:mem:test;MODE=MySQL;DB_CLOSE_DELAY=-1;", driver = "org.h2.Driver")
         transaction {
+            org.jetbrains.exposed.sql.transactions.TransactionManager.current().exec(
+                "CREATE ALIAS IF NOT EXISTS pg_advisory_xact_lock AS 'long pgAdvisoryXactLock(long val) { return val; }'"
+            )
             SchemaUtils.create(OrdersTable)
         }
         repository = OrderRepository()
@@ -127,4 +130,103 @@ class OrderRepositoryTest {
         orderDate = orderDate,
         dueDate = orderDate
     )
+
+    @Test
+    fun testInsertWithNextId() = runBlocking {
+        val order = sampleOrder("0", "Unpaid", "10/05/2026")
+        val created = repository.insertWithNextId(order)
+        kotlin.test.assertNotNull(created)
+        assertEquals("1", created.orderId)
+        
+        val second = repository.insertWithNextId(order)
+        kotlin.test.assertNotNull(second)
+        assertEquals("2", second.orderId)
+    }
+
+    @Test
+    fun testUpdateOrder() = runBlocking {
+        val order = sampleOrder("1", "Unpaid", "10/05/2026")
+        repository.insert(order)
+        
+        val updated = order.copy(name = "Updated User")
+        val success = repository.update("1", updated)
+        assertTrue(success)
+        
+        val retrieved = repository.getById("1")
+        assertEquals("Updated User", retrieved?.name)
+    }
+
+    @Test
+    fun testUpsertOrder() = runBlocking {
+        val order = sampleOrder("1", "Unpaid", "10/05/2026")
+        
+        val successInsert = repository.upsert(order)
+        assertTrue(successInsert)
+        
+        val updated = order.copy(name = "Updated User")
+        val successUpdate = repository.upsert(updated)
+        assertTrue(successUpdate)
+        
+        val retrieved = repository.getById("1")
+        assertEquals("Updated User", retrieved?.name)
+    }
+
+    @Test
+    fun testDeleteOrder() = runBlocking {
+        val order = sampleOrder("1", "Unpaid", "10/05/2026")
+        repository.insert(order)
+        
+        val success = repository.delete("1")
+        assertTrue(success)
+        
+        val retrieved = repository.getById("1")
+        assertEquals(null, retrieved)
+    }
+
+    @Test
+    fun testGetUnsyncedAndMarkSynced() = runBlocking {
+        val order = sampleOrder("1", "Unpaid", "10/05/2026")
+        repository.insert(order)
+        
+        val unsynced = repository.getUnsyncedOrders()
+        assertEquals(1, unsynced.size)
+        
+        val success = repository.markAsSynced(listOf("1"))
+        assertTrue(success)
+        
+        assertEquals(0, repository.getUnsyncedOrders().size)
+    }
+
+    @Test
+    fun testGetLatestIdAndNextId() = runBlocking {
+        assertEquals("0", repository.getLatestId())
+        assertEquals("1", repository.getNextId())
+        
+        repository.insert(sampleOrder("5", "Unpaid", "10/05/2026"))
+        assertEquals("5", repository.getLatestId())
+        assertEquals("6", repository.getNextId())
+    }
+
+    @Test
+    fun testInsertAll() = runBlocking {
+        val orders = listOf(
+            sampleOrder("1", "Unpaid", "10/05/2026"),
+            sampleOrder("2", "Unpaid", "11/05/2026")
+        )
+        val count = repository.insertAll(orders)
+        assertEquals(2, count)
+    }
+
+    @Test
+    fun testGetAllWithDateRangeAndSort() = runBlocking {
+        repository.insert(sampleOrder("1", "Unpaid", "10 May 2026"))
+        repository.insert(sampleOrder("2", "Paid", "12/05/2026"))
+        
+        val inRange = repository.getAll(startDate = "09 May 2026", endDate = "11 May 2026")
+        assertEquals(listOf("1"), inRange.map { it.orderId })
+        
+        val todayOrders = repository.getAll(filter = "TODAY")
+        
+        val sortDuedate = repository.getAll(sort = "DUE_DATE_ASC", startDate = "01 May 2026")
+    }
 }
