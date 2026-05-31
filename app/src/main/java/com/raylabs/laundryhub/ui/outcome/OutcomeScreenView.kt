@@ -12,6 +12,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.SnackbarHost
+import androidx.compose.material.SnackbarResult
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
@@ -43,6 +44,7 @@ import com.raylabs.laundryhub.ui.component.OutcomeBottomSheet
 import com.raylabs.laundryhub.ui.component.TransactionDeleteConfirmationSheet
 import com.raylabs.laundryhub.ui.component.TransactionEntryActionSheet
 import com.raylabs.laundryhub.ui.component.rememberInlineAdaptiveBannerAdState
+import com.raylabs.laundryhub.ui.home.state.SyncStatus
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
 import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import kotlinx.coroutines.launch
@@ -98,9 +100,57 @@ fun OutcomeScreenView(
                 pagingItems = pagingItems,
                 bannerState = resolvedBannerState,
                 hiddenOutcomeIds = state.hiddenOutcomeIds,
+                optimisticOutcomes = state.optimisticOutcomes,
+                optimisticUpdates = state.optimisticUpdates,
                 modifier = Modifier.fillMaxSize(),
                 onRefresh = { pagingItems.refresh() },
-                onEntryClick = { selectedEntry = it }
+                onEntryClick = { selectedEntry = it },
+                onRetrySubmit = { fakeId ->
+                    viewModel.retryOptimisticOutcome(
+                        fakeId = fakeId,
+                        onComplete = { realId ->
+                            coroutineScope.launch {
+                                scaffoldState.snackbarHostState.showSnackbar(
+                                    context.getString(R.string.outcome_submit_success, realId)
+                                )
+                            }
+                            pagingItems.refresh()
+                        },
+                        onError = { message ->
+                            coroutineScope.launch {
+                                scaffoldState.snackbarHostState.showSnackbar(
+                                    message.ifBlank { "Failed to retry sync" }
+                                )
+                            }
+                        }
+                    )
+                },
+                onCancelSubmit = { fakeId ->
+                    viewModel.removeOptimisticOutcome(fakeId)
+                },
+                onRetryUpdate = { id ->
+                    viewModel.retryOptimisticUpdate(
+                        id = id,
+                        onComplete = {
+                            coroutineScope.launch {
+                                scaffoldState.snackbarHostState.showSnackbar(
+                                    context.getString(R.string.outcome_update_success, id)
+                                )
+                            }
+                            pagingItems.refresh()
+                        },
+                        onError = { message ->
+                            coroutineScope.launch {
+                                scaffoldState.snackbarHostState.showSnackbar(
+                                    message.ifBlank { "Failed to retry update" }
+                                )
+                            }
+                        }
+                    )
+                },
+                onCancelUpdate = { id ->
+                    viewModel.removeOptimisticUpdate(id)
+                }
             )
 
             if (showBottomSheet) {
@@ -119,30 +169,61 @@ fun OutcomeScreenView(
                         onRemarkChanged = viewModel::onRemarkChanged,
                         onSubmit = {
                             val outcome = viewModel.buildOutcomeDataForSubmit()
-                            coroutineScope.launch {
-                                viewModel.submitOutcome(outcome) { createdOutcomeId ->
-                                    dismissSheet()
+                            dismissSheet()
+                            viewModel.submitOutcome(
+                                outcome = outcome,
+                                onComplete = { createdOutcomeId ->
                                     onOutcomeChanged()
-                                    scaffoldState.snackbarHostState.showSnackbar(
-                                        context.getString(R.string.outcome_submit_success, createdOutcomeId)
-                                    )
+                                    coroutineScope.launch {
+                                        scaffoldState.snackbarHostState.showSnackbar(
+                                            context.getString(R.string.outcome_submit_success, createdOutcomeId)
+                                        )
+                                    }
                                     pagingItems.refresh()
+                                },
+                                onError = { message ->
+                                    coroutineScope.launch {
+                                        val snackbarResult = scaffoldState.snackbarHostState.showSnackbar(
+                                            message = message.ifBlank { "Failed to sync outcome" },
+                                            actionLabel = "Retry"
+                                        )
+                                        if (snackbarResult == SnackbarResult.ActionPerformed) {
+                                            val failedItem = viewModel.uiState.optimisticOutcomes.lastOrNull { it.syncStatus == SyncStatus.FAILED }
+                                            if (failedItem != null) {
+                                                viewModel.retryOptimisticOutcome(failedItem.id)
+                                            }
+                                        }
+                                    }
                                 }
-                            }
+                            )
                         },
                         onUpdate = {
                             val outcome = viewModel.buildOutcomeDataForUpdate()
                             if (outcome != null) {
-                                coroutineScope.launch {
-                                    viewModel.updateOutcome(outcome) {
-                                        dismissSheet()
+                                dismissSheet()
+                                viewModel.updateOutcome(
+                                    outcome = outcome,
+                                    onComplete = {
                                         onOutcomeChanged()
-                                        scaffoldState.snackbarHostState.showSnackbar(
-                                            context.getString(R.string.outcome_update_success, outcome.id)
-                                        )
+                                        coroutineScope.launch {
+                                            scaffoldState.snackbarHostState.showSnackbar(
+                                                context.getString(R.string.outcome_update_success, outcome.id)
+                                            )
+                                        }
                                         pagingItems.refresh()
+                                    },
+                                    onError = { message ->
+                                        coroutineScope.launch {
+                                            val snackbarResult = scaffoldState.snackbarHostState.showSnackbar(
+                                                message = message.ifBlank { "Failed to update outcome" },
+                                                actionLabel = "Retry"
+                                            )
+                                            if (snackbarResult == SnackbarResult.ActionPerformed) {
+                                                viewModel.retryOptimisticUpdate(outcome.id)
+                                            }
+                                        }
                                     }
-                                }
+                                )
                             }
                         },
                         modifier = Modifier
@@ -178,26 +259,32 @@ fun OutcomeScreenView(
                 isDeleting = state.deleteOutcome.isLoading,
                 onConfirm = {
                     pendingDeleteEntry?.let { entry ->
-                        coroutineScope.launch {
-                            viewModel.deleteOutcome(
-                                outcomeId = entry.id,
-                                onComplete = {
-                                    pendingDeleteEntry = null
-                                    onOutcomeChanged()
+                        pendingDeleteEntry = null
+                        viewModel.deleteOutcome(
+                            outcomeId = entry.id,
+                            onComplete = {
+                                onOutcomeChanged()
+                                coroutineScope.launch {
                                     scaffoldState.snackbarHostState.showSnackbar(
                                         context.getString(R.string.outcome_delete_success, entry.id)
                                     )
-                                    pagingItems.refresh()
-                                },
-                                onError = { message ->
-                                    scaffoldState.snackbarHostState.showSnackbar(
-                                        message.ifBlank {
-                                            context.getString(R.string.outcome_delete_failed)
-                                        }
-                                    )
                                 }
-                            )
-                        }
+                                pagingItems.refresh()
+                            },
+                            onError = { message ->
+                                coroutineScope.launch {
+                                    val snackbarResult = scaffoldState.snackbarHostState.showSnackbar(
+                                        message = message.ifBlank {
+                                            context.getString(R.string.outcome_delete_failed)
+                                        },
+                                        actionLabel = "Retry"
+                                    )
+                                    if (snackbarResult == SnackbarResult.ActionPerformed) {
+                                        viewModel.deleteOutcome(outcomeId = entry.id)
+                                    }
+                                }
+                            }
+                        )
                     }
                 },
                 onDismiss = {
@@ -217,14 +304,31 @@ fun OutcomeContent(
     bannerState: InlineAdaptiveBannerAdState,
     modifier: Modifier,
     hiddenOutcomeIds: Set<String> = emptySet(),
+    optimisticOutcomes: List<EntryItem> = emptyList(),
+    optimisticUpdates: Map<String, EntryItem> = emptyMap(),
     onRefresh: () -> Unit = {},
-    onEntryClick: (EntryItem) -> Unit = {}
+    onEntryClick: (EntryItem) -> Unit = {},
+    onRetrySubmit: (String) -> Unit = {},
+    onCancelSubmit: (String) -> Unit = {},
+    onRetryUpdate: (String) -> Unit = {},
+    onCancelUpdate: (String) -> Unit = {}
 ) {
     val isRefreshing = pagingItems.loadState.refresh is androidx.paging.LoadState.Loading
     val pullRefreshState = rememberPullRefreshState(
         refreshing = isRefreshing,
         onRefresh = onRefresh
     )
+
+    val pagingIds = remember(pagingItems.itemCount) {
+        (0 until pagingItems.itemCount).mapNotNull { index ->
+            when (val item = pagingItems.peek(index)) {
+                is DateListItemUI.Entry -> item.item.id
+                else -> null
+            }
+        }.toSet()
+    }
+
+    val filteredOptimistic = optimisticOutcomes.filter { it.id !in pagingIds }
 
     Box(
         modifier = modifier
@@ -236,6 +340,21 @@ fun OutcomeContent(
         ) {
             item(key = "outcome_inline_banner") {
                 InlineAdaptiveBannerAd(state = bannerState)
+            }
+
+            items(
+                count = filteredOptimistic.size,
+                key = { index -> "opt_${filteredOptimistic[index].id}" }
+            ) { index ->
+                val item = filteredOptimistic[index]
+                if (item.id !in hiddenOutcomeIds) {
+                    EntryItemCard(
+                        item = item,
+                        onClick = { onEntryClick(item) },
+                        onRetry = { onRetrySubmit(item.id) },
+                        onCancel = { onCancelSubmit(item.id) }
+                    )
+                }
             }
 
             items(
@@ -254,10 +373,14 @@ fun OutcomeContent(
                     }
 
                     is DateListItemUI.Entry -> {
-                        if (item.item.id !in hiddenOutcomeIds) {
+                        val entryItem = item.item
+                        if (entryItem.id !in hiddenOutcomeIds) {
+                            val resolvedItem = optimisticUpdates[entryItem.id] ?: entryItem
                             EntryItemCard(
-                                item = item.item,
-                                onClick = { onEntryClick(item.item) }
+                                item = resolvedItem,
+                                onClick = { onEntryClick(resolvedItem) },
+                                onRetry = { onRetryUpdate(resolvedItem.id) },
+                                onCancel = { onCancelUpdate(resolvedItem.id) }
                             )
                         }
                     }

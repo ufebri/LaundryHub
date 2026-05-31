@@ -7,7 +7,9 @@ import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import org.jetbrains.exposed.sql.SqlExpressionBuilder.eq
 import org.jetbrains.exposed.sql.deleteWhere
 import org.jetbrains.exposed.sql.insertIgnore
+import org.jetbrains.exposed.sql.lowerCase
 import org.jetbrains.exposed.sql.max
+import org.jetbrains.exposed.sql.or
 import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
@@ -140,13 +142,30 @@ class OutcomeRepository {
         insertedCount
     }
 
-    suspend fun getAll(page: Int = 1, size: Int = 50): List<OutcomeData> = dbQuery {
+    suspend fun getAll(
+        page: Int = 1,
+        size: Int = 50,
+        searchQuery: String? = null
+    ): List<OutcomeData> = dbQuery {
         val offset = ((page - 1) * size).coerceAtLeast(0)
-        OutcomesTable.selectAll()
-            .orderBy(OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC)
-            .limit(size, offset.toLong())
-            .map { it.toOutcomeData() }
-            .sortedWith(outcomeDateComparator())
+        
+        val query = if (!searchQuery.isNullOrBlank()) {
+            val q = searchQuery.trim().lowercase()
+            OutcomesTable.select {
+                (OutcomesTable.purpose.lowerCase() like "%$q%") or
+                (OutcomesTable.remark.lowerCase() like "%$q%") or
+                (OutcomesTable.payment.lowerCase() like "%$q%")
+            }
+        } else {
+            OutcomesTable.selectAll()
+        }
+
+        query.orderBy(
+            OutcomesTable.date to org.jetbrains.exposed.sql.SortOrder.DESC,
+            OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC
+        )
+        .limit(size, offset.toLong())
+        .map { it.toOutcomeData() }
     }
 
     suspend fun getUnsyncedOutcomes(): List<OutcomeData> = dbQuery {

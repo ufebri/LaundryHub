@@ -11,6 +11,8 @@ data class OutcomeUiState(
     val updateOutcome: SectionState<Boolean> = SectionState(),
     val deleteOutcome: SectionState<Boolean> = SectionState(),
     val hiddenOutcomeIds: Set<String> = emptySet(),
+    val optimisticOutcomes: List<EntryItem> = emptyList(),
+    val optimisticUpdates: Map<String, EntryItem> = emptyMap(),
 
     //For Edit
     val outcomeID: String = "",

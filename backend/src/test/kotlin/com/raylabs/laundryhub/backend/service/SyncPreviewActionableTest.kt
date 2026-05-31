@@ -59,7 +59,7 @@ class SyncPreviewActionableTest {
         whenever(summaryRepository.getAll()).doReturn(emptyList())
 
         whenever(syncService.fetchOutcomesFromSheet(any())).doReturn(emptyList())
-        whenever(outcomeRepository.getAll(any(), any())).doReturn(emptyList())
+        whenever(outcomeRepository.getAll(any(), any(), anyOrNull())).doReturn(emptyList())
         whenever(packageRepository.getAll()).doReturn(emptyList())
         whenever(syncService.fetchPackagesFromSheet(any())).doReturn(emptyList())
 
@@ -98,7 +98,7 @@ class SyncPreviewActionableTest {
         whenever(summaryRepository.getAll()).doReturn(emptyList())
 
         whenever(syncService.fetchOutcomesFromSheet(any())).doReturn(emptyList())
-        whenever(outcomeRepository.getAll(any(), any())).doReturn(emptyList())
+        whenever(outcomeRepository.getAll(any(), any(), anyOrNull())).doReturn(emptyList())
         whenever(packageRepository.getAll()).doReturn(emptyList())
         whenever(syncService.fetchPackagesFromSheet(any())).doReturn(emptyList())
 

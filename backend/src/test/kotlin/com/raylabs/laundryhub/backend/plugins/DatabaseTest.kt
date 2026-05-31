@@ -2,7 +2,6 @@ package com.raylabs.laundryhub.backend.plugins
 
 import io.ktor.server.config.MapApplicationConfig
 import io.ktor.server.testing.testApplication
-import java.util.Collections
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -163,5 +162,64 @@ class DatabaseTest {
         } finally {
             setEnv("ENABLE_SQL_LOGGING", originalLog)
         }
+    }
+
+    @Test
+    fun testSelectDriverClassName() {
+        assertEquals("org.postgresql.Driver", selectDriverClassName("jdbc:postgresql://localhost:5432/db", null))
+        assertEquals("org.h2.Driver", selectDriverClassName("jdbc:h2:mem:test", null))
+        assertEquals("com.mysql.cj.jdbc.Driver", selectDriverClassName("jdbc:mysql://localhost:3306/db", "com.mysql.cj.jdbc.Driver"))
+        assertEquals("org.postgresql.Driver", selectDriverClassName("jdbc:mysql://localhost:3306/db", null))
+    }
+
+    @Test
+    fun testFormatPostgresUrl() {
+        // 1. With prepareThreshold, connectTimeout, socketTimeout already present
+        val originalUrl = "jdbc:postgresql://localhost:5432/db?prepareThreshold=0&connectTimeout=10&socketTimeout=10"
+        assertEquals(originalUrl, formatPostgresUrl(originalUrl))
+
+        // 2. Postgres URL without parameters
+        assertEquals(
+            "jdbc:postgresql://localhost:5432/db?prepareThreshold=0&connectTimeout=10&socketTimeout=10",
+            formatPostgresUrl("jdbc:postgresql://localhost:5432/db")
+        )
+
+        // 3. Postgres URL with existing other parameters
+        assertEquals(
+            "jdbc:postgresql://localhost:5432/db?ssl=true&prepareThreshold=0&connectTimeout=10&socketTimeout=10",
+            formatPostgresUrl("jdbc:postgresql://localhost:5432/db?ssl=true")
+        )
+
+        // 4. Non-postgres URL
+        assertEquals("jdbc:h2:mem:test", formatPostgresUrl("jdbc:h2:mem:test"))
+    }
+
+    @Test
+    fun testPrepareHikariConfig() {
+        // 1. Postgres config mapping
+        val pgConfig = prepareHikariConfig(
+            jdbcUrl = "jdbc:postgresql://localhost:5432/db?prepareThreshold=0",
+            user = "postgres",
+            pass = "secret",
+            driverClassName = "org.postgresql.Driver"
+        )
+        assertEquals("jdbc:postgresql://localhost:5432/db?prepareThreshold=0", pgConfig.jdbcUrl)
+        assertEquals("postgres", pgConfig.username)
+        assertEquals("secret", pgConfig.password)
+        assertEquals("org.postgresql.Driver", pgConfig.driverClassName)
+        assertEquals(3, pgConfig.maximumPoolSize)
+        assertEquals("TRANSACTION_REPEATABLE_READ", pgConfig.transactionIsolation)
+
+        // 2. H2 config mapping
+        val h2Config = prepareHikariConfig(
+            jdbcUrl = "jdbc:h2:mem:test",
+            user = "sa",
+            pass = "",
+            driverClassName = "org.h2.Driver"
+        )
+        assertEquals("jdbc:h2:mem:test", h2Config.jdbcUrl)
+        assertEquals("sa", h2Config.username)
+        assertEquals("", h2Config.password)
+        assertEquals("org.h2.Driver", h2Config.driverClassName)
     }
 }

@@ -41,40 +41,13 @@ fun Application.configureDatabase() {
         ?.takeIf { it.isNotBlank() }
         ?: environment.config.propertyOrNull("storage.password")?.getString()
         ?: error("DATABASE_PASSWORD or storage.password must be configured")
-    val driverClassName = when {
-        jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true) -> POSTGRESQL_DRIVER_CLASS
-        jdbcUrl.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
-        else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: POSTGRESQL_DRIVER_CLASS
-    }
-
-    var finalJdbcUrl = jdbcUrl
-    if (finalJdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) {
-        if (!finalJdbcUrl.contains("prepareThreshold=")) {
-            finalJdbcUrl += if (finalJdbcUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
-        }
-        if (!finalJdbcUrl.contains("connectTimeout=")) {
-            finalJdbcUrl += "&connectTimeout=10"
-        }
-        if (!finalJdbcUrl.contains("socketTimeout=")) {
-            finalJdbcUrl += "&socketTimeout=10"
-        }
-    }
-
-    val config = HikariConfig().apply {
-        this.jdbcUrl = finalJdbcUrl
-        this.driverClassName = driverClassName
-        this.username = user
-        this.password = password
-        maximumPoolSize = 3
-        isAutoCommit = false
-        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-        if (driverClassName == POSTGRESQL_DRIVER_CLASS) {
-            addDataSourceProperty("prepareThreshold", "0")
-            addDataSourceProperty("connectTimeout", "10")
-            addDataSourceProperty("socketTimeout", "10")
-        }
-        validate()
-    }
+    
+    val driverClassName = selectDriverClassName(
+        jdbcUrl,
+        environment.config.propertyOrNull("storage.driverClassName")?.getString()
+    )
+    val finalJdbcUrl = formatPostgresUrl(jdbcUrl)
+    val config = prepareHikariConfig(finalJdbcUrl, user, password, driverClassName)
 
     try {
         val dataSource = HikariDataSource(config)
@@ -99,6 +72,53 @@ fun Application.configureDatabase() {
         logger.error("FATAL: Could not connect to database: ${e.message}")
         // Railway akan restart container jika kita exit dengan status 1
         System.exit(1)
+    }
+}
+
+internal fun selectDriverClassName(jdbcUrl: String, configuredDriver: String?): String {
+    return when {
+        jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true) -> POSTGRESQL_DRIVER_CLASS
+        jdbcUrl.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
+        else -> configuredDriver ?: POSTGRESQL_DRIVER_CLASS
+    }
+}
+
+internal fun formatPostgresUrl(jdbcUrl: String): String {
+    var finalUrl = jdbcUrl
+    if (finalUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) {
+        if (!finalUrl.contains("prepareThreshold=")) {
+            finalUrl += if (finalUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
+        }
+        if (!finalUrl.contains("connectTimeout=")) {
+            finalUrl += "&connectTimeout=10"
+        }
+        if (!finalUrl.contains("socketTimeout=")) {
+            finalUrl += "&socketTimeout=10"
+        }
+    }
+    return finalUrl
+}
+
+internal fun prepareHikariConfig(
+    jdbcUrl: String,
+    user: String,
+    pass: String,
+    driverClassName: String
+): HikariConfig {
+    return HikariConfig().apply {
+        this.jdbcUrl = jdbcUrl
+        this.driverClassName = driverClassName
+        this.username = user
+        this.password = pass
+        maximumPoolSize = 3
+        isAutoCommit = false
+        transactionIsolation = "TRANSACTION_REPEATABLE_READ"
+        if (driverClassName == POSTGRESQL_DRIVER_CLASS) {
+            addDataSourceProperty("prepareThreshold", "0")
+            addDataSourceProperty("connectTimeout", "10")
+            addDataSourceProperty("socketTimeout", "10")
+        }
+        validate()
     }
 }
 
