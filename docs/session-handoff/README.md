@@ -45,24 +45,32 @@
 
 ---
 
-## Next Verification & Release Commands
-To run the automated local verification suite:
+## Remote Verification & Release Status
+* **GitHub Actions Run:** [Android CI/CD Workflow #26710282540](https://github.com/ufebri/LaundryHub/actions/runs/26710282540) 🟢 **SUCCESS**
+  - **`setup-env`**: 🟢 **SUCCESS** (Keystore and credential files successfully decoded).
+  - **`code-coverage`**: 🟢 **SUCCESS** (JUnit unit tests and integration tests passed, Coveralls uploads succeeded, and SonarCloud analysis successfully completed).
+* **SonarCloud Quality Gate:** 🟢 **OK / PASSED**
+  - **Reliability:** **Grade A (100% OK)**
+  - **Security:** **Grade A (100% OK)**
+  - **Maintainability:** **Grade A (100% OK)**
+  - **Duplications:** **1.7%** (Exceeds requirement of < 3.0%).
+* **Render Singapore Backend Deploy:** 🟢 **SUCCESS (200 OK / Ready)**
+  - **Endpoint Check:** `https://laundryhub-sg.onrender.com/api/health`
+  - **Payload:** `{"status":"OK","service":"LaundryHub","message":"Ready"}` (Indicates Ktor container is fully operational on Supabase DB without connection leaks or Prepared Statement collisions).
+
+---
+
+## Verification & Monitoring Reference
 * **Rerun local tests and generate Jacoco reports:**
   ```bash
   ./gradlew clean testDebugUnitTest :backend:test :app:jacocoTestReport :backend:jacocoTestReport
   ```
-* **Verify coverage percentages:**
+* **Verify local coverage percentages:**
   ```bash
   python3 /Users/ray/.gemini/antigravity-cli/brain/72ea9d35-bbf3-4ccd-b9e4-acf9eb79b78b/scratch/parse_specific_files.py
   ```
+* **Live API Health Check:**
+  ```bash
+  curl -i https://laundryhub-sg.onrender.com/api/health
+  ```
 
----
-
-## Action Items for the User
-1. Commit all modified local files and push them to the `feature/kmp` branch:
-   ```bash
-   git add .
-   git commit -m "test(quality): achieve comprehensive JVM test coverage recovery and fix double-escaping credentials normalizer bug"
-   git push origin feature/kmp
-   ```
-2. Trigger the GitHub Actions CI/CD runner and observe the green success of the SonarCloud analysis!
