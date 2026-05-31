@@ -49,6 +49,12 @@ fun Application.configureDatabase() {
         if (!finalJdbcUrl.contains("prepareThreshold=")) {
             finalJdbcUrl += if (finalJdbcUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
         }
+        if (!finalJdbcUrl.contains("connectTimeout=")) {
+            finalJdbcUrl += "&connectTimeout=10"
+        }
+        if (!finalJdbcUrl.contains("socketTimeout=")) {
+            finalJdbcUrl += "&socketTimeout=10"
+        }
     }
 
     val config = HikariConfig().apply {
@@ -61,6 +67,8 @@ fun Application.configureDatabase() {
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
         if (driverClassName == "org.postgresql.Driver") {
             addDataSourceProperty("prepareThreshold", "0")
+            addDataSourceProperty("connectTimeout", "10")
+            addDataSourceProperty("socketTimeout", "10")
         }
         validate()
     }
