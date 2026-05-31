@@ -7,6 +7,7 @@ import com.raylabs.laundryhub.backend.service.SheetsPushScheduler
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.call
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -26,82 +27,125 @@ fun Route.packageRoutes(
 ) {
     route("/api/packages") {
         get {
-            call.respond(HttpStatusCode.OK, repository.getAll())
+            handleGetPackages(call, repository)
         }
         post {
-            try {
-                val pkg = call.receive<PackageData>()
-                val inserted = repository.insert(pkg)
-                if (inserted) {
-                    sheetsPushScheduler?.requestPush("package created")
-                    call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
-                }
-                else call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
-            }
+            handlePostPackage(call, repository, sheetsPushScheduler)
         }
         put("/{name}") {
-            val name = call.parameters["name"] ?: return@put call.respond(HttpStatusCode.BadRequest)
-            try {
-                val pkg = call.receive<PackageData>()
-                val updated = repository.update(name, pkg)
-                if (updated) {
-                    if (!name.equals(pkg.name, ignoreCase = true)) {
-                        syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
-                    }
-                    sheetsPushScheduler?.requestPush("package updated")
-                    call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
-                }
-                else call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
-            } catch (e: Exception) {
-                call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
-            }
+            handlePutPackage(call, repository, syncDeleteEventRepository, sheetsPushScheduler)
         }
         delete("/{name}") {
-            val name = call.parameters["name"] ?: return@delete call.respond(HttpStatusCode.BadRequest)
-            if (repository.delete(name)) {
-                syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
-                sheetsPushScheduler?.requestPush("package deleted")
-                call.respond(
-                    HttpStatusCode.OK,
-                    mapOf(
-                        "status" to "Success",
-                        "message" to "Package deleted",
-                        "sheetSynced" to "queued"
-                    )
-                )
-            } else {
-                call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
-            }
+            handleDeletePackage(call, repository, syncDeleteEventRepository, sheetsPushScheduler)
         }
-        
+
         if (migrationRoutesEnabled) {
             post("/migrate") {
-                val spreadsheetId = call.request.queryParameters["spreadsheetId"]
-                val accessToken = call.request.queryParameters["accessToken"]
-                if (spreadsheetId == null || accessToken == null) {
-                    call.respond(HttpStatusCode.BadRequest, "Missing params")
-                    return@post
-                }
-                try {
-                    val response = sheetsApiClient.getValues(spreadsheetId, "notes!A2:D", accessToken)
-                    val rows = response.values ?: emptyList()
-                    val packages = rows.mapNotNull { row ->
-                        if (row.isEmpty()) return@mapNotNull null
-                        PackageData(
-                            price = row.getOrNull(0) ?: "",
-                            name = row.getOrNull(1) ?: "",
-                            duration = row.getOrNull(2) ?: "",
-                            unit = row.getOrNull(3) ?: ""
-                        )
-                    }
-                    val inserted = repository.insertAll(packages)
-                    call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
-                } catch (e: Exception) {
-                    call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
-                }
+                handleMigratePackages(call, repository, sheetsApiClient)
             }
         }
+    }
+}
+
+private suspend fun handleGetPackages(
+    call: ApplicationCall,
+    repository: PackageRepository
+) {
+    call.respond(HttpStatusCode.OK, repository.getAll())
+}
+
+private suspend fun handlePostPackage(
+    call: ApplicationCall,
+    repository: PackageRepository,
+    sheetsPushScheduler: SheetsPushScheduler?
+) {
+    try {
+        val pkg = call.receive<PackageData>()
+        val inserted = repository.insert(pkg)
+        if (inserted) {
+            sheetsPushScheduler?.requestPush("package created")
+            call.respond(HttpStatusCode.Created, mapOf("status" to "Success"))
+        } else {
+            call.respond(HttpStatusCode.Conflict, mapOf("status" to "Error"))
+        }
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error", "message" to (e.message ?: "")))
+    }
+}
+
+private suspend fun handlePutPackage(
+    call: ApplicationCall,
+    repository: PackageRepository,
+    syncDeleteEventRepository: SyncDeleteEventRepository?,
+    sheetsPushScheduler: SheetsPushScheduler?
+) {
+    val name = call.parameters["name"] ?: return call.respond(HttpStatusCode.BadRequest)
+    try {
+        val pkg = call.receive<PackageData>()
+        val updated = repository.update(name, pkg)
+        if (updated) {
+            if (!name.equals(pkg.name, ignoreCase = true)) {
+                syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
+            }
+            sheetsPushScheduler?.requestPush("package updated")
+            call.respond(HttpStatusCode.OK, mapOf("status" to "Success"))
+        } else {
+            call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+        }
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.BadRequest, mapOf("status" to "Error"))
+    }
+}
+
+private suspend fun handleDeletePackage(
+    call: ApplicationCall,
+    repository: PackageRepository,
+    syncDeleteEventRepository: SyncDeleteEventRepository?,
+    sheetsPushScheduler: SheetsPushScheduler?
+) {
+    val name = call.parameters["name"] ?: return call.respond(HttpStatusCode.BadRequest)
+    if (repository.delete(name)) {
+        syncDeleteEventRepository?.record(SyncEntityType.PACKAGE, name)
+        sheetsPushScheduler?.requestPush("package deleted")
+        call.respond(
+            HttpStatusCode.OK,
+            mapOf(
+                "status" to "Success",
+                "message" to "Package deleted",
+                "sheetSynced" to "queued"
+            )
+        )
+    } else {
+        call.respond(HttpStatusCode.NotFound, mapOf("status" to "Error"))
+    }
+}
+
+private suspend fun handleMigratePackages(
+    call: ApplicationCall,
+    repository: PackageRepository,
+    sheetsApiClient: GoogleSheetsApiClient
+) {
+    val spreadsheetId = call.request.queryParameters["spreadsheetId"]
+    val accessToken = call.request.queryParameters["accessToken"]
+    if (spreadsheetId == null || accessToken == null) {
+        call.respond(HttpStatusCode.BadRequest, "Missing params")
+        return
+    }
+    try {
+        val response = sheetsApiClient.getValues(spreadsheetId, "notes!A2:D", accessToken)
+        val rows = response.values ?: emptyList()
+        val packages = rows.mapNotNull { row ->
+            if (row.isEmpty()) return@mapNotNull null
+            PackageData(
+                price = row.getOrNull(0) ?: "",
+                name = row.getOrNull(1) ?: "",
+                duration = row.getOrNull(2) ?: "",
+                unit = row.getOrNull(3) ?: ""
+            )
+        }
+        val inserted = repository.insertAll(packages)
+        call.respond(HttpStatusCode.OK, mapOf("migrated" to inserted))
+    } catch (e: Exception) {
+        call.respond(HttpStatusCode.InternalServerError, e.message ?: "Error")
     }
 }

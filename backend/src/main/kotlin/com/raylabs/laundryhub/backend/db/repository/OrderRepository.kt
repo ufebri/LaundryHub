@@ -238,6 +238,21 @@ class OrderRepository {
         // so we use standard Kotlin JVM filtering as a fallback for accuracy.
         val isDateFiltering = !startDate.isNullOrBlank() || !endDate.isNullOrBlank() || filter?.uppercase() == "TODAY"
 
+        val conditions = buildConditions(filter, searchQuery)
+
+        var queryExpression: org.jetbrains.exposed.sql.Op<Boolean>? = null
+        for (cond in conditions) {
+            queryExpression = if (queryExpression == null) cond else queryExpression and cond
+        }
+
+        if (!isDateFiltering) {
+            executeSqlPaging(queryExpression, sort, size, offset)
+        } else {
+            executeJvmFallbackPaging(queryExpression, filter, startDate, endDate, sort, size, offset)
+        }
+    }
+
+    private fun buildConditions(filter: String?, searchQuery: String?): List<org.jetbrains.exposed.sql.Op<Boolean>> {
         val conditions = mutableListOf<org.jetbrains.exposed.sql.Op<Boolean>>()
 
         // Apply simple payment/status filter in SQL
@@ -265,49 +280,58 @@ class OrderRepository {
                 (OrdersTable.phoneNumber.lowerCase() like "%$q%")
             )
         }
+        return conditions
+    }
 
-        var queryExpression: org.jetbrains.exposed.sql.Op<Boolean>? = null
-        for (cond in conditions) {
-            queryExpression = if (queryExpression == null) cond else queryExpression and cond
-        }
-
-        if (!isDateFiltering) {
-            // Ultra-fast SQL level paging & sorting (O(page size) database query)
-            val query = if (queryExpression != null) {
-                OrdersTable.select { queryExpression }
-            } else {
-                OrdersTable.selectAll()
-            }
-
-            val sortOrder = when (sort) {
-                "ORDER_DATE_ASC" -> OrdersTable.id to SortOrder.ASC
-                "ORDER_DATE_DESC" -> OrdersTable.id to SortOrder.DESC
-                "DUE_DATE_ASC" -> OrdersTable.dueDate to SortOrder.ASC
-                "DUE_DATE_DESC" -> OrdersTable.dueDate to SortOrder.DESC
-                else -> OrdersTable.id to SortOrder.DESC
-            }
-
-            query.orderBy(sortOrder)
-                .limit(size, offset.toLong())
-                .map { it.toOrderData() }
+    private fun executeSqlPaging(
+        queryExpression: org.jetbrains.exposed.sql.Op<Boolean>?,
+        sort: String?,
+        size: Int,
+        offset: Int
+    ): List<OrderData> {
+        val query = if (queryExpression != null) {
+            OrdersTable.select { queryExpression }
         } else {
-            // Safe fallback with date range filtering and TODAY filtering in JVM memory
-            val query = if (queryExpression != null) {
-                OrdersTable.select { queryExpression }
-            } else {
-                OrdersTable.selectAll()
-            }
-
-            query.orderBy(OrdersTable.id to SortOrder.DESC)
-                .map { it.toOrderData() }
-                .asSequence()
-                .filter { it.matchesFilter(filter) }
-                .filter { it.matchesDateRange(startDate, endDate) }
-                .sortedWith(orderComparator(sort))
-                .drop(offset)
-                .take(size)
-                .toList()
+            OrdersTable.selectAll()
         }
+
+        val sortOrder = when (sort) {
+            "ORDER_DATE_ASC" -> OrdersTable.id to SortOrder.ASC
+            "ORDER_DATE_DESC" -> OrdersTable.id to SortOrder.DESC
+            "DUE_DATE_ASC" -> OrdersTable.dueDate to SortOrder.ASC
+            "DUE_DATE_DESC" -> OrdersTable.dueDate to SortOrder.DESC
+            else -> OrdersTable.id to SortOrder.DESC
+        }
+
+        return query.orderBy(sortOrder)
+            .limit(size, offset.toLong())
+            .map { it.toOrderData() }
+    }
+
+    private fun executeJvmFallbackPaging(
+        queryExpression: org.jetbrains.exposed.sql.Op<Boolean>?,
+        filter: String?,
+        startDate: String?,
+        endDate: String?,
+        sort: String?,
+        size: Int,
+        offset: Int
+    ): List<OrderData> {
+        val query = if (queryExpression != null) {
+            OrdersTable.select { queryExpression }
+        } else {
+            OrdersTable.selectAll()
+        }
+
+        return query.orderBy(OrdersTable.id to SortOrder.DESC)
+            .map { it.toOrderData() }
+            .asSequence()
+            .filter { it.matchesFilter(filter) }
+            .filter { it.matchesDateRange(startDate, endDate) }
+            .sortedWith(orderComparator(sort))
+            .drop(offset)
+            .take(size)
+            .toList()
     }
 
     private fun ResultRow.toOrderData(): OrderData {
