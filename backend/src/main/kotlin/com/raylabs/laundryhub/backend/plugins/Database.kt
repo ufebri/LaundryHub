@@ -22,6 +22,9 @@ import org.slf4j.LoggerFactory
 
 private val logger = LoggerFactory.getLogger("Database")
 
+private const val JDBC_POSTGRESQL_PREFIX = "jdbc:postgresql:"
+private const val POSTGRESQL_DRIVER_CLASS = "org.postgresql.Driver"
+
 fun Application.configureDatabase() {
     if (System.getProperty("isTest") == "true") return
 
@@ -39,13 +42,13 @@ fun Application.configureDatabase() {
         ?: environment.config.propertyOrNull("storage.password")?.getString()
         ?: error("DATABASE_PASSWORD or storage.password must be configured")
     val driverClassName = when {
-        jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true) -> "org.postgresql.Driver"
+        jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true) -> POSTGRESQL_DRIVER_CLASS
         jdbcUrl.startsWith("jdbc:h2:", ignoreCase = true) -> "org.h2.Driver"
-        else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: "org.postgresql.Driver"
+        else -> environment.config.propertyOrNull("storage.driverClassName")?.getString() ?: POSTGRESQL_DRIVER_CLASS
     }
 
     var finalJdbcUrl = jdbcUrl
-    if (finalJdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) {
+    if (finalJdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) {
         if (!finalJdbcUrl.contains("prepareThreshold=")) {
             finalJdbcUrl += if (finalJdbcUrl.contains("?")) "&prepareThreshold=0" else "?prepareThreshold=0"
         }
@@ -65,7 +68,7 @@ fun Application.configureDatabase() {
         maximumPoolSize = 3
         isAutoCommit = false
         transactionIsolation = "TRANSACTION_REPEATABLE_READ"
-        if (driverClassName == "org.postgresql.Driver") {
+        if (driverClassName == POSTGRESQL_DRIVER_CLASS) {
             addDataSourceProperty("prepareThreshold", "0")
             addDataSourceProperty("connectTimeout", "10")
             addDataSourceProperty("socketTimeout", "10")
@@ -100,18 +103,18 @@ fun Application.configureDatabase() {
 }
 
 private fun ensureDeviceTokenColumnCapacity(jdbcUrl: String) {
-    if (!jdbcUrl.startsWith("jdbc:postgresql:", ignoreCase = true)) return
+    if (!jdbcUrl.startsWith(JDBC_POSTGRESQL_PREFIX, ignoreCase = true)) return
 
     TransactionManager.current().exec(
         "ALTER TABLE device_tokens ALTER COLUMN token TYPE VARCHAR(512)"
     )
 }
 
-private fun buildJdbcUrlFromEnv(): String? {
-    val host = System.getenv("DATABASE_HOST")?.takeIf { it.isNotBlank() } ?: return null
-    val port = System.getenv("DATABASE_PORT")?.takeIf { it.isNotBlank() } ?: "5432"
-    val database = System.getenv("DATABASE_NAME")?.takeIf { it.isNotBlank() } ?: "postgres"
-    val sslMode = System.getenv("DATABASE_SSL_MODE")?.takeIf { it.isNotBlank() } ?: "require"
+private fun buildJdbcUrlFromEnv(env: Map<String, String> = System.getenv()): String? {
+    val host = env["DATABASE_HOST"]?.takeIf { it.isNotBlank() } ?: return null
+    val port = env["DATABASE_PORT"]?.takeIf { it.isNotBlank() } ?: "5432"
+    val database = env["DATABASE_NAME"]?.takeIf { it.isNotBlank() } ?: "postgres"
+    val sslMode = env["DATABASE_SSL_MODE"]?.takeIf { it.isNotBlank() } ?: "require"
     val sslParams = if (sslMode.equals("disable", ignoreCase = true)) {
         "ssl=false"
     } else {
@@ -119,6 +122,7 @@ private fun buildJdbcUrlFromEnv(): String? {
     }
     return "jdbc:postgresql://$host:$port/$database?$sslParams"
 }
+
 
 suspend fun <T> dbQuery(block: suspend () -> T): T =
     newSuspendedTransaction(Dispatchers.IO) {

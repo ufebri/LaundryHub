@@ -76,4 +76,37 @@ class CredentialsNormalizerTest {
         assertTrue(privateKey.contains("\n-----END PRIVATE KEY-----\n"))
         assertTrue(!privateKey.contains("\\n"))
     }
+
+    @Test
+    fun `handles invalid json with fallback to regex`() {
+        val raw = "invalid_json_with_\\n_escaped_newlines"
+        val clean = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(raw)
+        assertEquals("invalid_json_with_\n_escaped_newlines", clean)
+    }
+
+    @Test
+    fun `handles carriage returns and non-matching quotes`() {
+        val raw1 = "\"non-matching-quote"
+        val clean1 = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(raw1)
+        assertEquals("\"non-matching-quote", clean1)
+
+        val raw2 = "'non-matching-quote"
+        val clean2 = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(raw2)
+        assertEquals("'non-matching-quote", clean2)
+
+        val rawWithCr = """
+            {
+              "type": "service_account",
+              "private_key": "line1\\rline2\\\\rline3"
+            }
+        """.trimIndent()
+        val cleanWithCr = CredentialsNormalizer.cleanAndNormalizeServiceAccountJson(rawWithCr)
+        val parsed = Json.parseToJsonElement(cleanWithCr).jsonObject
+        val privateKey = parsed["private_key"]?.jsonPrimitive?.content ?: ""
+        println("DEBUG_CR: " + privateKey.replace("\r", "[CR]").replace("\n", "[LF]"))
+        assertTrue(privateKey.contains("line1\rline2\rline3"))
+    }
+
 }
+
+

@@ -23,6 +23,8 @@ import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
 import java.io.ByteArrayInputStream
 
+private const val LOG_SYNCED_BECAUSE_ACCEPTED = "Marking it synced because Sheets accepted the write."
+
 class SheetsSyncService {
 
     private val logger = LoggerFactory.getLogger(SheetsSyncService::class.java)
@@ -30,7 +32,7 @@ class SheetsSyncService {
     private val httpClient = HttpClientProvider.createClient(enableLogging = true)
     private val sheetsApiClient = GoogleSheetsApiClient(httpClient)
 
-    private fun getServiceAccountToken(): String {
+    internal fun getServiceAccountToken(): String {
         val rawJson = System.getenv("GOOGLE_SERVICE_ACCOUNT_JSON")
         if (rawJson.isNullOrBlank()) {
             throw IllegalStateException("GOOGLE_SERVICE_ACCOUNT_JSON environment variable is not set")
@@ -238,7 +240,7 @@ class SheetsSyncService {
             .forEach { order ->
                 logger.warn(
                     "Order ${order.orderId} was acknowledged by Google Sheets but read-back verification did not match. " +
-                        "Marking it synced because Sheets accepted the write."
+                        LOG_SYNCED_BECAUSE_ACCEPTED
                 )
             }
         return candidates
@@ -269,7 +271,7 @@ class SheetsSyncService {
             .forEach { outcome ->
                 logger.warn(
                     "Outcome ${outcome.id} was acknowledged by Google Sheets but read-back verification did not match. " +
-                        "Marking it synced because Sheets accepted the write."
+                        LOG_SYNCED_BECAUSE_ACCEPTED
                 )
             }
         return outcomes
@@ -300,7 +302,7 @@ class SheetsSyncService {
             .forEach { pkg ->
                 logger.warn(
                     "Package ${pkg.name} was acknowledged by Google Sheets but read-back verification did not match. " +
-                        "Marking it synced because Sheets accepted the write."
+                        LOG_SYNCED_BECAUSE_ACCEPTED
                 )
             }
         return packages

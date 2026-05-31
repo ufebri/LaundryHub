@@ -85,6 +85,11 @@ class HistoryViewModelTest {
         assertEquals("Database deletion failed", viewModel.uiState.deleteOrder.errorMessage)
     }
 
+    @Test
+    fun `verify dummyHistoryUiState is initialized`() {
+        org.junit.Assert.assertNotNull(com.raylabs.laundryhub.ui.common.dummy.history.dummyHistoryUiState)
+    }
+
     private fun createViewModel(): HistoryViewModel {
         return HistoryViewModel(
             readIncomeUseCase = readIncomeUseCase,
