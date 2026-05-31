@@ -523,6 +523,103 @@ class OutcomeViewModelTest {
         assertFalse("test-delete-id" in vm.uiState.hiddenOutcomeIds)
     }
 
+    @Test
+    fun `submitOutcome handles empty or unknown resource state`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Empty)
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val data = vm.buildOutcomeDataForSubmit()
+        var errorMsg: String? = null
+        vm.submitOutcome(data, onError = { errorMsg = it })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Unknown error", errorMsg)
+        assertFalse(vm.uiState.isSubmitting)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, vm.uiState.optimisticOutcomes.first().syncStatus)
+    }
+
+    @Test
+    fun `retryOptimisticOutcome handles empty or unknown resource state`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("first-fail"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val data = vm.buildOutcomeDataForSubmit()
+        vm.submitOutcome(data)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Empty)
+
+        val fakeId = vm.uiState.optimisticOutcomes.first().id
+        var errorMsg: String? = null
+        vm.retryOptimisticOutcome(fakeId, onError = { errorMsg = it })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Unknown error", errorMsg)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, vm.uiState.optimisticOutcomes.first().syncStatus)
+    }
+
+    @Test
+    fun `updateOutcome handles empty or unknown resource state`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Empty)
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var errorMsg: String? = null
+        vm.updateOutcome(sampleOutcome, onError = { errorMsg = it })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Unknown error", errorMsg)
+        assertFalse(vm.uiState.isSubmitting)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, vm.uiState.optimisticUpdates[sampleOutcome.id]?.syncStatus)
+    }
+
+    @Test
+    fun `retryOptimisticUpdate handles empty or unknown resource state`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("first-fail"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.updateOutcome(sampleOutcome)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Empty)
+
+        var errorMsg: String? = null
+        vm.retryOptimisticUpdate(sampleOutcome.id, onError = { errorMsg = it })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Unknown error", errorMsg)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, vm.uiState.optimisticUpdates[sampleOutcome.id]?.syncStatus)
+    }
+
+    @Test
+    fun `deleteOutcome handles empty or unknown resource state`() = runTest {
+        whenever(mockDeleteOutcome.invoke(onRetry = anyOrNull(), outcomeId = any()))
+            .thenReturn(Resource.Empty)
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        var errorMsg: String? = null
+        vm.deleteOutcome(outcomeId = "test-id", onError = { errorMsg = it })
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals("Unknown error", errorMsg)
+        assertFalse("test-id" in vm.uiState.hiddenOutcomeIds)
+    }
+
     private fun createViewModel(): OutcomeViewModel {
         return OutcomeViewModel(
             readOutcomeUseCase = mockReadOutcome,
