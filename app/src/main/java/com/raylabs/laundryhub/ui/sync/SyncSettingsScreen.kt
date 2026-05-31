@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -112,41 +113,11 @@ fun SyncSettingsScreenContent(
                 )
             }
         ) { padding ->
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(MaterialTheme.colors.background)
-                    .padding(padding)
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(24.dp)
-            ) {
-                SyncStatusCard(
-                    lastSyncTime = state.lastSyncTime,
-                    changesCount = state.changesCount,
-                    syncStatus = state.lastSyncStatus,
-                    pendingPushCount = state.pendingPushCount,
-                    pendingDeleteCount = state.pendingDeleteCount,
-                    dataDifferenceCount = state.dataDifferenceCount,
-                    reportingDifferenceCount = state.reportingDifferenceCount,
-                    lastSyncError = state.lastSyncError
-                )
-
-                MasterSourceOfTruthSection(
-                    selectedSource = state.selectedSourceOfTruth,
-                    onSourceSelected = onMasterSourceSelected
-                )
-
-                state.syncPreview?.takeIf { it.totalDifferences == 0 }?.let { preview ->
-                    SyncPreviewCard(preview = preview)
-                }
-
-                state.activeRun?.let { run ->
-                    SyncRunProgressCard(run = run)
-                }
-
-                Spacer(modifier = Modifier.height(32.dp))
-            }
+            SyncSettingsScrollableContent(
+                state = state,
+                padding = padding,
+                onMasterSourceSelected = onMasterSourceSelected
+            )
         }
 
         SyncConfirmationOverlay(
@@ -154,6 +125,49 @@ fun SyncSettingsScreenContent(
             onConfirm = onConfirmSyncNow,
             onDismiss = onDismissPreview
         )
+    }
+}
+
+@Composable
+private fun SyncSettingsScrollableContent(
+    state: SyncSettingsUiState,
+    padding: PaddingValues,
+    onMasterSourceSelected: (MasterSourceOfTruth) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colors.background)
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp)
+    ) {
+        SyncStatusCard(
+            lastSyncTime = state.lastSyncTime,
+            changesCount = state.changesCount,
+            syncStatus = state.lastSyncStatus,
+            pendingPushCount = state.pendingPushCount,
+            pendingDeleteCount = state.pendingDeleteCount,
+            dataDifferenceCount = state.dataDifferenceCount,
+            reportingDifferenceCount = state.reportingDifferenceCount,
+            lastSyncError = state.lastSyncError
+        )
+
+        MasterSourceOfTruthSection(
+            selectedSource = state.selectedSourceOfTruth,
+            onSourceSelected = onMasterSourceSelected
+        )
+
+        state.syncPreview?.takeIf { it.totalDifferences == 0 }?.let { preview ->
+            SyncPreviewCard(preview = preview)
+        }
+
+        state.activeRun?.let { run ->
+            SyncRunProgressCard(run = run)
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
