@@ -4,10 +4,14 @@ on:
   push:
     branches:
       - master
+      - development
+      - 'feature/**'
 
   pull_request:
     branches:
       - master
+      - development
+      - 'feature/**'
 
 jobs:
   setup-env:
