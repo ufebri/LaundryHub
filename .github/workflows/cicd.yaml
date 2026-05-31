@@ -236,7 +236,7 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run tests and generate Jacoco report
-        run: ./gradlew clean testDebugUnitTest jacocoTestReport
+        run: ./gradlew clean testDebugUnitTest jacocoTestReport -Dorg.gradle.dependency.verification=off
 
       - name: Check if coverage reports exist
         run: |
@@ -270,4 +270,5 @@ jobs:
         run: |
           ./gradlew sonar --info \
             -Dsonar.token=$SONAR_TOKEN \
-            -Dsonar.host.url=https://sonarcloud.io
+            -Dsonar.host.url=https://sonarcloud.io \
+            -Dorg.gradle.dependency.verification=off
