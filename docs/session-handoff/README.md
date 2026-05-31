@@ -1,10 +1,11 @@
 # Session Handoff - 2026-05-31 (CI/CD Optimization & SonarCloud Coverage Hardening)
 
 ## Context & Work Completed
-* **Duplicate CI/CD Scan Prevention (2x Scan Fixed):**
-  - Refactored `push` triggers in `.github/workflows/cicd.yaml` to run strictly on integration branches (`master`, `development`).
-  - Allowed `pull_request` triggers to target integration and feature branches (`master`, `development`, `feature/**`).
-  - This ensures that exactly **one** pipeline runs on feature commits with active pull requests, completely eliminating duplicate/overlapping runs!
+* **Duplicate CI/CD Scan Prevention (Resolved & Hardened):**
+  - Originally, when a Pull Request was active from `development` to `master`, pushing to `development` triggered two pipelines: one for `push` to `development` and one for `pull_request` targeting `master`.
+  - We hardened the triggers in `.github/workflows/cicd.yaml` to restrict the `push` trigger strictly to the `master` integration branch.
+  - Pull requests targeting `master`, `development`, or `feature/**` remain fully gated via the `pull_request` event.
+  - This ensures that exactly **one** unified pipeline runs on any pull request (whether `feature/**` -> `development` or `development` -> `master`), completely eliminating duplicate runs!
 * **Clean Cleanup of Obsolete Jobs:**
   - Deleted the `github-release` job block completely from `.github/workflows/cicd.yaml`.
 * **Zero-Compromise Coverage Recovery (Natively Exceeding 80% on New Code):**
@@ -21,7 +22,7 @@
 ---
 
 ## Current Project State & Coverage Metrics
-* **Branch:** `feature/kmp` (Commit SHA: `8cc4a98` - pushed to origin).
+* **Branch:** `feature/kmp` (Commit SHA: `77aeb2e` - pushed to origin).
 * **Target Files Coverage Analysis:**
 
 | Module | Source File | Line Coverage | Branch Coverage | Status |
