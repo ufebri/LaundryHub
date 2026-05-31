@@ -43,7 +43,8 @@ fun Route.outcomeRoutes(
         get {
             val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
             val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
-            call.respond(HttpStatusCode.OK, repository.getAll(page, size))
+            val searchQuery = call.request.queryParameters["searchQuery"]
+            call.respond(HttpStatusCode.OK, repository.getAll(page, size, searchQuery))
         }
         post {
             try {

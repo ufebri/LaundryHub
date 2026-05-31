@@ -209,4 +209,205 @@ class GrossRouteBehaviorTest {
         assertEquals(HttpStatusCode.OK, response.status)
         assertTrue(response.bodyAsText().contains("Success"))
     }
+
+    @Test
+    fun `post gross returns Conflict when insertion fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.insert(any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.post("/api/gross") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"month":"Mei 2026","totalNominal":"Rp3.139.000","orderCount":"108","tax":"Rp15.695"}""")
+        }
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `post gross returns BadRequest on invalid body`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.post("/api/gross") {
+            contentType(ContentType.Application.Json)
+            setBody("invalid-json")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `put gross returns NotFound when update fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.update(eq("Mei 2026"), any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.put("/api/gross/Mei 2026") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"month":"Mei 2026","totalNominal":"Rp3.139.000","orderCount":"108","tax":"Rp15.695"}""")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `put gross returns BadRequest on invalid body`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.put("/api/gross/Mei 2026") {
+            contentType(ContentType.Application.Json)
+            setBody("invalid-json")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `delete gross returns NotFound when delete fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.delete("Mei 2026")).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = false
+                )
+            }
+        }
+
+        val response = client.delete("/api/gross/Mei 2026")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `migrate gross returns BadRequest when spreadsheetId is missing`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = true
+                )
+            }
+        }
+
+        val response = client.post("/api/gross/migrate?accessToken=token")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `migrate gross returns InternalServerError when api client fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(sheetsApiClient.getValues(any(), any(), any())).thenThrow(RuntimeException("API Error"))
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                grossRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    syncService = syncService,
+                    spreadsheetId = "sheet-id",
+                    migrationRoutesEnabled = true
+                )
+            }
+        }
+
+        val response = client.post("/api/gross/migrate?spreadsheetId=sid&accessToken=token")
+        assertEquals(HttpStatusCode.InternalServerError, response.status)
+        assertEquals("API Error", response.bodyAsText())
+    }
 }

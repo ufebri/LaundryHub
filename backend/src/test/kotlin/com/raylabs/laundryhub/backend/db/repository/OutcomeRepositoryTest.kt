@@ -161,4 +161,29 @@ class OutcomeRepositoryTest {
         assertTrue(marked)
         assertEquals(0, repository.getUnsyncedOutcomes().size)
     }
+
+    @Test
+    fun `getAll with searchQuery filters outcomes correctly`() = runBlocking {
+        val outcomes = listOf(
+            OutcomeData("1", "2026-05-10", "Sabun Cuci", "10000", "Beli sabun", "Cash"),
+            OutcomeData("2", "2026-05-11", "Pewangi", "20000", "Beli parfum", "QRIS"),
+            OutcomeData("3", "2026-05-12", "Sewa Ruko", "50000", "Bayar bulanan", "Transfer")
+        )
+        outcomes.forEach { repository.insert(it) }
+
+        // Test search by purpose
+        val searchPurpose = repository.getAll(searchQuery = "sabun")
+        assertEquals(1, searchPurpose.size)
+        assertEquals("1", searchPurpose.first().id)
+
+        // Test search by remark
+        val searchRemark = repository.getAll(searchQuery = "parfum")
+        assertEquals(1, searchRemark.size)
+        assertEquals("2", searchRemark.first().id)
+
+        // Test search by payment
+        val searchPayment = repository.getAll(searchQuery = "Transfer")
+        assertEquals(1, searchPayment.size)
+        assertEquals("3", searchPayment.first().id)
+    }
 }

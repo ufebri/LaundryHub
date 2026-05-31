@@ -22,7 +22,9 @@ import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComm
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
+import com.raylabs.laundryhub.ui.home.state.SyncStatus
 import com.raylabs.laundryhub.ui.outcome.state.DateListItemUI
+import com.raylabs.laundryhub.ui.outcome.state.EntryItem
 import com.raylabs.laundryhub.ui.outcome.state.OutcomeUiState
 import com.raylabs.laundryhub.ui.outcome.state.toDateListUiItems
 import com.raylabs.laundryhub.ui.outcome.state.toEntryItemUI
@@ -84,34 +86,97 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    suspend fun submitOutcome(outcome: OutcomeData, onComplete: suspend (String) -> Unit) {
+    fun submitOutcome(
+        outcome: OutcomeData,
+        onError: (String) -> Unit = {},
+        onComplete: (String) -> Unit = {}
+    ) {
+        val fakeId = "TEMP_${System.currentTimeMillis()}"
+        val tempItem = EntryItem(
+            id = fakeId,
+            name = outcome.purpose,
+            date = DateUtil.formatToLongDate(outcome.date, inputFormat = DateUtil.STANDARD_DATE_FORMATED),
+            price = outcome.price,
+            remark = outcome.remark,
+            paymentStatus = outcome.payment,
+            typeCard = com.raylabs.laundryhub.ui.outcome.state.TypeCard.OUTCOME,
+            syncStatus = SyncStatus.PENDING,
+            rawPayload = outcome
+        )
+
         _uiState.value = _uiState.value.copy(
+            optimisticOutcomes = _uiState.value.optimisticOutcomes + tempItem,
             submitNewOutcome = _uiState.value.submitNewOutcome.loading(),
             isSubmitting = true
         )
 
-        when (val result = submitOutcomeUseCase(order = outcome)) {
-            is Resource.Success -> {
-                _uiState.value = _uiState.value.copy(
-                    submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
-                    isSubmitting = false
-                )
-                onComplete(result.data)
-                viewModelScope.launch {
-                    loadOutcomeList(isSilent = true)
+        viewModelScope.launch {
+            when (val result = submitOutcomeUseCase(order = outcome)) {
+                is Resource.Success -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.SYNCED, result.data)
+                    _uiState.value = _uiState.value.copy(
+                        submitNewOutcome = _uiState.value.submitNewOutcome.success(result.data),
+                        isSubmitting = false
+                    )
+                    onComplete(result.data)
                     loadLastOutcomeId()
                 }
+                is Resource.Error -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(
+                        submitNewOutcome = _uiState.value.submitNewOutcome.error(result.message),
+                        isSubmitting = false
+                    )
+                    onError(result.message)
+                }
+                else -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(isSubmitting = false)
+                    onError("Unknown error")
+                }
             }
+        }
+    }
 
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    submitNewOutcome = _uiState.value.submitNewOutcome.error(result.message),
-                    isSubmitting = false
+    private fun updateOptimisticOutcomeStatus(fakeId: String, status: SyncStatus, realId: String? = null) {
+        val updatedList = _uiState.value.optimisticOutcomes.map {
+            if (it.id == fakeId) {
+                it.copy(
+                    syncStatus = status,
+                    id = realId ?: it.id
                 )
-            }
+            } else it
+        }
+        _uiState.value = _uiState.value.copy(
+            optimisticOutcomes = updatedList
+        )
+    }
 
-            else -> {
-                _uiState.value = _uiState.value.copy(isSubmitting = false)
+    fun removeOptimisticOutcome(fakeId: String) {
+        _uiState.value = _uiState.value.copy(
+            optimisticOutcomes = _uiState.value.optimisticOutcomes.filter { it.id != fakeId }
+        )
+    }
+
+    fun retryOptimisticOutcome(fakeId: String, onError: (String) -> Unit = {}, onComplete: (String) -> Unit = {}) {
+        val outcomeToRetry = _uiState.value.optimisticOutcomes.find { it.id == fakeId } ?: return
+        val payload = outcomeToRetry.rawPayload ?: return
+        updateOptimisticOutcomeStatus(fakeId, SyncStatus.PENDING)
+        viewModelScope.launch {
+            when (val result = submitOutcomeUseCase(order = payload)) {
+                is Resource.Success -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.SYNCED, result.data)
+                    onComplete(result.data)
+                    loadLastOutcomeId()
+                }
+                is Resource.Error -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.FAILED)
+                    onError(result.message)
+                }
+                else -> {
+                    updateOptimisticOutcomeStatus(fakeId, SyncStatus.FAILED)
+                    onError("Unknown error")
+                }
             }
         }
     }
@@ -157,67 +222,135 @@ class OutcomeViewModel @Inject constructor(
         }
     }
 
-    suspend fun updateOutcome(outcome: OutcomeData, onComplete: suspend () -> Unit) {
+    fun updateOutcome(
+        outcome: OutcomeData,
+        onError: (String) -> Unit = {},
+        onComplete: () -> Unit = {}
+    ) {
+        val id = outcome.id
+        val tempItem = EntryItem(
+            id = id,
+            name = outcome.purpose,
+            date = DateUtil.formatToLongDate(outcome.date, inputFormat = DateUtil.STANDARD_DATE_FORMATED),
+            price = outcome.price,
+            remark = outcome.remark,
+            paymentStatus = outcome.payment,
+            typeCard = com.raylabs.laundryhub.ui.outcome.state.TypeCard.OUTCOME,
+            syncStatus = SyncStatus.PENDING,
+            rawPayload = outcome
+        )
+
         _uiState.value = _uiState.value.copy(
+            optimisticUpdates = _uiState.value.optimisticUpdates + (id to tempItem),
             updateOutcome = _uiState.value.updateOutcome.loading(),
             isSubmitting = true
         )
 
-        when (val result = updateOutcomeUseCase(order = outcome)) {
-            is Resource.Success -> {
-                _uiState.value = _uiState.value.copy(
-                    updateOutcome = _uiState.value.updateOutcome.success(result.data),
-                    isSubmitting = false
-                )
-                onComplete()
-                viewModelScope.launch {
-                    loadOutcomeList(isSilent = true)
+        viewModelScope.launch {
+            when (val result = updateOutcomeUseCase(order = outcome)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates - id,
+                        updateOutcome = _uiState.value.updateOutcome.success(result.data),
+                        isSubmitting = false
+                    )
+                    onComplete()
                 }
-            }
-
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    updateOutcome = _uiState.value.updateOutcome.error(result.message),
-                    isSubmitting = false
-                )
-            }
-
-            else -> {
-                _uiState.value = _uiState.value.copy(isSubmitting = false)
+                is Resource.Error -> {
+                    val failedItem = tempItem.copy(syncStatus = SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates + (id to failedItem),
+                        updateOutcome = _uiState.value.updateOutcome.error(result.message),
+                        isSubmitting = false
+                    )
+                    onError(result.message)
+                }
+                else -> {
+                    val failedItem = tempItem.copy(syncStatus = SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates + (id to failedItem),
+                        isSubmitting = false
+                    )
+                    onError("Unknown error")
+                }
             }
         }
     }
 
-    suspend fun deleteOutcome(
-        outcomeId: String,
-        onComplete: suspend () -> Unit,
-        onError: suspend (String) -> Unit = {}
-    ) {
+    fun removeOptimisticUpdate(id: String) {
         _uiState.value = _uiState.value.copy(
-            deleteOutcome = _uiState.value.deleteOutcome.loading()
+            optimisticUpdates = _uiState.value.optimisticUpdates - id
+        )
+    }
+
+    fun retryOptimisticUpdate(id: String, onError: (String) -> Unit = {}, onComplete: () -> Unit = {}) {
+        val updateToRetry = _uiState.value.optimisticUpdates[id] ?: return
+        val payload = updateToRetry.rawPayload ?: return
+        
+        val tempItem = updateToRetry.copy(syncStatus = SyncStatus.PENDING)
+        _uiState.value = _uiState.value.copy(
+            optimisticUpdates = _uiState.value.optimisticUpdates + (id to tempItem)
         )
 
-        when (val result = deleteOutcomeUseCase(outcomeId = outcomeId)) {
-            is Resource.Success -> {
-                _uiState.value = _uiState.value.copy(
-                    deleteOutcome = _uiState.value.deleteOutcome.success(result.data),
-                    hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds + outcomeId
-                )
-                onComplete()
-                viewModelScope.launch {
-                    loadOutcomeList(isSilent = true)
-                    loadLastOutcomeId()
+        viewModelScope.launch {
+            when (val result = updateOutcomeUseCase(order = payload)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates - id
+                    )
+                    onComplete()
+                }
+                is Resource.Error -> {
+                    val failedItem = tempItem.copy(syncStatus = SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates + (id to failedItem)
+                    )
+                    onError(result.message)
+                }
+                else -> {
+                    val failedItem = tempItem.copy(syncStatus = SyncStatus.FAILED)
+                    _uiState.value = _uiState.value.copy(
+                        optimisticUpdates = _uiState.value.optimisticUpdates + (id to failedItem)
+                    )
+                    onError("Unknown error")
                 }
             }
+        }
+    }
 
-            is Resource.Error -> {
-                _uiState.value = _uiState.value.copy(
-                    deleteOutcome = _uiState.value.deleteOutcome.error(result.message)
-                )
-                onError(result.message)
+    fun deleteOutcome(
+        outcomeId: String,
+        onError: (String) -> Unit = {},
+        onComplete: () -> Unit = {}
+    ) {
+        _uiState.value = _uiState.value.copy(
+            deleteOutcome = _uiState.value.deleteOutcome.loading(),
+            hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds + outcomeId
+        )
+
+        viewModelScope.launch {
+            when (val result = deleteOutcomeUseCase(outcomeId = outcomeId)) {
+                is Resource.Success -> {
+                    _uiState.value = _uiState.value.copy(
+                        deleteOutcome = _uiState.value.deleteOutcome.success(result.data)
+                    )
+                    onComplete()
+                    loadLastOutcomeId()
+                }
+                is Resource.Error -> {
+                    _uiState.value = _uiState.value.copy(
+                        deleteOutcome = _uiState.value.deleteOutcome.error(result.message),
+                        hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds - outcomeId
+                    )
+                    onError(result.message)
+                }
+                else -> {
+                    _uiState.value = _uiState.value.copy(
+                        hiddenOutcomeIds = _uiState.value.hiddenOutcomeIds - outcomeId
+                    )
+                    onError("Unknown error")
+                }
             }
-
-            else -> Unit
         }
     }
 

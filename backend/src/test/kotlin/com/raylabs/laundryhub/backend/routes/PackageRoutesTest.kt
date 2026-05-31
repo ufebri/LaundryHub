@@ -155,4 +155,205 @@ class PackageRoutesTest {
         assertTrue(response.bodyAsText().contains("queued"))
         verify(sheetsPushScheduler).requestPush("package deleted")
     }
+
+    @Test
+    fun `post package returns Conflict when insertion fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.insert(any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = false,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.post("/api/packages") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"Express","price":"10000","duration":"1","unit":"kg"}""")
+        }
+
+        assertEquals(HttpStatusCode.Conflict, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `post package returns BadRequest on invalid body`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = false,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.post("/api/packages") {
+            contentType(ContentType.Application.Json)
+            setBody("invalid-json")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `put package returns NotFound when update fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.update(eq("Express"), any())).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = false,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.put("/api/packages/Express") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"name":"Express","price":"10000","duration":"1","unit":"kg"}""")
+        }
+
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `put package returns BadRequest on invalid body`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = false,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.put("/api/packages/Express") {
+            contentType(ContentType.Application.Json)
+            setBody("invalid-json")
+        }
+
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `delete package returns NotFound when delete fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(repository.delete("Express")).thenReturn(false)
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = false,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.delete("/api/packages/Express")
+        assertEquals(HttpStatusCode.NotFound, response.status)
+        assertTrue(response.bodyAsText().contains("Error"))
+    }
+
+    @Test
+    fun `migrate packages returns BadRequest when spreadsheetId is missing`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = true,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.post("/api/packages/migrate?accessToken=token")
+        assertEquals(HttpStatusCode.BadRequest, response.status)
+    }
+
+    @Test
+    fun `migrate packages returns InternalServerError when api client fails`() = testApplication {
+        environment {
+            config = MapApplicationConfig()
+        }
+        whenever(sheetsApiClient.getValues(any(), any(), any())).thenThrow(RuntimeException("API Error"))
+
+        application {
+            install(ContentNegotiation) {
+                json()
+            }
+            routing {
+                packageRoutes(
+                    repository = repository,
+                    sheetsApiClient = sheetsApiClient,
+                    migrationRoutesEnabled = true,
+                    syncDeleteEventRepository = syncDeleteEventRepository,
+                    sheetsPushScheduler = sheetsPushScheduler
+                )
+            }
+        }
+
+        val response = client.post("/api/packages/migrate?spreadsheetId=sid&accessToken=token")
+        assertEquals(HttpStatusCode.InternalServerError, response.status)
+        assertEquals("API Error", response.bodyAsText())
+    }
 }

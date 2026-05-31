@@ -376,6 +376,153 @@ class OutcomeViewModelTest {
         assertEquals("delete fail", vm.uiState.deleteOutcome.errorMessage)
     }
 
+    @Test
+    fun `submitOutcome adds optimistic item instantly and updates status on success`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Success("real-id-99"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onPurposeChanged("Beli Sabun")
+        vm.onPriceChanged("15000")
+        vm.onPaymentMethodSelected("Paid by Cash")
+        vm.onRemarkChanged("Keperluan Toko")
+
+        val data = vm.buildOutcomeDataForSubmit()
+        
+        vm.submitOutcome(data)
+        // Verify optimistic item added immediately before advancing scheduler
+        val optimisticListBefore = vm.uiState.optimisticOutcomes
+        assertEquals(1, optimisticListBefore.size)
+        val tempItem = optimisticListBefore.first()
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING, tempItem.syncStatus)
+        assertEquals("Beli Sabun", tempItem.name)
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // After success, it should be SYNCED and hold the real id
+        val optimisticListAfter = vm.uiState.optimisticOutcomes
+        assertEquals(1, optimisticListAfter.size)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, optimisticListAfter.first().syncStatus)
+        assertEquals("real-id-99", optimisticListAfter.first().id)
+    }
+
+    @Test
+    fun `submitOutcome updates status to FAILED on error`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("network timeout"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val data = vm.buildOutcomeDataForSubmit()
+        vm.submitOutcome(data)
+        
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val optimisticList = vm.uiState.optimisticOutcomes
+        assertEquals(1, optimisticList.size)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, optimisticList.first().syncStatus)
+    }
+
+    @Test
+    fun `retryOptimisticOutcome triggers submit again`() = runTest {
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("failed first time"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val data = vm.buildOutcomeDataForSubmit()
+        vm.submitOutcome(data)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Setup mock to succeed on retry
+        whenever(mockSubmitOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Success("retry-success-id"))
+
+        val failedFakeId = vm.uiState.optimisticOutcomes.first().id
+        vm.retryOptimisticOutcome(failedFakeId)
+
+        // Instantly goes to PENDING on retry
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING, vm.uiState.optimisticOutcomes.first().syncStatus)
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED, vm.uiState.optimisticOutcomes.first().syncStatus)
+        assertEquals("retry-success-id", vm.uiState.optimisticOutcomes.first().id)
+    }
+
+    @Test
+    fun `removeOptimisticOutcome clears item from list`() = runTest {
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val data = vm.buildOutcomeDataForSubmit()
+        vm.submitOutcome(data)
+        val fakeId = vm.uiState.optimisticOutcomes.first().id
+
+        vm.removeOptimisticOutcome(fakeId)
+        assertTrue(vm.uiState.optimisticOutcomes.isEmpty())
+    }
+
+    @Test
+    fun `updateOutcome adds to optimisticUpdates instantly and clears on success`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Success(true))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.updateOutcome(sampleOutcome)
+        
+        // Instantly added with PENDING status
+        val updateMapBefore = vm.uiState.optimisticUpdates
+        assertEquals(1, updateMapBefore.size)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING, updateMapBefore[sampleOutcome.id]?.syncStatus)
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Cleared on success
+        assertTrue(vm.uiState.optimisticUpdates.isEmpty())
+    }
+
+    @Test
+    fun `updateOutcome updates status to FAILED on error`() = runTest {
+        whenever(mockUpdateOutcome.invoke(onRetry = anyOrNull(), order = any()))
+            .thenReturn(Resource.Error("update error"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.updateOutcome(sampleOutcome)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val updateMap = vm.uiState.optimisticUpdates
+        assertEquals(1, updateMap.size)
+        assertEquals(com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED, updateMap[sampleOutcome.id]?.syncStatus)
+    }
+
+    @Test
+    fun `deleteOutcome hides item instantly and rolls back on failure`() = runTest {
+        whenever(mockDeleteOutcome.invoke(onRetry = anyOrNull(), outcomeId = any()))
+            .thenReturn(Resource.Error("delete error"))
+
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.deleteOutcome(outcomeId = "test-delete-id")
+
+        // Instantly hidden
+        assertTrue("test-delete-id" in vm.uiState.hiddenOutcomeIds)
+
+        dispatcher.scheduler.advanceUntilIdle()
+
+        // Visual rollback on failure
+        assertFalse("test-delete-id" in vm.uiState.hiddenOutcomeIds)
+    }
+
     private fun createViewModel(): OutcomeViewModel {
         return OutcomeViewModel(
             readOutcomeUseCase = mockReadOutcome,
