@@ -164,6 +164,13 @@ tasks.register("jacocoTestReport", JacocoReport) {
             '**/com/raylabs/laundryhub/ui/**/*Screen*.*',
             '**/com/raylabs/laundryhub/databinding/**',
             '**/com/raylabs/laundryhub/core/di/**',
+            '**/com/raylabs/laundryhub/ui/common/dummy/**',
+            '**/com/raylabs/laundryhub/ui/common/SystemBarStyle*.*',
+            '**/com/raylabs/laundryhub/ui/**/state/**',
+            '**/com/raylabs/laundryhub/core/fcm/**',
+            '**/com/raylabs/laundryhub/core/data/config/FirebaseRemoteConfigSource*.*',
+            '**/com/raylabs/laundryhub/core/data/service/GoogleSheetsAuthorizationManagerImpl*.*',
+            '**/com/raylabs/laundryhub/core/data/service/GoogleCredentialAuthManagerImpl*.*',
             '**/Dagger*.*', '**/Hilt*.*', '**/*Hilt*.*', '**/*_Factory.*',
             '**/*\$\$serializer.class', '**/\$Serializer.class'
     ]
