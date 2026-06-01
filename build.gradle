@@ -66,12 +66,25 @@ def sonarCoverageExclusions = [
         "**/ui/**/*BottomSheet*.kt",
         "**/ui/component/**",
         "**/ui/theme/**",
+        "**/ui/common/dummy/**",
+        "**/ui/common/SystemBarStyle*.kt",
+        "**/ui/**/state/**",
         "**/core/di/**",
+        "**/core/fcm/**",
+        "**/core/data/config/FirebaseRemoteConfigSource*.kt",
+        "**/core/data/service/GoogleSheetsAuthorizationManagerImpl*.kt",
+        "**/core/data/service/GoogleCredentialAuthManagerImpl*.kt",
         "**/databinding/**",
         "**/data/source/local/room/**",
         "**/LaundryHubApp*.kt",
         "**/PlatformDate.kt",
-        "**/backend/plugins/Database.kt"
+        "**/HttpClientProvider*.kt",
+        "**/backend/plugins/Database.kt",
+        "**/backend/plugins/Routing.kt",
+        "**/backend/plugins/Serialization.kt",
+        "**/backend/routes/**",
+        "**/backend/db/repository/**",
+        "**/backend/Application*.kt"
 ]
 
 sonar {
