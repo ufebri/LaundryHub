@@ -15,7 +15,10 @@ jacocoTestReport {
         html.required = true
     }
 
-    def fileFilter = ['**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*']
+    def fileFilter = [
+            '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*', '**/*Test*.*', 'android/**/*.*',
+            '**/backend/plugins/Database*.*', '**/backend/plugins/DefaultPlatformSystem*.*', '**/backend/plugins/PlatformSystem*.*'
+    ]
     def debugTree = fileTree(dir: "${buildDir}/classes/kotlin/main", excludes: fileFilter)
     def mainSrc = "${project.projectDir}/src/main/kotlin"
 

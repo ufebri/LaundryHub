@@ -25,7 +25,17 @@ private val logger = LoggerFactory.getLogger("Database")
 private const val JDBC_POSTGRESQL_PREFIX = "jdbc:postgresql:"
 private const val POSTGRESQL_DRIVER_CLASS = "org.postgresql.Driver"
 
-fun Application.configureDatabase() {
+interface PlatformSystem {
+    fun exitProcess(status: Int)
+}
+
+object DefaultPlatformSystem : PlatformSystem {
+    override fun exitProcess(status: Int) {
+        System.exit(status)
+    }
+}
+
+fun Application.configureDatabase(system: PlatformSystem = DefaultPlatformSystem) {
     if (System.getProperty("isTest") == "true") return
 
     val jdbcUrl = System.getenv("DATABASE_URL")
@@ -71,7 +81,7 @@ fun Application.configureDatabase() {
     } catch (e: Exception) {
         logger.error("FATAL: Could not connect to database: ${e.message}")
         // Railway akan restart container jika kita exit dengan status 1
-        System.exit(1)
+        system.exitProcess(1)
     }
 }
 

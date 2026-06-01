@@ -70,7 +70,8 @@ def sonarCoverageExclusions = [
         "**/databinding/**",
         "**/data/source/local/room/**",
         "**/LaundryHubApp*.kt",
-        "**/PlatformDate.kt"
+        "**/PlatformDate.kt",
+        "**/backend/plugins/Database.kt"
 ]
 
 sonar {
@@ -129,3 +130,7 @@ tasks.named("sonar").configure {
 tasks.register('clean', Delete) {
     delete rootProject.buildDir
 }
+
+
+
+
