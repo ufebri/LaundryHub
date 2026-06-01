@@ -91,6 +91,45 @@ class DatabaseTest {
     }
 
     @Test
+    fun testDatabaseConfigurationFailureTriggersExit() {
+        val originalIsTest = System.getProperty("isTest")
+        System.setProperty("isTest", "false")
+
+        var exitStatus: Int? = null
+        val mockSystem = object : PlatformSystem {
+            override fun exitProcess(status: Int) {
+                exitStatus = status
+            }
+        }
+
+        try {
+            testApplication {
+                val testConfig = MapApplicationConfig().apply {
+                    put("storage.jdbcUrl", "jdbc:postgresql://127.0.0.1:9999/invalid-db")
+                    put("storage.username", "bad-user")
+                    put("storage.password", "bad-pass")
+                }
+
+                environment {
+                    config = testConfig
+                }
+
+                application {
+                    configureDatabase(system = mockSystem)
+                }
+            }
+        } finally {
+            if (originalIsTest != null) {
+                System.setProperty("isTest", originalIsTest)
+            } else {
+                System.clearProperty("isTest")
+            }
+        }
+
+        assertEquals(1, exitStatus)
+    }
+
+    @Test
     fun testDatabaseConfigurationShortCircuitsIfIsTest() = testApplication {
         val originalIsTest = System.getProperty("isTest")
         System.setProperty("isTest", "true")
@@ -108,29 +147,33 @@ class DatabaseTest {
     }
 
     @Test
-    fun testDatabaseConfigurationH2Path() = testApplication {
+    fun testDatabaseConfigurationH2Path() {
         val originalIsTest = System.getProperty("isTest")
         System.setProperty("isTest", "false")
 
-        val testConfig = MapApplicationConfig().apply {
-            put("storage.jdbcUrl", "jdbc:h2:mem:test_configure_db_main;MODE=MySQL;DB_CLOSE_DELAY=-1;")
-            put("storage.username", "sa")
-            put("storage.password", "")
-            put("storage.driverClassName", "org.h2.Driver")
-        }
+        try {
+            testApplication {
+                val testConfig = MapApplicationConfig().apply {
+                    put("storage.jdbcUrl", "jdbc:h2:mem:test_configure_db_main;MODE=MySQL;DB_CLOSE_DELAY=-1;")
+                    put("storage.username", "sa")
+                    put("storage.password", "")
+                    put("storage.driverClassName", "org.h2.Driver")
+                }
 
-        environment {
-            config = testConfig
-        }
+                environment {
+                    config = testConfig
+                }
 
-        application {
-            configureDatabase()
-        }
-
-        if (originalIsTest != null) {
-            System.setProperty("isTest", originalIsTest)
-        } else {
-            System.clearProperty("isTest")
+                application {
+                    configureDatabase()
+                }
+            }
+        } finally {
+            if (originalIsTest != null) {
+                System.setProperty("isTest", originalIsTest)
+            } else {
+                System.clearProperty("isTest")
+            }
         }
 
         var success = false

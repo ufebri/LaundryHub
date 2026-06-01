@@ -11,8 +11,8 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadGrossDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.ReadSpreadsheetDataUseCase
 import com.raylabs.laundryhub.core.domain.usecase.sheets.income.ReadIncomeTransactionUseCase
 import com.raylabs.laundryhub.core.domain.usecase.user.UserUseCase
-import com.raylabs.laundryhub.ui.home.state.SortOption
 import com.raylabs.laundryhub.shared.util.Resource
+import com.raylabs.laundryhub.ui.home.state.SortOption
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
@@ -133,11 +133,21 @@ class HomeViewModelTest {
 
     @Test
     fun `summary uses current gross row when endpoint returns oldest first`() = runTest {
+        val currentLocalTime = java.time.LocalDate.now()
+        val currentYear = currentLocalTime.year
+        val currentMonthNumber = currentLocalTime.monthValue
+        val indonesianMonths = listOf(
+            "", "Januari", "Februari", "Maret", "April", "Mei", "Juni", 
+            "Juli", "Agustus", "September", "Oktober", "November", "Desember"
+        )
+        val currentMonthName = indonesianMonths[currentMonthNumber]
+        val currentMonthString = "$currentMonthName $currentYear"
+
         whenever(grossUseCase.invoke(anyOrNull())).thenReturn(
             Resource.Success(
                 listOf(
                     GrossData(month = "Maret 2025", totalNominal = "1038150", orderCount = "35", tax = "5191"),
-                    GrossData(month = "Mei 2026", totalNominal = "3343000", orderCount = "115", tax = "16715"),
+                    GrossData(month = currentMonthString, totalNominal = "3343000", orderCount = "115", tax = "16715"),
                     GrossData(month = "Desember 2999", totalNominal = "9999", orderCount = "9", tax = "99")
                 )
             )
@@ -146,7 +156,7 @@ class HomeViewModelTest {
             Resource.Success(
                 listOf(
                     GrossData(month = "Maret 2025", totalNominal = "1038150", orderCount = "35", tax = "5191"),
-                    GrossData(month = "Mei 2026", totalNominal = "3343000", orderCount = "115", tax = "16715"),
+                    GrossData(month = currentMonthString, totalNominal = "3343000", orderCount = "115", tax = "16715"),
                     GrossData(month = "Desember 2999", totalNominal = "9999", orderCount = "9", tax = "99")
                 )
             )
