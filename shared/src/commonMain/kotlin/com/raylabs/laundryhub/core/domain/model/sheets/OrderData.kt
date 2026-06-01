@@ -134,3 +134,17 @@ fun isUnpaidStatusValue(
 
 val paymentMethodList = listOf(UNPAID, PAID_BY_CASH, PAID_BY_QRIS)
 val paymentMethodOutcomeList = listOf(PAID_BY_CASH, PAID_BY_QRIS, PAID_BY_PERSONAL)
+
+fun OrderData.paidDescription(): String {
+    val isPaid = this.paidStatus.trim().lowercase() in listOf("paid", "lunas")
+    return if (isPaid) {
+        when {
+            this.paymentMethod.equals("qris", ignoreCase = true) -> PAID_BY_QRIS
+            this.paymentMethod.equals("cash", ignoreCase = true) -> PAID_BY_CASH
+            else -> "Paid"
+        }
+    } else {
+        "Unpaid"
+    }
+}
+

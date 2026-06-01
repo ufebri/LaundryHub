@@ -343,7 +343,7 @@ private fun SettingsCard(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Cek perbedaan data sebelum sinkronisasi",
+                        text = "Check data differences before sync",
                         color = ProfileMutedText,
                         style = MaterialTheme.typography.caption
                     )

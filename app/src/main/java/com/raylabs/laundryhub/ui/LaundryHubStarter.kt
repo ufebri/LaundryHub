@@ -46,6 +46,7 @@ import androidx.paging.compose.collectAsLazyPagingItems
 import com.raylabs.laundryhub.R
 import com.raylabs.laundryhub.core.data.service.GoogleCredentialAuthManager
 import com.raylabs.laundryhub.core.di.GoogleAuthEntryPoint
+import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.core.reminder.ReminderNotificationConfig
 import com.raylabs.laundryhub.ui.common.navigation.BottomNavItem
 import com.raylabs.laundryhub.ui.common.util.WhatsAppHelper
@@ -431,7 +432,7 @@ fun ShowOrderBottomSheet(
                 orderID = fakeId,
                 customerName = orderData.name,
                 packageType = orderData.packageName,
-                nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(orderData.paidStatus),
+                nowStatus = orderData.paidDescription(),
                 dueDate = orderData.dueDate,
                 orderDate = orderData.orderDate,
                 syncStatus = com.raylabs.laundryhub.ui.home.state.SyncStatus.PENDING,
@@ -478,7 +479,7 @@ fun ShowOrderBottomSheet(
                 orderID = orderData.orderId,
                 customerName = orderData.name,
                 packageType = orderData.packageName,
-                nowStatus = com.raylabs.laundryhub.core.domain.model.sheets.getDisplayPaidStatus(orderData.paidStatus),
+                nowStatus = orderData.paidDescription(),
                 dueDate = orderData.dueDate,
                 orderDate = orderData.orderDate,
                 syncStatus = com.raylabs.laundryhub.ui.home.state.SyncStatus.SYNCED
