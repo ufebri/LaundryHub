@@ -90,6 +90,7 @@ task jacocoTestReport(type: JacocoReport, dependsOn: ['testDebugUnitTest', 'jvmT
     def fileFilter = [
             '**/R.class', '**/R$*.class', '**/BuildConfig.*', '**/Manifest*.*',
             '**/*Test*.*', 'android/**/*.*',
+            '**/com/raylabs/laundryhub/shared/network/HttpClientProvider*.*',
             '**/*$$serializer.class', '**/$Serializer.class'
     ]
 
