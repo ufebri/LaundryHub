@@ -298,7 +298,7 @@ class OutcomeViewModelTest {
         val vm = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
 
-        assertEquals("Data Kosong", vm.uiState.outcome.errorMessage)
+        assertEquals("Empty Data", vm.uiState.outcome.errorMessage)
         assertFalse(vm.uiState.outcome.isLoading)
     }
 

@@ -94,13 +94,14 @@ fun HistoryScreenView(
                 onDismiss = { selectedEntry = null }
             )
 
-            val performOptimisticDelete = remember(viewModel, coroutineScope, context, scaffoldState) {
+            val performOptimisticDelete = remember(viewModel, coroutineScope, context, scaffoldState, pagingItems) {
                 var deleteFunc: ((String) -> Unit)? = null
                 deleteFunc = { entryId ->
                     viewModel.deleteOrderOptimistic(
                         orderId = entryId,
                         onSuccess = {
                             onOrderChanged()
+                            pagingItems.refresh()
                             coroutineScope.launch {
                                 scaffoldState.snackbarHostState.showSnackbar(
                                     context.getString(R.string.order_delete_success, entryId)
@@ -194,7 +195,24 @@ fun HistoryContent(
                 ) { index ->
                     when (val item = pagingItems[index]) {
                         is DateListItemUI.Header -> {
-                            DateHeader(item.date)
+                            var hasVisibleEntry = false
+                            var nextIndex = index + 1
+                            while (nextIndex < pagingItems.itemCount) {
+                                val nextItem = pagingItems.peek(nextIndex)
+                                if (nextItem is DateListItemUI.Header) {
+                                    break
+                                }
+                                if (nextItem is DateListItemUI.Entry) {
+                                    if (nextItem.item.id !in hiddenOrderIds) {
+                                        hasVisibleEntry = true
+                                        break
+                                    }
+                                }
+                                nextIndex++
+                            }
+                            if (hasVisibleEntry) {
+                                DateHeader(item.date)
+                            }
                         }
 
                     is DateListItemUI.Entry -> {

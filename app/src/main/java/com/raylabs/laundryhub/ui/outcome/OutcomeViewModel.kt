@@ -471,7 +471,7 @@ class OutcomeViewModel @Inject constructor(
 
             is Resource.Empty -> {
                 _uiState.value = _uiState.value.copy(
-                    outcome = _uiState.value.outcome.error("Data Kosong")
+                    outcome = _uiState.value.outcome.error("Empty Data")
                 )
             }
 

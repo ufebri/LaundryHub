@@ -160,12 +160,11 @@ class OutcomeRepository {
             OutcomesTable.selectAll()
         }
 
-        query.orderBy(
-            OutcomesTable.date to org.jetbrains.exposed.sql.SortOrder.DESC,
-            OutcomesTable.id to org.jetbrains.exposed.sql.SortOrder.DESC
-        )
-        .limit(size, offset.toLong())
-        .map { it.toOutcomeData() }
+        query
+            .map { it.toOutcomeData() }
+            .sortedWith(outcomeDateComparator())
+            .drop(offset)
+            .take(size)
     }
 
     suspend fun getUnsyncedOutcomes(): List<OutcomeData> = dbQuery {
