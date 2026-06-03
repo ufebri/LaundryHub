@@ -1,5 +1,6 @@
 package com.raylabs.laundryhub.core.domain.model.sheets
 
+import kotlinx.datetime.toLocalDateTime
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -66,6 +67,51 @@ class GrossDataTest {
         assertEquals(202605, parseGrossMonthKey("may 2026"))
         assertEquals(202601, parseGrossMonthKey("Jan 2026"))
         assertNull(parseGrossMonthKey("2026/05"))
+        
+        // New test cases
+        assertEquals(202606, parseGrossMonthKey("Juni 26"))
+        
+        val currentYear = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).year
+        assertEquals(currentYear * 100 + 6, parseGrossMonthKey("Juni"))
+    }
+
+    @Test
+    fun `test toGrossData mapping`() {
+        val map = mapOf(
+            GROSS_MONTH to "Juni 2026",
+            GROSS_TOTAL_NOMINAL to "Rp5.000.000",
+            GROSS_ORDER_COUNT to "150",
+            GROSS_TAX to "10%"
+        )
+        val data = map.toGrossData()
+        assertEquals("Juni 2026", data.month)
+        assertEquals("Rp5.000.000", data.totalNominal)
+        assertEquals("150", data.orderCount)
+        assertEquals("10%", data.tax)
+    }
+
+    @Test
+    fun `test toSheetValues mapping`() {
+        val data = GrossData(
+            month = "Juni 2026",
+            totalNominal = "Rp5.000.000",
+            orderCount = "150",
+            tax = "10%"
+        )
+        val values = data.toSheetValues()
+        assertEquals(listOf(listOf("Juni 2026", "Rp5.000.000", "150", "10%")), values)
+    }
+
+    @Test
+    fun `test selectCurrentOrLatestGross default parameters`() {
+        val rows = listOf(gross(month = "Juni 2026"))
+        rows.selectCurrentOrLatestGross()
+    }
+
+    @Test
+    fun `parseGrossMonthKey handles extreme year values`() {
+        val currentYear = kotlinx.datetime.Clock.System.now().toLocalDateTime(kotlinx.datetime.TimeZone.currentSystemDefault()).year
+        assertEquals(currentYear * 100 + 6, parseGrossMonthKey("Juni 3000"))
     }
 
     private fun gross(month: String, totalNominal: String = "100"): GrossData {

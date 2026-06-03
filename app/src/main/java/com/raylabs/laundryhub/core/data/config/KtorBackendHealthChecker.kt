@@ -5,9 +5,9 @@ import com.raylabs.laundryhub.shared.network.HttpClientProvider
 import io.ktor.client.request.get
 import kotlinx.coroutines.withTimeout
 
-class KtorBackendHealthChecker : BackendHealthChecker {
-
-    private val client = HttpClientProvider.createClient(enableLogging = false)
+class KtorBackendHealthChecker(
+    private val client: io.ktor.client.HttpClient = HttpClientProvider.createClient(enableLogging = false)
+) : BackendHealthChecker {
 
     override suspend fun isHealthy(baseUrl: String): Boolean {
         return runCatching {

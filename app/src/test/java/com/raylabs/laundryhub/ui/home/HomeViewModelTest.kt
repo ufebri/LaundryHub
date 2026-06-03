@@ -1,9 +1,16 @@
 package com.raylabs.laundryhub.ui.home
 
 import androidx.paging.PagingData
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderBucket
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderCandidate
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderLocalState
+import com.raylabs.laundryhub.core.domain.model.reminder.ReminderSettings
 import com.raylabs.laundryhub.core.domain.model.sheets.FILTER
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
+import com.raylabs.laundryhub.core.domain.model.sheets.RangeDate
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
+import com.raylabs.laundryhub.core.domain.model.sheets.TransactionData
 import com.raylabs.laundryhub.core.domain.usecase.reminder.EvaluateReminderCandidatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderLocalStatesUseCase
 import com.raylabs.laundryhub.core.domain.usecase.reminder.ObserveReminderSettingsUseCase
@@ -24,6 +31,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.mockito.kotlin.anyOrNull
@@ -51,15 +59,18 @@ class HomeViewModelTest {
         Dispatchers.setMain(dispatcher)
         whenever(observeReminderSettingsUseCase.invoke()).thenReturn(flowOf(mock()))
         whenever(observeReminderLocalStatesUseCase.invoke()).thenReturn(flowOf(emptyMap()))
-        whenever(summaryUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
-        whenever(grossUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
+        whenever(summaryUseCase.invoke(null)).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
+        whenever(grossUseCase.invoke(null)).thenReturn(Resource.Success(emptyList()))
         // Also mock the parameterless calls if defaults are used
         whenever(summaryUseCase.invoke()).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "value"))))
         whenever(grossUseCase.invoke()).thenReturn(Resource.Success(emptyList()))
 
         whenever(grossUseCase.getPagingData()).thenReturn(flowOf(mock()))
         whenever(readIncomeUseCase.getPagingData(anyOrNull(), anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(flowOf(PagingData.empty()))
-        whenever(readIncomeUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(Resource.Success(emptyList()))
+        val today = com.raylabs.laundryhub.shared.util.PlatformDate.getTodayDate("yyyy-MM-dd")
+        val range = RangeDate(startDate = today, endDate = today)
+        whenever(readIncomeUseCase.invoke(null, FILTER.RANGE_TRANSACTION_DATA, range)).thenReturn(Resource.Success(emptyList()))
+        whenever(readIncomeUseCase.invoke(null, FILTER.SHOW_UNPAID_DATA, null)).thenReturn(Resource.Success(emptyList()))
     }
 
     @After
@@ -120,8 +131,8 @@ class HomeViewModelTest {
         val viewModel = createViewModel()
         dispatcher.scheduler.advanceUntilIdle()
         
-        whenever(summaryUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
-        whenever(grossUseCase.invoke(anyOrNull())).thenReturn(Resource.Success(emptyList()))
+        whenever(summaryUseCase.invoke(null)).thenReturn(Resource.Success(emptyList()))
+        whenever(grossUseCase.invoke(null)).thenReturn(Resource.Success(emptyList()))
         
         viewModel.refreshAllData()
         
@@ -143,7 +154,7 @@ class HomeViewModelTest {
         val currentMonthName = indonesianMonths[currentMonthNumber]
         val currentMonthString = "$currentMonthName $currentYear"
 
-        whenever(grossUseCase.invoke(anyOrNull())).thenReturn(
+        whenever(grossUseCase.invoke(null)).thenReturn(
             Resource.Success(
                 listOf(
                     GrossData(month = "Maret 2025", totalNominal = "1038150", orderCount = "35", tax = "5191"),
@@ -251,6 +262,229 @@ class HomeViewModelTest {
         viewModel.addOptimisticUpdate("2", dummyOrder)
         viewModel.clearOptimisticUpdates()
         assertEquals(0, viewModel.uiState.value.optimisticUpdates.size)
+    }
+
+    @Test
+    fun `todayIncome error and empty branches`() = runTest {
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val today = com.raylabs.laundryhub.shared.util.PlatformDate.getTodayDate("yyyy-MM-dd")
+        val range = RangeDate(startDate = today, endDate = today)
+        whenever(readIncomeUseCase.invoke(null, FILTER.RANGE_TRANSACTION_DATA, range)).thenReturn(Resource.Error("Failed to fetch"))
+        viewModel.refreshAllData()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Failed to fetch", viewModel.uiState.value.todayIncome.errorMessage)
+
+        whenever(readIncomeUseCase.invoke(null, FILTER.RANGE_TRANSACTION_DATA, range)).thenReturn(Resource.Empty)
+        viewModel.refreshAllData()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.todayIncome.data.orEmpty().isEmpty())
+    }
+
+    @Test
+    fun `summary error and gross reconstruction branches`() = runTest {
+        val dummyGross = GrossData(id = 1, month = "Juni 2026", totalNominal = "50000", orderCount = "5", tax = "0")
+        whenever(grossUseCase.invoke(null)).thenReturn(Resource.Success(listOf(dummyGross)))
+        whenever(summaryUseCase.invoke(null)).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "val"))))
+
+        val viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val initialGross = viewModel.uiState.value.summary.data?.single { it.title == "Gross Income" }
+        assertEquals("Rp 50.000", initialGross?.body)
+        assertEquals("5 order", initialGross?.footer)
+
+        whenever(grossUseCase.invoke(null)).thenReturn(Resource.Error("Failed to fetch gross"))
+        whenever(summaryUseCase.invoke(null)).thenReturn(Resource.Success(listOf(SpreadsheetData("key", "val"))))
+
+        viewModel.refreshAllData()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val grossItem = viewModel.uiState.value.summary.data?.single { it.title == "Gross Income" }
+        assertEquals("Rp 50.000", grossItem?.body)
+        assertEquals("5 order", grossItem?.footer)
+
+        whenever(summaryUseCase.invoke(null)).thenReturn(Resource.Error("Summary failed"))
+        viewModel.refreshAllData()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Summary failed", viewModel.uiState.value.summary.errorMessage)
+    }
+
+    @Test
+    fun `fetchReminderDiscovery with various candidate states`() = runTest {
+        val fakeSettings = ReminderSettings(isReminderEnabled = true, notificationHour = 9, notificationMinute = 0)
+        val fakeLocalStates = emptyMap<String, ReminderLocalState>()
+        
+        whenever(observeReminderSettingsUseCase.invoke()).thenReturn(flowOf(fakeSettings))
+        whenever(observeReminderLocalStatesUseCase.invoke()).thenReturn(flowOf(fakeLocalStates))
+        
+        val fakeUnpaidOrder = TransactionData(
+            orderID = "ORD-UNPAID",
+            date = "2026-06-01",
+            name = "John",
+            weight = "2.0",
+            pricePerKg = "10000",
+            totalPrice = "20000",
+            paymentStatus = "belum",
+            packageType = "Regular",
+            remark = "",
+            paymentMethod = "cash",
+            phoneNumber = "",
+            dueDate = ""
+        )
+        whenever(readIncomeUseCase.invoke(null, FILTER.SHOW_UNPAID_DATA, null)).thenReturn(Resource.Success(listOf(fakeUnpaidOrder)))
+        
+        val candidate1 = ReminderCandidate(
+            orderId = "ORD-UNPAID",
+            customerName = "John",
+            packageName = "Regular",
+            paymentStatus = "belum",
+            orderDate = "2026-06-01",
+            dueDate = "",
+            bucket = ReminderBucket.DUE_TODAY,
+            overdueDays = 0
+        )
+        whenever(evaluateReminderCandidatesUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(listOf(candidate1))
+        
+        var viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        
+        assertEquals(1, viewModel.uiState.value.reminderDiscovery?.eligibleCount)
+        assertEquals("Open Reminder Inbox", viewModel.uiState.value.reminderDiscovery?.ctaLabel)
+        assertTrue(viewModel.uiState.value.reminderDiscovery?.supportingText.orEmpty().contains("Open Reminder Inbox to review"))
+
+        val candidate2 = ReminderCandidate(
+            orderId = "ORD-UNPAID",
+            customerName = "John",
+            packageName = "Regular",
+            paymentStatus = "belum",
+            orderDate = "2026-06-01",
+            dueDate = "",
+            bucket = ReminderBucket.OVERDUE_3_TO_6_DAYS,
+            overdueDays = 5
+        )
+        whenever(evaluateReminderCandidatesUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(listOf(candidate2))
+        
+        viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.reminderDiscovery?.supportingText.orEmpty().contains("5 days past the due date"))
+
+        val fakeSettingsDisabled = fakeSettings.copy(isReminderEnabled = false)
+        whenever(observeReminderSettingsUseCase.invoke()).thenReturn(flowOf(fakeSettingsDisabled))
+        whenever(evaluateReminderCandidatesUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(listOf(candidate1))
+        
+        viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Turn on reminder", viewModel.uiState.value.reminderDiscovery?.ctaLabel)
+        assertTrue(viewModel.uiState.value.reminderDiscovery?.supportingText.orEmpty().contains("Turn on reminders to review"))
+
+        whenever(evaluateReminderCandidatesUseCase.invoke(anyOrNull(), anyOrNull(), anyOrNull())).thenReturn(listOf(candidate2))
+        
+        viewModel = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.reminderDiscovery?.supportingText.orEmpty().contains("Turn on reminders. The oldest one"))
+    }
+
+    @Test
+    @Suppress("UNCHECKED_CAST")
+    fun `retryOptimisticOrder handles success and error paths`() = runTest {
+        var shouldSucceed = true
+        val orderViewModel = mock<com.raylabs.laundryhub.ui.order.OrderViewModel>(defaultAnswer = org.mockito.stubbing.Answer { invocation ->
+            if (invocation.method.name == "submitOrder") {
+                val onComplete = invocation.arguments[1] as Function2<String, Any?, Any?>
+                val onError = invocation.arguments[2] as Function2<String, Any?, Any?>
+                val dummyContinuation = object : kotlin.coroutines.Continuation<Unit> {
+                    override val context = kotlin.coroutines.EmptyCoroutineContext
+                    override fun resumeWith(result: Result<Unit>) {}
+                }
+                if (shouldSucceed) {
+                    onComplete.invoke("real-123", dummyContinuation)
+                } else {
+                    onError.invoke("Network failure", dummyContinuation)
+                }
+            }
+            null
+        })
+
+        val viewModel = createViewModel()
+
+        val sampleOrderData = OrderData(
+            orderId = "fake-1",
+            name = "Test",
+            phoneNumber = "",
+            packageName = "",
+            priceKg = "",
+            totalPrice = "",
+            paidStatus = "",
+            paymentMethod = "",
+            remark = "",
+            weight = "",
+            orderDate = "",
+            dueDate = ""
+        )
+        val dummyOrder = com.raylabs.laundryhub.ui.home.state.UnpaidOrderItem(
+            orderID = "fake-1",
+            customerName = "Test customer",
+            packageType = "Regular",
+            nowStatus = "Unpaid",
+            dueDate = "",
+            orderDate = "",
+            syncStatus = com.raylabs.laundryhub.ui.home.state.SyncStatus.FAILED,
+            rawPayload = sampleOrderData
+        )
+
+        viewModel.addOptimisticOrder(dummyOrder)
+
+        var successId = ""
+        shouldSucceed = true
+        viewModel.retryOptimisticOrder(
+            fakeId = "fake-1",
+            orderViewModel = orderViewModel,
+            scope = this,
+            onSuccess = { successId = it },
+            onError = {}
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("real-123", successId)
+
+        var errorMsg = ""
+        shouldSucceed = false
+        viewModel.addOptimisticOrder(dummyOrder)
+        viewModel.retryOptimisticOrder(
+            fakeId = "fake-1",
+            orderViewModel = orderViewModel,
+            scope = this,
+            onSuccess = {},
+            onError = { errorMsg = it }
+        )
+        dispatcher.scheduler.advanceUntilIdle()
+        assertEquals("Network failure", errorMsg)
+    }
+
+    @Test
+    fun `TransactionData toUnpaidOrderItem mapping works correctly`() {
+        val tx = TransactionData(
+            orderID = "ORD-999",
+            date = "2026-06-03",
+            name = "Customer",
+            weight = "2.5",
+            pricePerKg = "10000",
+            totalPrice = "25000",
+            paymentStatus = "lunas",
+            packageType = "Express",
+            remark = "Fast",
+            paymentMethod = "qris",
+            phoneNumber = "0812",
+            dueDate = "2026-06-04"
+        )
+        val unpaid = tx.toUnpaidOrderItem()
+        assertEquals("ORD-999", unpaid.orderID)
+        assertEquals("Customer", unpaid.customerName)
+        assertEquals("Express", unpaid.packageType)
+        assertEquals("Paid by QRIS", unpaid.nowStatus)
+        assertEquals("2026-06-04", unpaid.dueDate)
+        assertEquals("2026-06-03", unpaid.orderDate)
     }
 
     private fun createViewModel(): HomeViewModel {

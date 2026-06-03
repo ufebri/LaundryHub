@@ -94,6 +94,39 @@ class SyncDriftAuditJobTest {
     }
 
     @Test
+    fun testAuditOnceWithManyDifferences() = runTest {
+        val job = createJob(this)
+        val entities = listOf(
+            SyncEntityPreview(
+                entity = "Orders",
+                onlyInSheets = 10,
+                onlyInDatabase = 0,
+                changedRows = 0,
+                duplicateKeys = 0,
+                pendingDeletes = 0,
+                onlyInSheetKeys = listOf("k1", "k2", "k3", "k4", "k5", "k6", "k7", "k8", "k9", "k10"),
+                onlyInDatabaseKeys = emptyList(),
+                changedRowKeys = emptyList()
+            )
+        )
+        val driftResponse = SyncPreviewResponse(
+            previewId = "test-preview-id",
+            sourceOfTruth = MasterSourceOfTruth.SUPABASE,
+            generatedAt = "2026-06-01T12:00:00Z",
+            entities = entities,
+            totalDifferences = 10,
+            hasBlockingConflicts = false,
+            recommendedAction = "PUSH"
+        )
+
+        whenever(previewService.createPreview(MasterSourceOfTruth.SUPABASE)).thenReturn(driftResponse)
+
+        job.auditOnce()
+
+        verify(previewService).createPreview(MasterSourceOfTruth.SUPABASE)
+    }
+
+    @Test
     fun testAuditOnceFailure() = runTest {
         val job = createJob(this)
 

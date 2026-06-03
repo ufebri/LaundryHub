@@ -62,12 +62,19 @@ fun List<GrossData>.sortedByGrossMonthDescending(): List<GrossData> {
 fun GrossData.grossMonthKey(): Int? = parseGrossMonthKey(month)
 
 fun parseGrossMonthKey(monthText: String): Int? {
-    val parts = Regex("""[\p{L}]+|\d{4}""")
+    val parts = Regex("""[\p{L}]+|\d+""")
         .findAll(monthText.lowercase())
         .map { it.value }
         .toList()
-    val year = parts.firstNotNullOfOrNull { it.toIntOrNull()?.takeIf { value -> value in 1900..2999 } }
-        ?: return null
+    val year = parts.firstNotNullOfOrNull { part ->
+        part.toIntOrNull()?.let { value ->
+            when (value) {
+                in 1900..2999 -> value
+                in 0..99 -> 2000 + value
+                else -> null
+            }
+        }
+    } ?: Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).year
     val month = parts.firstNotNullOfOrNull { MONTH_NAMES[it] }
         ?: return null
     return grossMonthKey(year, month)
