@@ -72,3 +72,12 @@ To align local Jacoco reports with SonarQube, exclusions were added in all subpr
     - Used `runBlocking` instead of `runTest` to bypass Ktor `MockEngine` virtual-time timeout scheduler exceptions under `withTimeout`.
     - Coverage on instructions rose from **79.8% to 99.2%**.
 
+### 3. Resolved Railway Deployment Failure (Dynamic Port Binding)
+*   **Issue:** Railway deployment failed and shut down the container ("Stopping Container") after successful startup and database migration.
+*   **Root Cause:** The Ktor backend was configured with a hardcoded port `8080` in [application.yaml](file:///Users/ray/StudioProjects/LaundryHub/backend/src/main/resources/application.yaml). Railway injects a dynamic `$PORT` environment variable that the container must bind to for internal routing and health checks. Binds failing on the dynamic port led to deployment timeouts and shutdowns.
+*   **Fix:**
+    - Updated [application.yaml](file:///Users/ray/StudioProjects/LaundryHub/backend/src/main/resources/application.yaml) to use Ktor's YAML environment variable injection syntax: `port: "$PORT:8080"`.
+    - This allows Ktor to bind to the dynamic port at runtime while falling back to `8080` for local execution and testing.
+    - Verified that all backend unit tests pass successfully with the updated port resolution.
+
+
