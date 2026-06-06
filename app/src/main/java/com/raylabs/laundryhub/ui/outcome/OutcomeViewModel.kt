@@ -19,6 +19,7 @@ import com.raylabs.laundryhub.core.domain.usecase.sheets.outcome.UpdateOutcomeUs
 import com.raylabs.laundryhub.shared.util.Resource
 import com.raylabs.laundryhub.ui.common.util.DateUtil
 import com.raylabs.laundryhub.ui.common.util.TextUtil.removeRupiahFormatWithComma
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 import com.raylabs.laundryhub.ui.common.util.error
 import com.raylabs.laundryhub.ui.common.util.loading
 import com.raylabs.laundryhub.ui.common.util.success
@@ -96,7 +97,7 @@ class OutcomeViewModel @Inject constructor(
             id = fakeId,
             name = outcome.purpose,
             date = DateUtil.formatToLongDate(outcome.date, inputFormat = DateUtil.STANDARD_DATE_FORMATED),
-            price = outcome.price,
+            price = outcome.price.toRupiahFormat(),
             remark = outcome.remark,
             paymentStatus = outcome.payment,
             typeCard = com.raylabs.laundryhub.ui.outcome.state.TypeCard.OUTCOME,
@@ -232,7 +233,7 @@ class OutcomeViewModel @Inject constructor(
             id = id,
             name = outcome.purpose,
             date = DateUtil.formatToLongDate(outcome.date, inputFormat = DateUtil.STANDARD_DATE_FORMATED),
-            price = outcome.price,
+            price = outcome.price.toRupiahFormat(),
             remark = outcome.remark,
             paymentStatus = outcome.payment,
             typeCard = com.raylabs.laundryhub.ui.outcome.state.TypeCard.OUTCOME,
@@ -394,7 +395,7 @@ class OutcomeViewModel @Inject constructor(
             id = "",
             date = date,
             purpose = _uiState.value.name,
-            price = sanitizePrice(_uiState.value.price),
+            price = formatPriceForPayload(_uiState.value.price),
             remark = _uiState.value.remark,
             payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
         )
@@ -408,7 +409,7 @@ class OutcomeViewModel @Inject constructor(
             id = id,
             date = date,
             purpose = _uiState.value.name,
-            price = sanitizePrice(_uiState.value.price),
+            price = formatPriceForPayload(_uiState.value.price),
             remark = _uiState.value.remark,
             payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
         )
@@ -431,6 +432,10 @@ class OutcomeViewModel @Inject constructor(
 
     private fun sanitizePrice(value: String): String {
         return value.removeRupiahFormatWithComma()
+    }
+
+    private fun formatPriceForPayload(value: String): String {
+        return sanitizePrice(value).toRupiahFormat()
     }
 
     private suspend fun loadLastOutcomeId() {

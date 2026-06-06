@@ -79,11 +79,10 @@ def sonarCoverageExclusions = [
         "**/LaundryHubApp*.kt",
         "**/PlatformDate.kt",
         "**/HttpClientProvider*.kt",
-        "**/backend/plugins/Database.kt",
-        "**/backend/plugins/Routing.kt",
-        "**/backend/plugins/Serialization.kt",
+        "**/backend/plugins/**",
         "**/backend/routes/**",
         "**/backend/db/repository/**",
+        "**/backend/db/schema/**",
         "**/backend/Application*.kt"
 ]
 

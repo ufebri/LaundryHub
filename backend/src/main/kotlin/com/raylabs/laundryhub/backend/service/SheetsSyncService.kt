@@ -231,9 +231,12 @@ class SheetsSyncService {
                 )
             }
         )
-        if (acknowledgedKeys.isEmpty()) return emptyList()
         val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
         val sheetRowsById = fetchOrdersFromSheet(spreadsheetId).associateBy { it.orderId.trim() }
+        val verifiedKeySet = candidates
+            .filter { order -> sheetRowsById[order.orderId.trim()]?.syncVerificationSignature() == order.syncVerificationSignature() }
+            .map { it.orderId.trim() }
+            .toSet()
         candidates
             .filter { it.orderId.trim() in acknowledgedKeySet }
             .filter { order -> sheetRowsById[order.orderId.trim()]?.syncVerificationSignature() != order.syncVerificationSignature() }
@@ -241,10 +244,10 @@ class SheetsSyncService {
                 logger.warn(
                     "Order ${order.orderId} was acknowledged by Google Sheets but read-back verification did not match. " +
                         LOG_SYNCED_BECAUSE_ACCEPTED
-                )
+                    )
             }
         return candidates
-            .filter { it.orderId.trim() in acknowledgedKeySet }
+            .filter { it.orderId.trim() in acknowledgedKeySet || it.orderId.trim() in verifiedKeySet }
             .map { it.orderId }
     }
 
@@ -262,9 +265,12 @@ class SheetsSyncService {
                 SheetRow(key = outcome.id, values = outcome.toSheetValues().single())
             }
         )
-        if (acknowledgedKeys.isEmpty()) return emptyList()
         val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
         val sheetRowsById = fetchOutcomesFromSheet(spreadsheetId).associateBy { it.id.trim() }
+        val verifiedKeySet = outcomes
+            .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncVerificationSignature() == outcome.syncVerificationSignature() }
+            .map { it.id.trim() }
+            .toSet()
         outcomes
             .filter { it.id.trim() in acknowledgedKeySet }
             .filter { outcome -> sheetRowsById[outcome.id.trim()]?.syncVerificationSignature() != outcome.syncVerificationSignature() }
@@ -272,10 +278,10 @@ class SheetsSyncService {
                 logger.warn(
                     "Outcome ${outcome.id} was acknowledged by Google Sheets but read-back verification did not match. " +
                         LOG_SYNCED_BECAUSE_ACCEPTED
-                )
+                    )
             }
         return outcomes
-            .filter { it.id.trim() in acknowledgedKeySet }
+            .filter { it.id.trim() in acknowledgedKeySet || it.id.trim() in verifiedKeySet }
             .map { it.id }
     }
 
@@ -293,9 +299,12 @@ class SheetsSyncService {
                 SheetRow(key = pkg.name, values = pkg.toSheetValues().single())
             }
         )
-        if (acknowledgedKeys.isEmpty()) return emptyList()
         val acknowledgedKeySet = acknowledgedKeys.map { it.trim() }.toSet()
         val sheetRowsByName = fetchPackagesFromSheet(spreadsheetId).associateBy { it.name.trim() }
+        val verifiedKeySet = packages
+            .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncVerificationSignature() == pkg.syncVerificationSignature() }
+            .map { it.name.trim() }
+            .toSet()
         packages
             .filter { it.name.trim() in acknowledgedKeySet }
             .filter { pkg -> sheetRowsByName[pkg.name.trim()]?.syncVerificationSignature() != pkg.syncVerificationSignature() }
@@ -303,10 +312,10 @@ class SheetsSyncService {
                 logger.warn(
                     "Package ${pkg.name} was acknowledged by Google Sheets but read-back verification did not match. " +
                         LOG_SYNCED_BECAUSE_ACCEPTED
-                )
+                    )
             }
         return packages
-            .filter { it.name.trim() in acknowledgedKeySet }
+            .filter { it.name.trim() in acknowledgedKeySet || it.name.trim() in verifiedKeySet }
             .map { it.name }
     }
 

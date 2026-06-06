@@ -37,5 +37,14 @@ class CurrencyVisualTransformationTest {
         assertEquals(5, mapping.originalToTransformed(2)) // "Rp 10"
         assertEquals(6, mapping.originalToTransformed(3)) // "Rp 100"
         assertEquals(8, mapping.originalToTransformed(4)) // "Rp 1.000"
+
+        // transformed to original
+        assertEquals(0, mapping.transformedToOriginal(0))
+        assertEquals(0, mapping.transformedToOriginal(3))
+        assertEquals(1, mapping.transformedToOriginal(4))
+        assertEquals(1, mapping.transformedToOriginal(5))
+        assertEquals(2, mapping.transformedToOriginal(6))
+        assertEquals(3, mapping.transformedToOriginal(7))
+        assertEquals(4, mapping.transformedToOriginal(8))
     }
 }

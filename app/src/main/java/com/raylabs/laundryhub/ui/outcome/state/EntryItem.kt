@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.ui.outcome.state
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.paidDescription
 import com.raylabs.laundryhub.ui.common.util.DateUtil
+import com.raylabs.laundryhub.ui.common.util.TextUtil.toRupiahFormat
 
 import com.raylabs.laundryhub.ui.home.state.SyncStatus
 
@@ -32,7 +33,7 @@ fun OutcomeData.toEntryItemUI(): EntryItem = EntryItem(
     id = id,
     name = purpose,
     date = DateUtil.formatToLongDate(date, inputFormat = DateUtil.STANDARD_DATE_FORMATED),
-    price = price,
+    price = price.toRupiahFormat(),
     remark = remark,
     paymentStatus = paidDescription(),
     typeCard = TypeCard.OUTCOME,
