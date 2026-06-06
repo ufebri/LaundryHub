@@ -239,8 +239,23 @@ class OutcomeViewModelTest {
         val data = vm.buildOutcomeDataForSubmit()
         assertNotNull(data)
         assertEquals("", data.id)
-        assertEquals("1000", data.price)
+        assertEquals("Rp 1.000", data.price)
         assertEquals(getPaymentValueFromDescription("Paid by Cash"), data.payment)
+    }
+
+    @Test
+    fun `buildOutcomeDataForSubmit formats plain numeric May 30 price as rupiah`() = runTest {
+        val vm = createViewModel()
+        dispatcher.scheduler.advanceUntilIdle()
+
+        vm.onPurposeChanged("gas")
+        vm.onPriceChanged("23000")
+        vm.onPaymentMethodSelected("Paid by Cash")
+        vm.onDateChanged("30/05/2026")
+
+        val data = vm.buildOutcomeDataForSubmit()
+
+        assertEquals("Rp 23.000", data.price)
     }
 
     @Test
@@ -259,6 +274,7 @@ class OutcomeViewModelTest {
         val data = vm.buildOutcomeDataForUpdate()
         assertNotNull(data)
         assertEquals(vm.uiState.outcomeID, data!!.id)
+        assertEquals("Rp 2.000", data.price)
     }
 
     @Test

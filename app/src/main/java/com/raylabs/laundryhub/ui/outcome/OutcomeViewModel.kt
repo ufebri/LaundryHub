@@ -395,7 +395,7 @@ class OutcomeViewModel @Inject constructor(
             id = "",
             date = date,
             purpose = _uiState.value.name,
-            price = sanitizePrice(_uiState.value.price),
+            price = formatPriceForPayload(_uiState.value.price),
             remark = _uiState.value.remark,
             payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
         )
@@ -409,7 +409,7 @@ class OutcomeViewModel @Inject constructor(
             id = id,
             date = date,
             purpose = _uiState.value.name,
-            price = sanitizePrice(_uiState.value.price),
+            price = formatPriceForPayload(_uiState.value.price),
             remark = _uiState.value.remark,
             payment = getPaymentValueFromDescription(_uiState.value.paymentStatus)
         )
@@ -432,6 +432,10 @@ class OutcomeViewModel @Inject constructor(
 
     private fun sanitizePrice(value: String): String {
         return value.removeRupiahFormatWithComma()
+    }
+
+    private fun formatPriceForPayload(value: String): String {
+        return sanitizePrice(value).toRupiahFormat()
     }
 
     private suspend fun loadLastOutcomeId() {

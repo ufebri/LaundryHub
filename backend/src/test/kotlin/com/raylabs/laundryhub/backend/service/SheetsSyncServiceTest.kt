@@ -79,6 +79,47 @@ class SheetsSyncServiceTest {
     }
 
     @Test
+    fun `syncAndVerifyOrdersBatch marks matching read-back row synced when update reports no changed cells`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        val order = OrderData(
+            orderId = "1675",
+            orderDate = "29/05/2026",
+            name = "Existing Customer",
+            weight = "1",
+            priceKg = "31000",
+            totalPrice = "31000",
+            paidStatus = "belum",
+            packageName = "Laundry",
+            remark = "",
+            paymentMethod = "Unpaid",
+            phoneNumber = "",
+            dueDate = "01/06/2026"
+        )
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("income!A:A"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("orderID"), listOf("1675"))))
+        whenever(mockClient.batchUpdateValues(eq("sheet-id"), any(), eq("fake-token")))
+            .thenReturn(
+                BatchUpdateValuesResponse(
+                    responses = listOf(UpdateValuesResponse(updatedRows = 0, updatedCells = 0))
+                )
+            )
+        whenever(mockClient.getValues(eq("sheet-id"), eq("income!A2:L"), eq("fake-token")))
+            .thenReturn(ValueRange(values = order.toSheetValues()))
+
+        val syncedIds = service.syncAndVerifyOrdersBatch("sheet-id", listOf(order))
+
+        assertEquals(listOf("1675"), syncedIds)
+    }
+
+    @Test
     fun `syncOrder appends when order is not found`() = runBlocking {
         val mockClient: GoogleSheetsApiClient = mock()
         val service = spy(SheetsSyncService())
@@ -446,4 +487,3 @@ class SheetsSyncServiceTest {
         assertTrue(success)
     }
 }
-

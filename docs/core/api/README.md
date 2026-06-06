@@ -7,7 +7,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 ## Current Contract
 
 - `GET /api/orders` supports paging plus `filter`, `startDate`, `endDate`, `searchQuery`, and `sort`.
-- `GET /api/health` returns a lightweight success payload for app startup backend availability checks.
+- `GET /api/health` returns a lightweight success payload for app startup backend availability checks. `GET /health` is a root-level alias for deployment platforms and manual smoke checks.
 - `GET /api/orders/{id}` returns one order for edit flows.
 - `GET /api/orders/last-id` remains available as a legacy/debug route, but Android Add Order no longer depends on it.
 - `POST /api/orders` assigns the next order id on the backend and returns `status`, `message`, and `orderId`.
@@ -57,7 +57,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - If pending app-owned rows exist but Sheets acknowledges zero written keys, the batch job records a sync failure instead of reporting a misleading `SUCCESS` with `changesCount=0`.
 - Manual App Database -> Sheets runs push the full app-owned data set for orders, outcomes, and packages so already-synced but drifted rows can be repaired. Automatic background push remains limited to `is_synced=false` rows plus pending deletes.
 - A read-only drift audit job runs when Sheets sync is configured. It previews `SUPABASE` as source of truth on a long interval, logs app-owned entity keys and changed rows when drift exists, and ignores Sheet-owned `gross`/`summary` as actionable Supabase failures. The interval defaults to 360 minutes and can be tuned with `SYNC_DRIFT_AUDIT_INTERVAL_MINUTES`.
-- `/api/health` must stay lightweight and independent of heavy sync work. It is used by Android startup gating and should answer whether the deployed API process is reachable.
+- `/api/health` and its root-level `/health` alias must stay lightweight and independent of heavy sync work. They are used by Android startup gating, deployment platform checks, and manual smoke tests to answer whether the deployed API process is reachable.
 - Order filtering uses the shared payment-status normalization helpers. `UNPAID` includes `Unpaid`, `belum`, and blank legacy rows; `PAID` includes `Paid`, `lunas`, and paid-by-method display labels. This keeps Home Pending Orders aligned with History data instead of letting paid rows pollute the pending page.
 - Order date sorting and range checks accept both storage formats such as `15/05/2026` and display/import formats such as `15 May 2026` or `15 Mei 2026`, so pending-order sorting does not hide older imported rows behind unparseable dates.
 - Outcome list ordering is date-first, then id. This prevents a newly-created or high-id outcome dated `8 May 2026` from appearing above a lower-id outcome dated `15 May 2026`.
@@ -68,7 +68,7 @@ LaundryHub is in the KMP cutover phase where Android talks to a Ktor backend ins
 - Android resolves the active backend API root from Firebase Remote Config at startup, falling back to the build-time `BASE_URL` when Remote Config is blank or invalid.
 - Remote Config keys are `api_base_url`, `api_fallback_base_urls`, `api_maintenance_enabled`, `api_maintenance_message`, and `api_config_version`.
 - Remote `api_base_url` values must be HTTPS. A host-only URL is normalized to `/api`; explicit API paths are preserved.
-- `api_fallback_base_urls` accepts multiple comma-separated or newline-separated HTTPS URLs. Android checks `/health` in order: `api_base_url`, each `api_fallback_base_urls` entry, then the build-time fallback URL.
+- `api_fallback_base_urls` accepts multiple comma-separated or newline-separated HTTPS URLs. Android checks the health path on each normalized API root in order: `api_base_url`, each `api_fallback_base_urls` entry, then the build-time fallback URL.
 - The startup unavailable screen appears only when Remote Config explicitly enables maintenance or when all health candidates fail.
 - Android submits new orders without prefetching an id. The created id comes from the backend `POST /api/orders` response.
 - Android submits new outcomes without prefetching an id. The created id comes from the backend `POST /api/outcomes` response.
@@ -117,6 +117,10 @@ Latest manual sync preview-confirm-progress check:
 - `./gradlew testDebugUnitTest --no-daemon`
 
 Latest drift-aware backend sync hardening check:
+
+Latest backend health alias check:
+
+- `./gradlew :backend:test --no-daemon`
 
 - `./gradlew :backend:test --no-daemon`
 - Follow-up verification-format fix also passed `./gradlew :backend:test --no-daemon`.
