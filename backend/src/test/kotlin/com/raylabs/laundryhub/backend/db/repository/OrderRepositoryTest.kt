@@ -132,6 +132,20 @@ class OrderRepositoryTest {
     )
 
     @Test
+    fun `getGrossForMonth aggregates orders for requested month`() = runBlocking {
+        repository.insert(sampleOrder("1", "lunas", "01/06/2026").copy(totalPrice = "Rp25.000"))
+        repository.insert(sampleOrder("2", "belum", "06/06/2026").copy(totalPrice = "18000"))
+        repository.insert(sampleOrder("3", "lunas", "31/05/2026").copy(totalPrice = "999000"))
+
+        val gross = repository.getGrossForMonth(year = 2026, month = 6)
+
+        assertEquals("Juni 2026", gross?.month)
+        assertEquals("Rp43.000", gross?.totalNominal)
+        assertEquals("2", gross?.orderCount)
+        assertEquals("Rp215", gross?.tax)
+    }
+
+    @Test
     fun testInsertWithNextId() = runBlocking {
         val order = sampleOrder("0", "Unpaid", "10/05/2026")
         val created = repository.insertWithNextId(order)

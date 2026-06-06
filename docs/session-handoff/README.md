@@ -1,5 +1,44 @@
 # Session Handoff - 2026-06-03 (Exhaustive Unit Test Coverage Boost & Sheet Audit Verified)
 
+## Sharing Session Summary - 2026-06-07
+
+### Current Focus
+*   Backend deploy/sync follow-up for LaundryHub Ktor API.
+*   Main product issue: Home summary/gross data looked stale in June even after deploy.
+*   Gross fallback fix was reapplied on 2026-06-07 after the user briefly reverted it.
+
+### What Was Found
+*   Render live sync status later became `SUCCESS`, and Supabase had no unsynced orders, so the old pending DB -> Sheets push failure was cleared.
+*   `/api/summary` was still stale because it reads Sheet/reporting values. The app was not receiving a different backend response.
+*   `/api/gross` was stale because the reporting source had no `Juni 2026` row. Supabase orders did have June data.
+*   Outcome rows from `30/05/2026` onward had numeric-only prices because the app submit/update flow sanitized the price before payload creation.
+
+### Code Changes In This Worktree
+*   Added root `/health` alias next to `/api/health`.
+*   Updated Sheets batch verification so rows can be marked synced when Sheets either acknowledges the write or read-back already matches the database row.
+*   Updated Outcome submit/update payloads to format price as rupiah while keeping form state digit-only.
+*   Added `OrderRepository.getGrossForMonth(year, month)` and updated `/api/gross` to append a computed current-month gross row when reporting rows miss the current month.
+*   Updated `docs/core/sheets/README.md` with the gross fallback behavior.
+
+### Verification Run
+*   `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.routes.GrossRouteBehaviorTest --tests com.raylabs.laundryhub.backend.db.repository.OrderRepositoryTest --no-daemon`
+*   `./gradlew :backend:test --no-daemon`
+*   `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.outcome.OutcomeViewModelTest --tests com.raylabs.laundryhub.ui.outcome.state.EntryItemTest --no-daemon`
+*   `git diff --check`
+
+### Next Step
+*   Deploy the current backend changes.
+*   After deploy, verify:
+    ```bash
+    curl https://<service-domain>/api/gross
+    curl https://<service-domain>/api/summary
+    curl https://<service-domain>/api/sync/status
+    ```
+*   Expected gross behavior after deploy: if the Sheet/reporting data still has no `Juni 2026`, `/api/gross` should include computed `Juni 2026` from database orders.
+*   If the user wants `/api/summary` keys such as `Total Order Masuk` and `Pending Orders` to always match Supabase, that needs a separate backend aggregate override because those keys are still Sheet-owned.
+
+---
+
 ## 📊 Overall Project Coverage Status (Jacoco Report - Exclusions Applied!)
 Following the exclusion of untestable platform, database, and UI classes, the overall module-wide instruction coverage metrics calculated by the Jacoco engine are:
 
