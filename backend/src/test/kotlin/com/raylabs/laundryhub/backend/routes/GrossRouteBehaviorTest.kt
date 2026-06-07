@@ -1,6 +1,7 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
@@ -34,6 +35,7 @@ import kotlin.test.assertTrue
 class GrossRouteBehaviorTest {
 
     private val repository: GrossRepository = mock()
+    private val orderRepository: OrderRepository = mock()
     private val syncService: SheetsSyncService = mock()
     private val sheetsApiClient: GoogleSheetsApiClient = mock()
 
@@ -65,6 +67,33 @@ class GrossRouteBehaviorTest {
         assertEquals(listOf("Mei 2026", "April 2026"), firstPage.map { it.month })
         assertEquals(listOf("Maret 2025"), secondPage.map { it.month })
         verify(repository, never()).getAll(any(), any())
+    }
+
+    @Test
+    fun `gross response prepends computed current month when reporting rows miss current month`() = runTest {
+        whenever(syncService.fetchGrossFromSheet(any())).doReturn(
+            listOf(
+                GrossData(month = "Mei 2026", totalNominal = "Rp3.481.000", orderCount = "120", tax = "Rp17.405"),
+                GrossData(month = "April 2026", totalNominal = "Rp4.101.000", orderCount = "148", tax = "Rp20.505")
+            )
+        )
+        whenever(orderRepository.getGrossForMonth(2026, 6)).doReturn(
+            GrossData(month = "Juni 2026", totalNominal = "Rp674.000", orderCount = "23", tax = "Rp3.370")
+        )
+
+        val rows = fetchGrossForResponse(
+            repository = repository,
+            syncService = syncService,
+            spreadsheetId = "sheet-id",
+            page = 1,
+            size = 2,
+            orderRepository = orderRepository,
+            currentYear = 2026,
+            currentMonth = 6
+        )
+
+        assertEquals(listOf("Juni 2026", "Mei 2026"), rows.map { it.month })
+        assertEquals("Rp674.000", rows.first().totalNominal)
     }
 
     @Test

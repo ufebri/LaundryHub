@@ -1,8 +1,10 @@
 package com.raylabs.laundryhub.backend.routes
 
 import com.raylabs.laundryhub.backend.db.repository.GrossRepository
+import com.raylabs.laundryhub.backend.db.repository.OrderRepository
 import com.raylabs.laundryhub.backend.service.SheetsSyncService
 import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
+import com.raylabs.laundryhub.core.domain.model.sheets.grossMonthKey
 import com.raylabs.laundryhub.core.domain.model.sheets.sortedByGrossMonthDescending
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import io.ktor.http.HttpStatusCode
@@ -15,17 +17,19 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.put
 import io.ktor.server.routing.route
+import java.util.Calendar
 
 fun Route.grossRoutes(
     repository: GrossRepository,
     sheetsApiClient: GoogleSheetsApiClient,
     syncService: SheetsSyncService,
     spreadsheetId: String?,
+    orderRepository: OrderRepository? = null,
     migrationRoutesEnabled: Boolean = false
 ) {
     route("/api/gross") {
         get {
-            handleGetGross(call, repository, syncService, spreadsheetId)
+            handleGetGross(call, repository, syncService, spreadsheetId, orderRepository)
         }
         post {
             handlePostGross(call, repository)
@@ -49,11 +53,12 @@ private suspend fun handleGetGross(
     call: io.ktor.server.application.ApplicationCall,
     repository: GrossRepository,
     syncService: SheetsSyncService,
-    spreadsheetId: String?
+    spreadsheetId: String?,
+    orderRepository: OrderRepository?
 ) {
     val page = call.request.queryParameters["page"]?.toIntOrNull() ?: 1
     val size = call.request.queryParameters["size"]?.toIntOrNull() ?: 50
-    call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size))
+    call.respond(HttpStatusCode.OK, fetchGrossForResponse(repository, syncService, spreadsheetId, page, size, orderRepository))
 }
 
 private suspend fun handlePostGross(
@@ -138,18 +143,34 @@ internal suspend fun fetchGrossForResponse(
     syncService: SheetsSyncService,
     spreadsheetId: String?,
     page: Int,
-    size: Int
+    size: Int,
+    orderRepository: OrderRepository? = null,
+    currentYear: Int = Calendar.getInstance().get(Calendar.YEAR),
+    currentMonth: Int = Calendar.getInstance().get(Calendar.MONTH) + 1
 ): List<GrossData> {
     val sheetGross = spreadsheetId
         ?.let { syncService.fetchGrossFromSheet(it) }
         .orEmpty()
-    if (sheetGross.isEmpty()) return repository.getAll(page, size)
+    val sourceRows = sheetGross.ifEmpty { repository.getAll(page, size) }
+    val rows = sourceRows.withCurrentMonthGross(orderRepository, currentYear, currentMonth)
 
     val safePage = page.coerceAtLeast(1)
     val safeSize = size.coerceAtLeast(1)
     val offset = (safePage - 1) * safeSize
-    return sheetGross
+    return rows
         .sortedByGrossMonthDescending()
         .drop(offset)
         .take(safeSize)
+}
+
+private suspend fun List<GrossData>.withCurrentMonthGross(
+    orderRepository: OrderRepository?,
+    currentYear: Int,
+    currentMonth: Int
+): List<GrossData> {
+    if (orderRepository == null) return this
+    val currentKey = currentYear * 100 + currentMonth
+    if (any { it.grossMonthKey() == currentKey }) return this
+    val computedGross = orderRepository.getGrossForMonth(currentYear, currentMonth) ?: return this
+    return this + computedGross
 }
