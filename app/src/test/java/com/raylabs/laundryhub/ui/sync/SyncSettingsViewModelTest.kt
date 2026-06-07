@@ -122,6 +122,74 @@ class SyncSettingsViewModelTest {
         assertEquals(SyncRunStatus.SUCCEEDED, state.activeRun?.status)
     }
 
+    @Test
+    fun `fetchStatus handles masterSourceOfTruth BOTH by fallback to SHEETS`() = runTest {
+        val fakeResponse = SyncStatusResponse(
+            lastSyncTime = "2026-05-11T12:00:00",
+            changesCount = 0,
+            autoSyncIntervalMinutes = 15,
+            reverseSyncSchedule = ReverseSyncSchedule.MANUAL,
+            masterSourceOfTruth = MasterSourceOfTruth.BOTH
+        )
+        whenever(repository.getSyncStatus()).thenReturn(Resource.Success(fakeResponse))
+
+        viewModel = SyncSettingsViewModel(repository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(MasterSourceOfTruth.SHEETS, state.selectedSourceOfTruth)
+    }
+
+    @Test
+    fun `fetchStatus handles Resource Error`() = runTest {
+        whenever(repository.getSyncStatus()).thenReturn(Resource.Error("Network failure"))
+
+        viewModel = SyncSettingsViewModel(repository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals("Network failure", state.errorMessage)
+        assertEquals(false, state.isLoading)
+    }
+
+    @Test
+    fun `selectSourceOfTruth updates state and ignores BOTH`() = runTest {
+        whenever(repository.getSyncStatus()).thenReturn(Resource.Success(
+            SyncStatusResponse("old_time", 0, 15, ReverseSyncSchedule.MANUAL, MasterSourceOfTruth.SHEETS)
+        ))
+
+        viewModel = SyncSettingsViewModel(repository)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.selectSourceOfTruth(MasterSourceOfTruth.BOTH)
+        assertEquals(MasterSourceOfTruth.SHEETS, viewModel.uiState.value.selectedSourceOfTruth)
+
+        viewModel.selectSourceOfTruth(MasterSourceOfTruth.SUPABASE)
+        assertEquals(MasterSourceOfTruth.SUPABASE, viewModel.uiState.value.selectedSourceOfTruth)
+    }
+
+    @Test
+    fun `fetchStatus starts polling when isSyncing is true`() = runTest {
+        val response1 = SyncStatusResponse("old_time", 0, 15, ReverseSyncSchedule.MANUAL, isSyncing = true)
+        val response2 = SyncStatusResponse("old_time", 0, 15, ReverseSyncSchedule.MANUAL, isSyncing = false)
+        
+        whenever(repository.getSyncStatus()).thenReturn(
+            Resource.Success(response1),
+            Resource.Success(response2)
+        )
+
+        viewModel = SyncSettingsViewModel(repository)
+        testDispatcher.scheduler.runCurrent()
+
+        assertEquals(true, viewModel.uiState.value.isSyncing)
+
+        testDispatcher.scheduler.advanceTimeBy(3000)
+        testDispatcher.scheduler.runCurrent()
+
+        assertEquals(false, viewModel.uiState.value.isSyncing)
+        assertEquals("Sync completed successfully.", viewModel.uiState.value.successMessage)
+    }
+
     private fun previewWithDifferences(): SyncPreviewResponse {
         return SyncPreviewResponse(
             previewId = "preview-1",

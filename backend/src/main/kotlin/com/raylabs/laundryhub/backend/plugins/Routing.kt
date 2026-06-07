@@ -142,6 +142,7 @@ fun Application.configureRouting() {
             sheetsApiClient = sheetsApiClient,
             syncService = syncService,
             spreadsheetId = spreadsheetId,
+            orderRepository = orderRepository,
             migrationRoutesEnabled = migrationRoutesEnabled
         )
         summaryRoutes(
@@ -160,14 +161,11 @@ fun Application.configureRouting() {
         }
 
         get("/api/health") {
-            call.respond(
-                HttpStatusCode.OK,
-                mapOf(
-                    "status" to "OK",
-                    "service" to "LaundryHub",
-                    "message" to "Ready"
-                )
-            )
+            call.respondHealth()
+        }
+
+        get("/health") {
+            call.respondHealth()
         }
 
         // --- CRUD Endpoints for Orders ---
@@ -386,4 +384,15 @@ private fun syncDriftAuditIntervalMinutes(): Int {
 
 private fun isMigrationRoutesEnabled(): Boolean {
     return System.getenv("ENABLE_MIGRATION_ROUTES").equals("true", ignoreCase = true)
+}
+
+private suspend fun io.ktor.server.application.ApplicationCall.respondHealth() {
+    respond(
+        HttpStatusCode.OK,
+        mapOf(
+            "status" to "OK",
+            "service" to "LaundryHub",
+            "message" to "Ready"
+        )
+    )
 }

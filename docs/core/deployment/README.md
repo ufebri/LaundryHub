@@ -17,7 +17,7 @@ LaundryHub backend needs a temporary Railway replacement with the lowest practic
 ## Render Temporary Runtime
 
 - Render Web Service runs the existing root `Dockerfile`.
-- Health check path is `/api/health`.
+- Health check path is `/api/health`; `/health` is also available as a root-level alias for platforms or manual checks that expect health at the service root.
 - Render provides HTTPS, so Android Remote Config can use `https://<render-service>.onrender.com/api`.
 - Free Render services can sleep, so first request after inactivity may be slow and background Sheets sync may pause while inactive.
 - Backend sync defaults to App Database as master so queued writes push to Sheets after Render restarts. Summary reads still prefer live Sheets data when configured. Near-real-time push is debounced by `SHEETS_PUSH_DEBOUNCE_MILLIS`.
@@ -40,6 +40,7 @@ LaundryHub backend needs a temporary Railway replacement with the lowest practic
 ## Verification
 
 - Render: `curl https://<render-service>.onrender.com/api/health`
+- Root health alias: `curl https://<service-domain>/health`
 - Render data path: `curl https://<render-service>.onrender.com/api/summary`
 - Render sync status: `curl https://<render-service>.onrender.com/api/sync/status`
 - Android startup after Firebase Remote Config points `api_base_url` to the Render URL.

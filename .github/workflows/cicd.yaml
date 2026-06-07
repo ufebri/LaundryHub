@@ -183,7 +183,16 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run tests and generate Jacoco report
-        run: ./gradlew clean testDebugUnitTest jacocoTestReport -Dorg.gradle.dependency.verification=off
+        run: >-
+          ./gradlew clean
+          :app:testDebugUnitTest
+          :shared:testDebugUnitTest
+          :shared:jvmTest
+          :backend:test
+          :app:jacocoTestReport
+          :shared:jacocoTestReport
+          :backend:jacocoTestReport
+          -Dorg.gradle.dependency.verification=off
 
       - name: Check if coverage reports exist
         run: |

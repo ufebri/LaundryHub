@@ -1,29 +1,25 @@
 package com.raylabs.laundryhub.backend.service
 
+import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
+import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.OutcomeData
 import com.raylabs.laundryhub.core.domain.model.sheets.PackageData
-import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.SpreadsheetData
 import com.raylabs.laundryhub.core.domain.model.sheets.toSheetValues
-import com.raylabs.laundryhub.backend.db.repository.SyncDeleteEvent
-import com.raylabs.laundryhub.backend.db.repository.SyncEntityType
 import com.raylabs.laundryhub.shared.network.api.GoogleSheetsApiClient
 import com.raylabs.laundryhub.shared.network.model.sheets.AppendValuesResponse
-import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesResponse
-import com.raylabs.laundryhub.shared.network.model.sheets.BatchClearValuesRequest
-import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesRequest
 import com.raylabs.laundryhub.shared.network.model.sheets.BatchUpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.UpdateValuesResponse
 import com.raylabs.laundryhub.shared.network.model.sheets.ValueRange
-import com.raylabs.laundryhub.backend.util.syncVerificationSignature
 import kotlinx.coroutines.runBlocking
 import org.mockito.kotlin.any
+import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.spy
 import org.mockito.kotlin.whenever
-import org.mockito.kotlin.doReturn
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -80,6 +76,47 @@ class SheetsSyncServiceTest {
         )
 
         assertEquals(emptyList(), acknowledged)
+    }
+
+    @Test
+    fun `syncAndVerifyOrdersBatch marks matching read-back row synced when update reports no changed cells`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        val order = OrderData(
+            orderId = "1675",
+            orderDate = "29/05/2026",
+            name = "Existing Customer",
+            weight = "1",
+            priceKg = "31000",
+            totalPrice = "31000",
+            paidStatus = "belum",
+            packageName = "Laundry",
+            remark = "",
+            paymentMethod = "Unpaid",
+            phoneNumber = "",
+            dueDate = "01/06/2026"
+        )
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("income!A:A"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("orderID"), listOf("1675"))))
+        whenever(mockClient.batchUpdateValues(eq("sheet-id"), any(), eq("fake-token")))
+            .thenReturn(
+                BatchUpdateValuesResponse(
+                    responses = listOf(UpdateValuesResponse(updatedRows = 0, updatedCells = 0))
+                )
+            )
+        whenever(mockClient.getValues(eq("sheet-id"), eq("income!A2:L"), eq("fake-token")))
+            .thenReturn(ValueRange(values = order.toSheetValues()))
+
+        val syncedIds = service.syncAndVerifyOrdersBatch("sheet-id", listOf(order))
+
+        assertEquals(listOf("1675"), syncedIds)
     }
 
     @Test
@@ -376,5 +413,77 @@ class SheetsSyncServiceTest {
             assertTrue(e.message != null)
         }
     }
-}
 
+    @Test
+    fun `fetchGrossFromSheet fetches gross data from sheets`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("gross!A2:D"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("Juni 2026", "Rp5.000.000", "150", "Rp25.000"))))
+
+        val result = service.fetchGrossFromSheet("sheet-id")
+        assertEquals(1, result.size)
+        assertEquals("Juni 2026", result[0].month)
+        assertEquals("Rp5.000.000", result[0].totalNominal)
+        assertEquals("150", result[0].orderCount)
+    }
+
+    @Test
+    fun `fetchSummaryFromSheet fetches summary data from sheets`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("summary!A2:B"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("Total Cash di mama", "Rp 200.000"))))
+
+        val result = service.fetchSummaryFromSheet("sheet-id")
+        assertEquals(1, result.size)
+        assertEquals("Total Cash di mama", result[0].key)
+        assertEquals("Rp 200.000", result[0].value)
+    }
+
+    @Test
+    fun `deletePackageFromSheet clears package row when package exists`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("notes!B:B"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("header"), listOf("Standard Pack"))))
+
+        val success = service.deletePackageFromSheet("sheet-id", "Standard Pack")
+        assertTrue(success)
+    }
+
+    @Test
+    fun `deleteOutcomeFromSheet clears outcome row when outcome exists`() = runBlocking {
+        val mockClient: GoogleSheetsApiClient = mock()
+        val service = spy(SheetsSyncService())
+        doReturn("fake-token").whenever(service).getServiceAccountToken()
+
+        val field = SheetsSyncService::class.java.getDeclaredField("sheetsApiClient")
+        field.isAccessible = true
+        field.set(service, mockClient)
+
+        whenever(mockClient.getValues(eq("sheet-id"), eq("outcome!A:A"), eq("fake-token")))
+            .thenReturn(ValueRange(values = listOf(listOf("header"), listOf("OUT-1"))))
+
+        val success = service.deleteOutcomeFromSheet("sheet-id", "OUT-1")
+        assertTrue(success)
+    }
+}

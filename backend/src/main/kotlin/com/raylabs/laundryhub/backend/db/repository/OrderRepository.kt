@@ -3,6 +3,7 @@ package com.raylabs.laundryhub.backend.db.repository
 import com.raylabs.laundryhub.backend.db.schema.OrdersTable
 import com.raylabs.laundryhub.backend.plugins.dbQuery
 import com.raylabs.laundryhub.backend.util.parseSupportedLaundryDate
+import com.raylabs.laundryhub.core.domain.model.sheets.GrossData
 import com.raylabs.laundryhub.core.domain.model.sheets.OrderData
 import com.raylabs.laundryhub.core.domain.model.sheets.isPaidStatusValue
 import com.raylabs.laundryhub.core.domain.model.sheets.isUnpaidStatusValue
@@ -24,8 +25,10 @@ import org.jetbrains.exposed.sql.select
 import org.jetbrains.exposed.sql.selectAll
 import org.jetbrains.exposed.sql.transactions.TransactionManager
 import org.jetbrains.exposed.sql.update
+import java.text.NumberFormat
 import java.util.Calendar
 import java.util.Date
+import java.util.Locale
 
 class OrderRepository {
 
@@ -221,6 +224,29 @@ class OrderRepository {
             ?.plus(1)
             ?.toString()
             ?: "1"
+    }
+
+    suspend fun getGrossForMonth(year: Int, month: Int): GrossData? = dbQuery {
+        val rows = OrdersTable
+            .selectAll()
+            .map { it.toOrderData() }
+            .filter { order ->
+                val calendar = parseSupportedLaundryDate(order.orderDate)?.let {
+                    Calendar.getInstance().apply { time = it }
+                } ?: return@filter false
+                calendar.get(Calendar.YEAR) == year &&
+                    calendar.get(Calendar.MONTH) + 1 == month
+            }
+
+        if (rows.isEmpty()) return@dbQuery null
+
+        val total = rows.sumOf { it.totalPrice.currencyDigitsToLong() }
+        GrossData(
+            month = indonesianMonthLabel(year, month),
+            totalNominal = total.toRupiahText(),
+            orderCount = rows.size.toString(),
+            tax = (total / TAX_DIVISOR).toRupiahText()
+        )
     }
 
     suspend fun getAll(
@@ -419,3 +445,36 @@ class OrderRepository {
 }
 
 private const val ORDER_ID_ALLOCATION_LOCK_KEY = 53319041
+private const val TAX_DIVISOR = 200L
+
+private fun String.currencyDigitsToLong(): Long {
+    return filter { it.isDigit() }.toLongOrNull() ?: 0L
+}
+
+private fun Long.toRupiahText(): String {
+    val locale = Locale.Builder()
+        .setLanguage("id")
+        .setRegion("ID")
+        .build()
+    return "Rp${NumberFormat.getInstance(locale).format(this)}"
+}
+
+private fun indonesianMonthLabel(year: Int, month: Int): String {
+    val name = INDONESIAN_MONTH_NAMES.getOrElse(month - 1) { month.toString() }
+    return "$name $year"
+}
+
+private val INDONESIAN_MONTH_NAMES = listOf(
+    "Januari",
+    "Februari",
+    "Maret",
+    "April",
+    "Mei",
+    "Juni",
+    "Juli",
+    "Agustus",
+    "September",
+    "Oktober",
+    "November",
+    "Desember"
+)

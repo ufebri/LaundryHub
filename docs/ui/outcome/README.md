@@ -11,6 +11,7 @@ Outcome should behave like Order: the backend owns ids, Android gives success fe
 - Submit, update, and delete success callbacks run after the backend write succeeds. The list refresh runs afterward as silent follow-up work.
 - Delete hides the removed outcome id locally so the row disappears immediately after backend success while Paging catches up.
 - Outcome rows are shown newest-date first, with id used only as the tie-breaker within the same date.
+- Outcome form state keeps price as digits for input ergonomics, but submit/update payloads are formatted as rupiah so new rows stay consistent with older imported outcome data.
 - The FAB is hidden while the outcome sheet is visible so the sheet covers the same visual area as the Add Order flow.
 
 ## Important Decisions
@@ -20,6 +21,7 @@ Outcome should behave like Order: the backend owns ids, Android gives success fe
 - The sheet stays inside the Compose hierarchy instead of using a custom window-backed dialog, matching the modal surface direction used by Order.
 - Backend Sheets sync for outcomes goes through the batch sync service when spreadsheet config is enabled.
 - Date parsing accepts app storage dates and imported display dates such as `15 May 2026` and `15 Mei 2026`, so imported rows do not drift above newer outcome data just because their id is larger.
+- Outcome display still formats numeric-only backend rows defensively, but newly submitted/updated outcome payloads should preserve rupiah formatting at the data boundary to avoid a split between pre-Ktor imported rows and new app-created rows.
 
 ## Verification
 
@@ -28,6 +30,7 @@ Outcome should behave like Order: the backend owns ids, Android gives success fe
 - `./gradlew assembleRelease --no-daemon`
 - `./gradlew :backend:test --tests com.raylabs.laundryhub.backend.db.repository.OutcomeRepositoryTest`
 - `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.outcome.state.EntryItemTest --tests com.raylabs.laundryhub.ui.common.util.DateUtilTest`
+- `./gradlew :app:testDebugUnitTest --tests com.raylabs.laundryhub.ui.outcome.OutcomeViewModelTest --tests com.raylabs.laundryhub.ui.outcome.state.EntryItemTest --no-daemon`
 
 ## Follow-ups
 

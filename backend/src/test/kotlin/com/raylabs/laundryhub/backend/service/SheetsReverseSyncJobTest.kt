@@ -216,4 +216,44 @@ class SheetsReverseSyncJobTest {
             coroutineContext.cancelChildren()
         }
     }
+
+    @Test
+    fun testIsTimeToRunViaReflection() {
+        val job = createJob(kotlinx.coroutines.GlobalScope)
+        val method = SheetsReverseSyncJob::class.java.getDeclaredMethod("isTimeToRun", List::class.java)
+        method.isAccessible = true
+
+        val zoneId = java.time.ZoneId.of("Asia/Jakarta")
+        val now = java.time.LocalDateTime.now(zoneId)
+        val currentHour = now.hour
+        val currentMinute = now.minute
+
+        if (currentMinute != 0) {
+            val result = method.invoke(job, listOf(currentHour)) as Boolean
+            assertEquals(false, result)
+        } else {
+            val result1 = method.invoke(job, listOf(currentHour)) as Boolean
+            assertEquals(true, result1)
+            
+            val result2 = method.invoke(job, listOf(currentHour)) as Boolean
+            assertEquals(false, result2)
+        }
+
+        val hourNotInList = (currentHour + 1) % 24
+        val result3 = method.invoke(job, listOf(hourNotInList)) as Boolean
+        assertEquals(false, result3)
+    }
+
+    @Test
+    fun testJobLoopWithNonManualSchedule() = runTest {
+        try {
+            val job = createJob(this)
+            syncStateManager.updateReverseSchedule(com.raylabs.laundryhub.core.domain.model.sheets.ReverseSyncSchedule.DEFAULT_23)
+            job.start()
+            runCurrent()
+            assertEquals("UNKNOWN", syncStateManager.lastSyncStatus)
+        } finally {
+            coroutineContext.cancelChildren()
+        }
+    }
 }

@@ -24,7 +24,7 @@ class EntryItemTest {
         assertEquals("10", item.id)
         assertEquals("Supplies", item.name)
         assertEquals(DateUtil.formatToLongDate("01/01/2025", DateUtil.STANDARD_DATE_FORMATED), item.date)
-        assertEquals("1000", item.price)
+        assertEquals("Rp 1.000", item.price)
         assertEquals("Paid by Cash", item.paymentStatus)
         assertEquals(TypeCard.OUTCOME, item.typeCard)
     }

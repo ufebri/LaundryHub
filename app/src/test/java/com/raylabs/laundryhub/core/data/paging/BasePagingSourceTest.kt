@@ -110,4 +110,38 @@ class BasePagingSourceTest {
         )
         assertNull(pagingSource.getRefreshKey(state))
     }
+
+    @Test
+    fun `getRefreshKey returns prevKey plus 1 when closest page has prevKey`() {
+        val pagingSource = TestPagingSource(Resource.Empty)
+        val page = PagingSource.LoadResult.Page(
+            data = listOf("Item 1"),
+            prevKey = 2,
+            nextKey = 4
+        )
+        val state = PagingState<Int, String>(
+            pages = listOf(page),
+            anchorPosition = 0,
+            config = androidx.paging.PagingConfig(pageSize = 10),
+            leadingPlaceholderCount = 0
+        )
+        assertEquals(3, pagingSource.getRefreshKey(state))
+    }
+
+    @Test
+    fun `getRefreshKey returns nextKey minus 1 when closest page has no prevKey but has nextKey`() {
+        val pagingSource = TestPagingSource(Resource.Empty)
+        val page = PagingSource.LoadResult.Page(
+            data = listOf("Item 1"),
+            prevKey = null,
+            nextKey = 4
+        )
+        val state = PagingState<Int, String>(
+            pages = listOf(page),
+            anchorPosition = 0,
+            config = androidx.paging.PagingConfig(pageSize = 10),
+            leadingPlaceholderCount = 0
+        )
+        assertEquals(3, pagingSource.getRefreshKey(state))
+    }
 }
